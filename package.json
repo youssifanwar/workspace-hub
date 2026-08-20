@@ -1,0 +1,131 @@
+{
+  "name": "workspace-hub",
+  "productName": "WorkSpace Hub",
+  "version": "1.0.0",
+  "description": "Modern coworking / workspace management system",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "copy-standalone": "node scripts/copy-standalone-assets.js",
+    "electron:dev": "electron .",
+    "electron:build": "next build && npm run copy-standalone",
+    "dist": "npm run electron:build && electron-builder",
+    "dist:win": "npm run electron:build && electron-builder --win --x64",
+    "dist:mac": "npm run electron:build && electron-builder --mac",
+    "dist:linux": "npm run electron:build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@types/qrcode": "^1.5.5",
+    "cross-env": "^7.0.3",
+    "dotenv": "17.3.1",
+    "drizzle-orm": "0.45.2",
+    "google-auth-library": "^10.9.1",
+    "googleapis": "^176.0.0",
+    "next": "16.2.6",
+    "pg": "8.20.0",
+    "qrcode": "^1.5.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "wait-on": "^8.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.17",
+    "@types/node": "22.19.15",
+    "@types/pg": "8.18.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "drizzle-kit": "0.31.10",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "postcss": "8.5.8",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3"
+  },
+  "build": {
+    "appId": "com.workspacehub.app",
+    "productName": "WorkSpace Hub",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "app/.next/standalone",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": ".next/static",
+        "to": "app/.next/static",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "public",
+        "to": "app/public",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": ".env",
+        "to": "app/.env"
+      }
+    ],
+    "directories": {
+      "buildResources": "electron",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.png",
+      "artifactName": "WorkSpaceHub-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WorkSpace Hub"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "electron/icon.png",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "electron/icon.png",
+      "category": "Office"
+    }
+  }
+}

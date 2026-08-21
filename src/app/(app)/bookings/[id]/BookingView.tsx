@@ -101,19 +101,26 @@ export default function BookingView({
   const durationH =
     durationMs / 3_600_000;
 
+  // IMPORTANT:
+  // Every started hour is billed as a full hour.
+  //
+  // 00:01 -> 1 hour
+  // 00:59 -> 1 hour
+  // 01:01 -> 2 hours
+  // 01:59 -> 2 hours
+  //
+  // A booking must always cost at least one hour.
+  const billableHours = Math.max(
+    1,
+    Math.ceil(durationH),
+  );
+
   const seatCharge =
-    durationH *
+    billableHours *
     parseFloat(booking.hourlyRate);
 
   // ---------------------------------------------------------------------------
   // GROUP SIMILAR ITEMS
-  //
-  // Example:
-  // Cappuccino x1
-  // Cappuccino x1
-  //
-  // becomes:
-  // Cappuccino x2
   // ---------------------------------------------------------------------------
 
   const groupedItems =
@@ -338,21 +345,6 @@ export default function BookingView({
 
   // ---------------------------------------------------------------------------
   // UPDATE GROUPED ITEM
-  //
-  // We use the first real DB item as the representative.
-  // So:
-  //
-  // Cappuccino x1
-  // Cappuccino x1
-  //
-  // clicking + becomes:
-  //
-  // Cappuccino x2
-  // Cappuccino x1
-  //
-  // which is displayed as:
-  //
-  // Cappuccino x3
   // ---------------------------------------------------------------------------
 
   async function updateGroupedItem(
@@ -372,10 +364,7 @@ export default function BookingView({
   return (
     <div className="grid lg:grid-cols-[1fr_400px] gap-6">
 
-      {/* --------------------------------------------------------------------- */}
       {/* LEFT: PRODUCTS */}
-      {/* --------------------------------------------------------------------- */}
-
       <div className="space-y-4">
 
         {/* CURRENT BOOKING */}
@@ -429,6 +418,13 @@ export default function BookingView({
                 booking.hourlyRate,
               ).toFixed(2)}{" "}
               {currency}/h
+            </div>
+
+            <div className="text-xs font-semibold text-indigo-600 mt-1">
+              Billed: {billableHours}{" "}
+              {billableHours === 1
+                ? "hour"
+                : "hours"}
             </div>
 
           </div>
@@ -525,10 +521,7 @@ export default function BookingView({
         </div>
       </div>
 
-      {/* --------------------------------------------------------------------- */}
       {/* RIGHT: BILL */}
-      {/* --------------------------------------------------------------------- */}
-
       <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
 
         <div className="card p-5">
@@ -552,7 +545,6 @@ export default function BookingView({
                     className="py-2 flex items-center gap-2"
                   >
 
-                    {/* NAME */}
                     <div className="flex-1 min-w-0">
 
                       <div className="font-semibold text-sm truncate">
@@ -569,7 +561,6 @@ export default function BookingView({
 
                     </div>
 
-                    {/* QUANTITY */}
                     <div className="flex items-center gap-1">
 
                       <button
@@ -606,7 +597,6 @@ export default function BookingView({
 
                     </div>
 
-                    {/* SUBTOTAL */}
                     <div className="w-16 text-right font-bold text-sm tabular-nums">
                       {(
                         item.quantity *
@@ -631,6 +621,15 @@ export default function BookingView({
               value={`${seatCharge.toFixed(
                 2,
               )} ${currency}`}
+            />
+
+            <Row
+              label="Billable hours"
+              value={`${billableHours} ${
+                billableHours === 1
+                  ? "hour"
+                  : "hours"
+              }`}
             />
 
             <Row
@@ -683,6 +682,7 @@ export default function BookingView({
                 true,
               )
             }
+            disabled={busy}
             className="btn btn-primary w-full mt-4 py-3"
           >
             💳 Checkout
@@ -724,10 +724,7 @@ export default function BookingView({
 
       </div>
 
-      {/* --------------------------------------------------------------------- */}
       {/* CHECKOUT MODAL */}
-      {/* --------------------------------------------------------------------- */}
-
       {checkoutOpen && (
         <CheckoutModal
           bookingId={
@@ -817,6 +814,10 @@ function CheckoutModal({
       : 0;
 
   async function confirm() {
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -840,19 +841,34 @@ function CheckoutModal({
           },
         );
 
-      const data =
-        await res.json();
+      let data:
+        | {
+            error?: string;
+            total?: number;
+            change?: number;
+          }
+        | null = null;
+
+      try {
+        data =
+          await res.json();
+      } catch {
+        data = null;
+      }
 
       if (!res.ok) {
         setError(
-          data.error ||
-            "Failed",
+          data?.error ||
+            "Checkout failed. Please try again.",
         );
 
         setLoading(false);
         return;
       }
 
+      // Server is the source of truth.
+      // Close modal and go to the invoice only after
+      // the booking has actually been closed.
       onSuccess();
     } catch {
       setError(
@@ -871,6 +887,7 @@ function CheckoutModal({
         <div className="flex items-start justify-between mb-4">
 
           <div>
+
             <div className="text-xs uppercase text-indigo-600 font-semibold">
               Checkout
             </div>
@@ -881,11 +898,13 @@ function CheckoutModal({
               )}{" "}
               {currency}
             </h3>
+
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center"
+            disabled={loading}
+            className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center disabled:opacity-50"
           >
             ✕
           </button>
@@ -908,11 +927,12 @@ function CheckoutModal({
               onClick={() =>
                 setMethod(m)
               }
+              disabled={loading}
               className={`p-3 rounded-xl border font-semibold text-sm capitalize ${
                 method === m
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                   : "border-slate-200 hover:border-slate-300"
-              }`}
+              } disabled:opacity-50`}
             >
 
               <div className="text-xl">
@@ -951,6 +971,7 @@ function CheckoutModal({
               value={paid}
               step="0.01"
               min="0"
+              disabled={loading}
               onChange={(e) =>
                 setPaid(
                   e.target.value,
@@ -1073,19 +1094,13 @@ function formatDur(
   const sec =
     s % 60;
 
-  return `${String(
-    h,
-  ).padStart(
+  return `${String(h).padStart(
     2,
     "0",
-  )}:${String(
-    m,
-  ).padStart(
+  )}:${String(m).padStart(
     2,
     "0",
-  )}:${String(
-    sec,
-  ).padStart(
+  )}:${String(sec).padStart(
     2,
     "0",
   )}`;

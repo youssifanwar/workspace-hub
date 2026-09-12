@@ -60,8 +60,7 @@ export default function PublicMenu({
 }: {
   deskId: number;
 }) {
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   const [error, setError] =
     useState<string | null>(null);
@@ -99,119 +98,326 @@ export default function PublicMenu({
       total: number;
     } | null>(null);
 
-  // ---------------------------------------------------------------------------
-  // IMPORTANT:
-  // Keep the same requestId when retrying the exact same order.
-  //
-  // Example:
-  //
-  // Phone sends order
-  //        ↓
-  // Server creates Ticket #12
-  //        ↓
-  // Network response is lost
-  //        ↓
-  // User presses Place Order again
-  //        ↓
-  // Same requestId
-  //        ↓
-  // Server returns Ticket #12 instead of creating #13
-  // ---------------------------------------------------------------------------
+  const [needsConnection, setNeedsConnection] =
+    useState(false);
+
+  const [accessCode, setAccessCode] =
+    useState("");
+
+  const [connecting, setConnecting] =
+    useState(false);
 
   const pendingRequestId =
     useRef<string | null>(null);
 
-  // ---------------------------------------------------------------------------
-  // LOAD MENU
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* LOAD MENU                                                              */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
-    let ignore = false;
+    let cancelled = false;
 
-    async function load() {
+    async function loadMenu() {
+      setLoading(true);
+      setError(null);
+
       try {
-        setLoading(true);
-        setError(null);
+        const url =
+          `/api/public/desks/${deskId}/menu`;
 
-        const res = await fetch(
-          `/api/public/desks/${deskId}/menu`,
-          {
-            cache: "no-store",
-          },
+        console.log(
+          "[PublicMenu] Loading:",
+          url,
         );
 
-        const data =
-          await res.json();
+        const controller =
+          new AbortController();
 
-        if (ignore) {
+        const timeout = window.setTimeout(
+          () => {
+            controller.abort();
+          },
+          10000,
+        );
+
+        const response =
+          await fetch(url, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            signal: controller.signal,
+          });
+
+        window.clearTimeout(timeout);
+
+        console.log(
+          "[PublicMenu] Response:",
+          response.status,
+          response.ok,
+        );
+
+        const text =
+          await response.text();
+
+        console.log(
+          "[PublicMenu] Response text length:",
+          text.length,
+        );
+
+        if (cancelled) {
           return;
         }
 
-        if (!res.ok) {
-          setError(
-            data.error ||
-              "Failed to load menu",
-          );
+        let data: any;
 
-          setLoading(false);
-          return;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(
+            "The menu API returned invalid JSON.",
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              `Menu request failed (${response.status})`,
+          );
+        }
+
+        if (!data?.desk) {
+          throw new Error(
+            "Menu API returned no desk data.",
+          );
+        }
+
+        if (
+          !Array.isArray(
+            data.categories,
+          )
+        ) {
+          throw new Error(
+            "Menu API returned invalid categories data.",
+          );
+        }
+
+        if (
+          !Array.isArray(
+            data.products,
+          )
+        ) {
+          throw new Error(
+            "Menu API returned invalid products data.",
+          );
         }
 
         setDesk(data.desk);
-        setBooking(data.booking);
-        setCategories(
-          data.categories || [],
+
+        setBooking(
+          data.booking ?? null,
         );
+
+        setNeedsConnection(
+          !data.booking,
+        );
+
+        setCategories(
+          data.categories,
+        );
+
         setProducts(
-          data.products || [],
+          data.products,
         );
 
         setActiveCat(
-          data.categories?.[0]?.id ??
-            null,
+          data.categories.length > 0
+            ? data.categories[0].id
+            : null,
+        );
+      } catch (err) {
+        console.error(
+          "[PublicMenu] Load error:",
+          err,
         );
 
-        setLoading(false);
-      } catch {
-        if (!ignore) {
-          setError(
-            "Network error",
-          );
-
+        if (!cancelled) {
+          if (
+            err instanceof DOMException &&
+            err.name === "AbortError"
+          ) {
+            setError(
+              "Menu request timed out. Check the network connection.",
+            );
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Could not load menu.",
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) {
           setLoading(false);
         }
       }
     }
 
-    load();
+    loadMenu();
 
     return () => {
-      ignore = true;
+      cancelled = true;
     };
   }, [deskId]);
 
-  // ---------------------------------------------------------------------------
-  // FILTER PRODUCTS
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* CONNECT PHONE                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  async function connectPhone(
+    e: React.FormEvent,
+  ) {
+    e.preventDefault();
+
+    if (connecting) {
+      return;
+    }
+
+    const cleanCode =
+      accessCode.trim();
+
+    if (!/^\d{4}$/.test(cleanCode)) {
+      setError(
+        "Enter the 4-digit code given to you by staff.",
+      );
+      return;
+    }
+
+    setConnecting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        "/api/public/session/verify",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            accessCode: cleanCode,
+          }),
+        },
+      );
+
+      const data =
+        await res.json().catch(
+          () => null,
+        );
+
+      if (!res.ok) {
+        setError(
+          data?.error ||
+            "Invalid or expired access code.",
+        );
+
+        setConnecting(false);
+        return;
+      }
+
+      setAccessCode("");
+
+      const menuRes =
+        await fetch(
+          `/api/public/desks/${deskId}/menu`,
+          {
+            cache: "no-store",
+            credentials: "include",
+          },
+        );
+
+      const menuData =
+        await menuRes.json().catch(
+          () => null,
+        );
+
+      if (!menuRes.ok) {
+        setError(
+          menuData?.error ||
+            "Phone connected, but the menu could not be refreshed.",
+        );
+
+        setConnecting(false);
+        return;
+      }
+
+      setDesk(menuData.desk);
+
+      setBooking(
+        menuData.booking ?? null,
+      );
+
+      setNeedsConnection(
+        !menuData.booking,
+      );
+
+      setCategories(
+        Array.isArray(
+          menuData.categories,
+        )
+          ? menuData.categories
+          : [],
+      );
+
+      setProducts(
+        Array.isArray(
+          menuData.products,
+        )
+          ? menuData.products
+          : [],
+      );
+
+      setActiveCat(
+        menuData.categories?.[0]?.id ??
+          null,
+      );
+    } catch (err) {
+      console.error(
+        "[PublicMenu] Connect error:",
+        err,
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Network error. Please try again.",
+      );
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* FILTER PRODUCTS                                                        */
+  /* ---------------------------------------------------------------------- */
 
   const filtered = useMemo(
     () =>
       activeCat
         ? products.filter(
-            (p) =>
-              p.categoryId ===
+            (product) =>
+              product.categoryId ===
               activeCat,
           )
         : products,
-    [
-      products,
-      activeCat,
-    ],
+    [products, activeCat],
   );
 
-  // ---------------------------------------------------------------------------
-  // CART
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* CART                                                                   */
+  /* ---------------------------------------------------------------------- */
 
   const cartArr =
     Object.values(cart);
@@ -228,18 +434,9 @@ export default function PublicMenu({
       (sum, item) =>
         sum +
         item.quantity *
-          parseFloat(
-            item.product.price,
-          ),
+          Number(item.product.price),
       0,
     );
-
-  // ---------------------------------------------------------------------------
-  // CART CHANGES
-  //
-  // If the user changes the order after a failed attempt, that is a NEW order.
-  // Therefore generate a fresh requestId on the next Place Order.
-  // ---------------------------------------------------------------------------
 
   function invalidatePendingRequest() {
     if (!placing) {
@@ -251,6 +448,13 @@ export default function PublicMenu({
   function addToCart(
     product: Product,
   ) {
+    if (!booking) {
+      setError(
+        "Connect the phone to the active session first.",
+      );
+      return;
+    }
+
     invalidatePendingRequest();
 
     setCart((prev) => ({
@@ -329,6 +533,7 @@ export default function PublicMenu({
 
       return {
         ...prev,
+
         [id]: {
           ...current,
           note,
@@ -344,19 +549,18 @@ export default function PublicMenu({
     setCustomerNote(note);
   }
 
-  // ---------------------------------------------------------------------------
-  // PLACE ORDER
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* PLACE ORDER                                                            */
+  /* ---------------------------------------------------------------------- */
 
   async function placeOrder() {
-    // Extra protection against double click.
     if (placing) {
       return;
     }
 
     if (!booking) {
       setError(
-        "Please ask the staff to check you in first.",
+        "This phone is not connected to an active customer session.",
       );
       return;
     }
@@ -368,10 +572,6 @@ export default function PublicMenu({
     setPlacing(true);
     setError(null);
 
-    // Create ONE request ID for this exact attempt.
-    //
-    // We intentionally do NOT regenerate it if a retry happens after a
-    // network failure and the cart was not changed.
     if (
       !pendingRequestId.current
     ) {
@@ -383,39 +583,37 @@ export default function PublicMenu({
       pendingRequestId.current;
 
     try {
-      const res = await fetch(
-        `/api/public/desks/${deskId}/order`,
-        {
-          method: "POST",
+      const res =
+        await fetch(
+          `/api/public/desks/${deskId}/order`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              requestId,
 
-          headers: {
-            "Content-Type":
-              "application/json",
+              customerNote:
+                customerNote.trim(),
+
+              items: cartArr.map(
+                (item) => ({
+                  productId:
+                    item.product.id,
+
+                  quantity:
+                    item.quantity,
+
+                  note:
+                    item.note.trim(),
+                }),
+              ),
+            }),
           },
-
-          body: JSON.stringify({
-            requestId,
-
-            customerNote:
-              customerNote
-                .trim(),
-
-            items: cartArr.map(
-              (item) => ({
-                productId:
-                  item.product.id,
-
-                quantity:
-                  item.quantity,
-
-                note:
-                  item.note
-                    .trim(),
-              }),
-            ),
-          }),
-        },
-      );
+        );
 
       const data =
         await res.json().catch(
@@ -423,22 +621,21 @@ export default function PublicMenu({
         );
 
       if (!res.ok) {
+        if (
+          res.status === 401
+        ) {
+          setBooking(null);
+          setNeedsConnection(true);
+        }
+
         setError(
           data.error ||
-            "Could not place order",
+            "Could not place order.",
         );
 
         setPlacing(false);
-
-        // IMPORTANT:
-        // Keep requestId here so a network retry can safely return
-        // the same ticket if the server actually created it.
         return;
       }
-
-      // -----------------------------------------------------------------------
-      // SUCCESS
-      // -----------------------------------------------------------------------
 
       setPlaced({
         ticketNumber:
@@ -452,73 +649,89 @@ export default function PublicMenu({
           ),
       });
 
-      // Clear cart only after confirmed success.
       setCart({});
-
       setCustomerNote("");
-
       setCartOpen(false);
 
-      // The request is finished successfully.
       pendingRequestId.current =
         null;
-    } catch {
-      // -----------------------------------------------------------------------
-      // NETWORK ERROR
-      //
-      // Do NOT clear requestId here.
-      //
-      // If the server already created the order but the response was lost,
-      // the next click will use the same requestId and the API will return
-      // the existing ticket instead of creating a duplicate.
-      // -----------------------------------------------------------------------
+    } catch (err) {
+      console.error(
+        "[PublicMenu] Place order error:",
+        err,
+      );
 
       setError(
-        "Network error. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Network error. Please try again.",
       );
     } finally {
       setPlacing(false);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // LOADING
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* LOADING                                                                */
+  /* ---------------------------------------------------------------------- */
 
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center text-slate-500">
-        Loading menu…
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // INITIAL ERROR
-  // ---------------------------------------------------------------------------
-
-  if (
-    error &&
-    !desk
-  ) {
-    return (
-      <div className="min-h-screen grid place-items-center p-6">
-        <div className="text-center max-w-sm">
-          <div className="text-5xl mb-3">
-            😕
+      <div className="min-h-screen grid place-items-center bg-slate-50 p-6">
+        <div className="text-center">
+          <div className="text-4xl mb-4">
+            🍽️
           </div>
 
-          <div className="font-bold text-lg">
-            {error}
+          <div className="text-slate-600 font-semibold">
+            Loading menu…
+          </div>
+
+          <div className="text-xs text-slate-400 mt-2">
+            Please wait
           </div>
         </div>
       </div>
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // ORDER SUCCESS
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* INITIAL ERROR                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  if (error && !desk) {
+    return (
+      <div className="min-h-screen grid place-items-center p-6 bg-slate-50">
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-4">
+            😕
+          </div>
+
+          <div className="font-bold text-lg text-slate-800">
+            Could not load menu
+          </div>
+
+          <div className="text-sm text-red-600 mt-3 break-words">
+            {error}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              window.location.reload()
+            }
+            className="mt-5 px-5 py-3 rounded-xl bg-indigo-600 text-white font-bold"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* ORDER SUCCESS                                                           */
+  /* ---------------------------------------------------------------------- */
 
   if (placed) {
     return (
@@ -544,9 +757,7 @@ export default function PublicMenu({
           </div>
 
           <div className="text-4xl font-bold tabular-nums mb-8">
-            {placed.total.toFixed(
-              2,
-            )}
+            {placed.total.toFixed(2)}
           </div>
 
           <button
@@ -562,19 +773,16 @@ export default function PublicMenu({
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // MAIN PAGE
-  // ---------------------------------------------------------------------------
+  /* ---------------------------------------------------------------------- */
+  /* MAIN PAGE                                                              */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
 
-      {/* --------------------------------------------------------------------- */}
-      {/* HEADER                                                                */}
-      {/* --------------------------------------------------------------------- */}
+      {/* HEADER */}
 
       <div className="bg-gradient-to-br from-indigo-600 to-cyan-500 text-white p-5 rounded-b-3xl shadow-lg">
-
         <div className="text-xs uppercase tracking-wider text-white/80">
           {desk?.type ===
           "meeting_room"
@@ -593,29 +801,85 @@ export default function PublicMenu({
             · session active
           </div>
         ) : (
-          <div className="mt-2 text-sm bg-red-500/25 border border-red-300/40 rounded-xl px-3 py-2">
-            ⚠️ No active session.
-            Please ask the staff to
-            check you in first.
+          <div className="mt-2 text-sm bg-amber-500/25 border border-amber-200/40 rounded-xl px-3 py-2">
+            🔐 This phone is not
+            connected to an active
+            session.
           </div>
         )}
-
       </div>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* CATEGORY TABS                                                         */}
-      {/* --------------------------------------------------------------------- */}
+      {/* CONNECTION */}
+
+      {needsConnection && (
+        <div className="mx-4 mt-4 p-5 rounded-2xl bg-white border border-amber-200 shadow-sm">
+          <div className="font-bold text-slate-800 text-lg">
+            Connect your phone
+          </div>
+
+          <div className="text-sm text-slate-500 mt-1">
+            Enter the 4-digit code
+            given to you by the staff
+            when your session was
+            started.
+          </div>
+
+          <form
+            onSubmit={connectPhone}
+            className="mt-4 space-y-3"
+          >
+            <input
+              className="w-full px-4 py-4 rounded-2xl border border-slate-200 bg-slate-50 text-center text-3xl font-bold tracking-[0.45em] text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              value={accessCode}
+              onChange={(e) =>
+                setAccessCode(
+                  e.target.value
+                    .replace(
+                      /\D/g,
+                      "",
+                    )
+                    .slice(0, 4),
+                )
+              }
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={4}
+              placeholder="0000"
+              disabled={connecting}
+            />
+
+            <button
+              type="submit"
+              disabled={
+                connecting ||
+                accessCode.length !== 4
+              }
+              className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {connecting
+                ? "Connecting…"
+                : "Connect phone"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ERROR */}
+
+      {error && desk && (
+        <div className="mx-4 mt-3 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* CATEGORY TABS */}
 
       <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur border-b border-slate-200">
-
-        <div className="flex gap-2 overflow-x-auto px-4 py-3 scroll-fade">
-
+        <div className="flex gap-2 overflow-x-auto px-4 py-3">
           {categories.map(
             (category) => (
               <button
-                key={
-                  category.id
-                }
+                key={category.id}
                 onClick={() =>
                   setActiveCat(
                     category.id,
@@ -629,27 +893,19 @@ export default function PublicMenu({
                 }`}
               >
                 <span className="mr-1">
-                  {
-                    category.icon
-                  }
+                  {category.icon}
                 </span>
 
-                {
-                  category.name
-                }
+                {category.name}
               </button>
             ),
           )}
-
         </div>
       </div>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* PRODUCTS                                                              */}
-      {/* --------------------------------------------------------------------- */}
+      {/* PRODUCTS */}
 
       <div className="p-4 grid grid-cols-2 gap-3">
-
         {filtered.map(
           (product) => {
             const inCart =
@@ -659,21 +915,19 @@ export default function PublicMenu({
 
             return (
               <button
-                key={
-                  product.id
-                }
+                key={product.id}
                 onClick={() =>
                   addToCart(
                     product,
                   )
                 }
                 disabled={
-                  placing
+                  placing ||
+                  !booking
                 }
                 className="text-left bg-white rounded-2xl overflow-hidden border border-slate-200 active:scale-[.98] transition disabled:opacity-60"
               >
                 <div className="aspect-square bg-slate-100 relative overflow-hidden">
-
                   {product.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -687,67 +941,47 @@ export default function PublicMenu({
                     />
                   ) : (
                     <div className="w-full h-full grid place-items-center text-6xl">
-                      {
-                        product.icon
-                      }
+                      {product.icon}
                     </div>
                   )}
 
-                  {inCart >
-                    0 && (
+                  {inCart > 0 && (
                     <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center shadow">
-                      {
-                        inCart
-                      }
+                      {inCart}
                     </div>
                   )}
-
                 </div>
 
                 <div className="p-3">
-
                   <div className="font-semibold text-sm text-slate-800 line-clamp-1">
-                    {
-                      product.name
-                    }
+                    {product.name}
                   </div>
 
                   <div className="flex items-center justify-between mt-1">
-
                     <div className="text-indigo-600 font-bold text-sm">
-                      {parseFloat(
+                      {Number(
                         product.price,
-                      ).toFixed(
-                        2,
-                      )}
+                      ).toFixed(2)}
                     </div>
 
                     <div className="w-7 h-7 rounded-full bg-indigo-600 text-white grid place-items-center text-sm font-bold">
                       +
                     </div>
-
                   </div>
-
                 </div>
               </button>
             );
           },
         )}
-
       </div>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* CART BAR                                                              */}
-      {/* --------------------------------------------------------------------- */}
+      {/* CART BAR */}
 
       {cartCount > 0 && (
         <div className="fixed bottom-4 left-4 right-4 z-30">
-
           <button
             onClick={() =>
-              setCartOpen(
-                true,
-              )
+              setCartOpen(true)
             }
             disabled={
               !booking ||
@@ -755,78 +989,58 @@ export default function PublicMenu({
             }
             className="w-full py-4 px-5 rounded-2xl bg-indigo-600 text-white font-bold shadow-2xl flex items-center justify-between disabled:opacity-60"
           >
-
             <span className="flex items-center gap-3">
-
               <span className="w-8 h-8 rounded-full bg-white/25 grid place-items-center text-sm">
-                {
-                  cartCount
-                }
+                {cartCount}
               </span>
 
               View cart
-
             </span>
 
             <span className="tabular-nums">
-              {cartTotal.toFixed(
-                2,
-              )}
+              {cartTotal.toFixed(2)}
             </span>
-
           </button>
-
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* CART DRAWER                                                           */}
-      {/* --------------------------------------------------------------------- */}
+      {/* CART DRAWER */}
 
       {cartOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50"
           onClick={() =>
             !placing &&
-            setCartOpen(
-              false,
-            )
+            setCartOpen(false)
           }
         >
-
           <div
-            className="absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto scroll-fade"
+            className="absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto"
             onClick={(e) =>
               e.stopPropagation()
             }
           >
-
             {/* HEADER */}
-            <div className="flex items-center justify-between mb-4">
 
+            <div className="flex items-center justify-between mb-4">
               <div className="text-xl font-bold">
                 Your order
               </div>
 
               <button
                 onClick={() =>
-                  setCartOpen(
-                    false,
-                  )
+                  setCartOpen(false)
                 }
-                disabled={
-                  placing
-                }
+                disabled={placing}
                 className="w-9 h-9 rounded-full bg-slate-100 grid place-items-center disabled:opacity-50"
               >
                 ✕
               </button>
-
             </div>
 
             {/* ITEMS */}
-            <div className="space-y-3 mb-4">
 
+            <div className="space-y-3 mb-4">
               {cartArr.map(
                 (item) => (
                   <div
@@ -836,15 +1050,14 @@ export default function PublicMenu({
                     }
                     className="flex items-start gap-3"
                   >
-
                     <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 grid place-items-center text-2xl">
-
                       {item.product
                         .imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={
-                            item.product
+                            item
+                              .product
                               .imageUrl
                           }
                           alt=""
@@ -854,22 +1067,15 @@ export default function PublicMenu({
                         item.product
                           .icon
                       )}
-
                     </div>
 
                     <div className="flex-1 min-w-0">
-
                       <div className="font-semibold text-sm">
-                        {
-                          item
-                            .product
-                            .name
-                        }
+                        {item.product.name}
                       </div>
 
                       <div className="text-xs text-slate-500">
-
-                        {parseFloat(
+                        {Number(
                           item.product
                             .price,
                         ).toFixed(
@@ -883,7 +1089,7 @@ export default function PublicMenu({
                         <b>
                           {(
                             item.quantity *
-                            parseFloat(
+                            Number(
                               item
                                 .product
                                 .price,
@@ -892,7 +1098,6 @@ export default function PublicMenu({
                             2,
                           )}
                         </b>
-
                       </div>
 
                       <input
@@ -917,12 +1122,9 @@ export default function PublicMenu({
                         }
                         className="mt-1 w-full text-xs px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 disabled:opacity-50"
                       />
-
                     </div>
 
-                    {/* QUANTITY */}
                     <div className="flex items-center gap-1">
-
                       <button
                         onClick={() =>
                           changeQty(
@@ -962,26 +1164,20 @@ export default function PublicMenu({
                       >
                         +
                       </button>
-
                     </div>
-
                   </div>
                 ),
               )}
-
             </div>
 
             {/* ORDER NOTE */}
+
             <textarea
               className="w-full p-3 rounded-xl border border-slate-200 text-sm resize-none disabled:opacity-50"
               rows={2}
               placeholder="Extra note for the whole order (optional)"
-              value={
-                customerNote
-              }
-              disabled={
-                placing
-              }
+              value={customerNote}
+              disabled={placing}
               maxLength={1000}
               onChange={(e) =>
                 setWholeOrderNote(
@@ -991,21 +1187,19 @@ export default function PublicMenu({
             />
 
             {/* TOTAL */}
-            <div className="flex items-center justify-between py-3 border-t border-slate-100 mt-3">
 
+            <div className="flex items-center justify-between py-3 border-t border-slate-100 mt-3">
               <span className="text-slate-600">
                 Total
               </span>
 
               <span className="text-2xl font-bold tabular-nums text-indigo-700">
-                {cartTotal.toFixed(
-                  2,
-                )}
+                {cartTotal.toFixed(2)}
               </span>
-
             </div>
 
             {/* ERROR */}
+
             {error && (
               <div className="mb-3 p-3 rounded-xl bg-red-50 text-sm text-red-700">
                 {error}
@@ -1013,6 +1207,7 @@ export default function PublicMenu({
             )}
 
             {/* PLACE ORDER */}
+
             <button
               onClick={
                 placeOrder
@@ -1020,15 +1215,14 @@ export default function PublicMenu({
               disabled={
                 placing ||
                 !booking ||
-                cartArr.length ===
-                  0
+                cartArr.length === 0
               }
               className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {placing
                 ? "Placing…"
                 : !booking
-                ? "Ask staff to check you in"
+                ? "Connect phone first"
                 : `Place order · ${cartTotal.toFixed(
                     2,
                   )}`}
@@ -1036,14 +1230,12 @@ export default function PublicMenu({
 
             <p className="text-xs text-slate-400 text-center mt-3">
               Items will be added to
-              your table&apos;s bill.
+              your session&apos;s bill.
               Pay at checkout.
             </p>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -3,22 +3,15 @@ import { db } from "@/db";
 import {
   desks,
   customers,
-  meetingRoomCalendars,
   meetingRoomReservations,
 } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, gt } from "drizzle-orm";
 import {
   canManage,
   getCurrentUser,
 } from "@/lib/auth";
-import {
-  getCalendarBusyPeriods,
-  createGoogleCalendarEvent,
-  deleteGoogleCalendarEvent,
-} from "@/lib/google-calendar";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Body = {
   deskId?: number;
@@ -32,344 +25,201 @@ type Body = {
   notes?: string;
 };
 
-function overlaps(
-  aStart: Date,
-  aEnd: Date,
-  bStart: Date,
-  bEnd: Date,
-) {
-  return (
-    aStart < bEnd &&
-    aEnd > bStart
-  );
-}
-
 function buildOccurrenceDates(
   start: Date,
   end: Date,
   recurrence: "none" | "weekly",
   count: number,
 ) {
-  const result = [];
+  const result: {
+    start: Date;
+    end: Date;
+  }[] = [];
 
   const safeCount =
-    recurrence ===
-    "weekly"
-      ? Math.max(
-          1,
-          Math.min(
-            count,
-            52,
-          ),
-        )
+    recurrence === "weekly"
+      ? Math.max(1, Math.min(count, 52))
       : 1;
 
-  for (
-    let i = 0;
-    i < safeCount;
-    i++
-  ) {
-    const s = new Date(
-      start,
-    );
-    const e = new Date(
-      end,
-    );
+  for (let i = 0; i < safeCount; i++) {
+    const occurrenceStart = new Date(start);
+    const occurrenceEnd = new Date(end);
 
-    if (
-      recurrence ===
-      "weekly"
-    ) {
-      s.setDate(
-        s.getDate() +
-          i * 7,
+    if (recurrence === "weekly") {
+      occurrenceStart.setDate(
+        occurrenceStart.getDate() + i * 7,
       );
 
-      e.setDate(
-        e.getDate() +
-          i * 7,
+      occurrenceEnd.setDate(
+        occurrenceEnd.getDate() + i * 7,
       );
     }
 
     result.push({
-      start: s,
-      end: e,
+      start: occurrenceStart,
+      end: occurrenceEnd,
     });
   }
 
   return result;
 }
 
-export async function POST(
-  req: Request,
-) {
-  let createdGoogleEvent:
-    | string
-    | null = null;
-
-  let createdCalendarId:
-    | string
-    | null = null;
-
+export async function POST(req: Request) {
   try {
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        {
-          error:
-            "Unauthorized",
-        },
-        {
-          status: 401,
-        },
+        { error: "Unauthorized" },
+        { status: 401 },
       );
     }
 
-    if (
-      !canManage(
-        user.role,
-      )
-    ) {
+    if (!canManage(user.role)) {
       return NextResponse.json(
         {
           error:
             "Only managers/admins can create meeting-room reservations.",
         },
-        {
-          status: 403,
-        },
+        { status: 403 },
       );
     }
 
     const body =
-      (await req
-        .json()
-        .catch(
-          () => null,
-        )) as Body | null;
+      (await req.json().catch(() => null)) as Body | null;
 
-    if (
-      !body?.deskId
-    ) {
+    if (!body?.deskId) {
       return NextResponse.json(
-        {
-          error:
-            "Meeting room is required.",
-        },
-        {
-          status: 400,
-        },
+        { error: "Meeting room is required." },
+        { status: 400 },
       );
     }
 
-    if (
-      !body.startAt ||
-      !body.endAt
-    ) {
+    if (!body.startAt || !body.endAt) {
       return NextResponse.json(
         {
           error:
             "Start and end time are required.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const start =
-      new Date(
-        body.startAt,
-      );
-
-    const end =
-      new Date(
-        body.endAt,
-      );
+    const start = new Date(body.startAt);
+    const end = new Date(body.endAt);
 
     if (
-      Number.isNaN(
-        start.getTime(),
-      ) ||
-      Number.isNaN(
-        end.getTime(),
-      ) ||
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime()) ||
       end <= start
     ) {
       return NextResponse.json(
-        {
-          error:
-            "Invalid reservation time.",
-        },
-        {
-          status: 400,
-        },
+        { error: "Invalid reservation time." },
+        { status: 400 },
       );
     }
 
-    if (
-      start <=
-      new Date()
-    ) {
+    if (start <= new Date()) {
       return NextResponse.json(
         {
           error:
             "Reservation must be in the future.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const [
-      room,
-    ] = await db
+    const [room] = await db
       .select({
         id: desks.id,
         name: desks.name,
-        hourlyRate:
-          desks.hourlyRate,
+        hourlyRate: desks.hourlyRate,
       })
       .from(desks)
       .where(
         and(
-          eq(
-            desks.id,
-            body.deskId,
-          ),
-          eq(
-            desks.type,
-            "meeting_room",
-          ),
-          eq(
-            desks.active,
-            true,
-          ),
+          eq(desks.id, body.deskId),
+          eq(desks.type, "meeting_room"),
+          eq(desks.active, true),
         ),
       )
       .limit(1);
 
     if (!room) {
       return NextResponse.json(
-        {
-          error:
-            "Meeting room not found.",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
-
-    const [
-      mapping,
-    ] = await db
-      .select({
-        calendarId:
-          meetingRoomCalendars.calendarId,
-        calendarName:
-          meetingRoomCalendars.calendarName,
-      })
-      .from(
-        meetingRoomCalendars,
-      )
-      .where(
-        eq(
-          meetingRoomCalendars.deskId,
-          room.id,
-        ),
-      )
-      .limit(1);
-
-    if (!mapping) {
-      return NextResponse.json(
-        {
-          error:
-            "This room is not linked to a Google Calendar.",
-        },
-        {
-          status: 400,
-        },
+        { error: "Meeting room not found." },
+        { status: 404 },
       );
     }
 
     const recurrence =
-      body.recurrence ===
-      "weekly"
+      body.recurrence === "weekly"
         ? "weekly"
         : "none";
 
     const count =
-      recurrence ===
-      "weekly"
+      recurrence === "weekly"
         ? Math.max(
             1,
             Math.min(
-              Number(
-                body.recurrenceCount ||
-                  1,
-              ),
+              Number(body.recurrenceCount || 1),
               52,
             ),
           )
         : 1;
 
-    const occurrences =
-      buildOccurrenceDates(
-        start,
-        end,
-        recurrence,
-        count,
-      );
+    const occurrences = buildOccurrenceDates(
+      start,
+      end,
+      recurrence,
+      count,
+    );
 
     // -------------------------------------------------------------------------
-    // CHECK EVERY OCCURRENCE AGAINST GOOGLE
+    // CHECK INTERNAL DATABASE CONFLICTS
     // -------------------------------------------------------------------------
 
-    for (
-      const occurrence of
-        occurrences
-    ) {
-      const busy =
-        await getCalendarBusyPeriods(
-          mapping.calendarId,
-          occurrence.start.toISOString(),
-          occurrence.end.toISOString(),
-        );
-
-      const conflict =
-        busy.some(
-          (period) =>
-            overlaps(
-              occurrence.start,
-              occurrence.end,
-              new Date(
-                period.start,
-              ),
-              new Date(
-                period.end,
-              ),
+    for (const occurrence of occurrences) {
+      const conflicts = await db
+        .select({
+          id: meetingRoomReservations.id,
+          startAt: meetingRoomReservations.startAt,
+          endAt: meetingRoomReservations.endAt,
+        })
+        .from(meetingRoomReservations)
+        .where(
+          and(
+            eq(
+              meetingRoomReservations.deskId,
+              room.id,
             ),
-        );
+            eq(
+              meetingRoomReservations.status,
+              "confirmed",
+            ),
+            lt(
+              meetingRoomReservations.startAt,
+              occurrence.end,
+            ),
+            gt(
+              meetingRoomReservations.endAt,
+              occurrence.start,
+            ),
+          ),
+        )
+        .limit(1);
 
-      if (conflict) {
+      if (conflicts.length > 0) {
         return NextResponse.json(
           {
             error:
-              "The meeting room is already booked in Google Calendar for one of the requested times.",
-
+              "The meeting room is already booked for one of the requested times.",
             conflictingStart:
-              occurrence.start.toISOString(),
-
+              conflicts[0].startAt.toISOString(),
             conflictingEnd:
-              occurrence.end.toISOString(),
+              conflicts[0].endAt.toISOString(),
           },
-          {
-            status: 409,
-          },
+          { status: 409 },
         );
       }
     }
@@ -378,8 +228,7 @@ export async function POST(
     // CUSTOMER
     // -------------------------------------------------------------------------
 
-    let customerId =
-      body.customerId;
+    let customerId = body.customerId;
 
     if (!customerId) {
       if (
@@ -391,177 +240,68 @@ export async function POST(
             error:
               "Customer name and phone are required.",
           },
-          {
-            status: 400,
-          },
+          { status: 400 },
         );
       }
 
-      const [
-        customer,
-      ] = await db
+      const [customer] = await db
         .insert(customers)
         .values({
-          name:
-            body.customerName.trim(),
-          phone:
-            body.customerPhone.trim(),
+          name: body.customerName.trim(),
+          phone: body.customerPhone.trim(),
         })
         .returning({
           id: customers.id,
         });
 
-      customerId =
-        customer.id;
+      customerId = customer.id;
     }
 
     // -------------------------------------------------------------------------
-    // GOOGLE RECURRENCE
+    // CREATE INTERNAL RESERVATIONS
     // -------------------------------------------------------------------------
 
-    const recurrenceRule =
-      recurrence ===
-      "weekly"
-        ? `RRULE:FREQ=WEEKLY;COUNT=${count}`
-        : undefined;
+    const createdReservations = [];
 
-    const googleEvent =
-      await createGoogleCalendarEvent(
-        mapping.calendarId,
-        {
-          summary:
-            `WorkSpace Hub - ${room.name} - ${body.customerName?.trim() || "Reservation"}`,
-
-          description:
-            body.notes?.trim() ||
-            `Customer: ${
-              body.customerName?.trim() ||
-              "Customer"
-            }`,
-
-          start:
-            start.toISOString(),
-
-          end:
-            end.toISOString(),
-
-          recurrenceRule,
-
+    for (const occurrence of occurrences) {
+      const [reservation] = await db
+        .insert(meetingRoomReservations)
+        .values({
+          deskId: room.id,
+          customerId,
+          userId: user.id,
+          startAt: occurrence.start,
+          endAt: occurrence.end,
+          recurrenceRule:
+            recurrence === "weekly"
+              ? `RRULE:FREQ=WEEKLY;COUNT=${count}`
+              : null,
           recurrenceCount:
-            count,
-        },
-      );
+            count > 1 ? count : null,
+          status: "confirmed",
+          notes: body.notes?.trim() || null,
+        })
+        .returning({
+          id: meetingRoomReservations.id,
+        });
 
-    if (
-      !googleEvent.id
-    ) {
-      throw new Error(
-        "Google Calendar event was created without an ID.",
-      );
+      createdReservations.push(reservation.id);
     }
-
-    createdGoogleEvent =
-      googleEvent.id;
-
-    createdCalendarId =
-      mapping.calendarId;
-
-    // -------------------------------------------------------------------------
-    // LOCAL RESERVATION
-    // -------------------------------------------------------------------------
-
-    const [
-      reservation,
-    ] = await db
-      .insert(
-        meetingRoomReservations,
-      )
-      .values({
-        deskId:
-          room.id,
-
-        customerId,
-
-        userId:
-          user.id,
-
-        startAt:
-          start,
-
-        endAt:
-          end,
-
-        recurrenceRule,
-
-        recurrenceCount:
-          count > 1
-            ? count
-            : null,
-
-        googleEventId:
-          googleEvent.id,
-
-        status:
-          "confirmed",
-
-        notes:
-          body.notes?.trim() ||
-          null,
-      })
-      .returning({
-        id:
-          meetingRoomReservations.id,
-      });
 
     return NextResponse.json({
       ok: true,
-
-      reservationId:
-        reservation.id,
-
-      googleEventId:
-        googleEvent.id,
-
-      googleCalendarId:
-        mapping.calendarId,
-
-      roomName:
-        room.name,
-
-      startAt:
-        start.toISOString(),
-
-      endAt:
-        end.toISOString(),
-
+      reservationIds: createdReservations,
+      roomName: room.name,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
       recurrence,
-      recurrenceCount:
-        count,
+      recurrenceCount: count,
     });
   } catch (error) {
     console.error(
       "Create meeting room reservation error:",
       error,
     );
-
-    if (
-      createdGoogleEvent &&
-      createdCalendarId
-    ) {
-      try {
-        await deleteGoogleCalendarEvent(
-          createdCalendarId,
-          createdGoogleEvent,
-        );
-      } catch (
-        rollbackError
-      ) {
-        console.error(
-          "Google event rollback failed:",
-          rollbackError,
-        );
-      }
-    }
 
     return NextResponse.json(
       {
@@ -570,9 +310,7 @@ export async function POST(
             ? error.message
             : "Could not create meeting room reservation.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

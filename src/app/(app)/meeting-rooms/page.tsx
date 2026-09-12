@@ -1,9 +1,8 @@
 import { db } from "@/db";
-import { desks, bookings, customers } from "@/db/schema";
-import { and, eq, asc } from "drizzle-orm";
-import { getCurrentUser, canManage } from "@/lib/auth";
+import { desks } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getActiveShiftForUser } from "@/lib/shift";
 import { getSetting } from "@/lib/settings";
 import RoomsGrid from "./RoomsGrid";
 
@@ -11,69 +10,60 @@ export const dynamic = "force-dynamic";
 
 export default async function MeetingRoomsPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const activeShift = await getActiveShiftForUser(user.id);
-  if (!activeShift) redirect("/shift");
+
+  if (!user) {
+    redirect("/login");
+  }
+
   const currency = await getSetting("currency");
 
   const rooms = await db
-    .select()
+    .select({
+      id: desks.id,
+      name: desks.name,
+      hourlyRate: desks.hourlyRate,
+    })
     .from(desks)
-    .where(and(eq(desks.active, true), eq(desks.type, "meeting_room")))
+    .where(eq(desks.type, "meeting_room"))
     .orderBy(asc(desks.sortOrder));
 
-  const active = await db
-    .select({
-      id: bookings.id,
-      deskId: bookings.deskId,
-      customerName: customers.name,
-      customerPhone: customers.phone,
-      checkedInAt: bookings.checkedInAt,
-      hourlyRate: bookings.hourlyRateSnapshot,
-    })
-    .from(bookings)
-    .innerJoin(customers, eq(customers.id, bookings.customerId))
-    .where(eq(bookings.status, "active"));
-
-  const occ: Record<
-    number,
-    {
-      id: number;
-      customerName: string;
-      customerPhone: string;
-      checkedInAt: string;
-      hourlyRate: string;
-    }
-  > = {};
-  for (const b of active) {
-    occ[b.deskId] = {
-      id: b.id,
-      customerName: b.customerName,
-      customerPhone: b.customerPhone,
-      checkedInAt: b.checkedInAt.toISOString(),
-      hourlyRate: b.hourlyRate,
-    };
-  }
+  const canEditRate =
+    user.role === "admin" ||
+    user.role === "manager";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Meeting Rooms</h1>
-        <p className="text-slate-500">
-          Book meeting rooms by the hour. {canManage(user.role) ? "You can edit hourly rates directly on each card." : "Ask a manager to update the hourly rates."}
+        <h1 className="text-3xl font-bold text-slate-900">
+          Meeting Rooms
+        </h1>
+
+        <p className="text-slate-500 mt-1">
+          Manage meeting rooms, pricing and reservations.
         </p>
       </div>
 
-      <RoomsGrid
-        rooms={rooms.map((r) => ({
-          id: r.id,
-          name: r.name,
-          hourlyRate: r.hourlyRate,
-        }))}
-        occupancy={occ}
-        currency={currency}
-        canEditRate={canManage(user.role)}
-      />
+      {rooms.length === 0 ? (
+        <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
+          <div className="text-5xl mb-4">
+            👥
+          </div>
+
+          <h2 className="text-xl font-bold text-slate-900">
+            No meeting rooms
+          </h2>
+
+          <p className="text-slate-500 mt-2">
+            Add a meeting room to start managing reservations.
+          </p>
+        </div>
+      ) : (
+        <RoomsGrid
+          rooms={rooms}
+          currency={currency}
+          canEditRate={canEditRate}
+        />
+      )}
     </div>
   );
 }

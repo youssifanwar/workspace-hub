@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
+
 import { db } from "@/db";
 import {
   desks,
@@ -9,15 +11,19 @@ import {
   orderTickets,
   orderRequests,
 } from "@/db/schema";
+
 import {
   and,
   eq,
   inArray,
   sql,
 } from "drizzle-orm";
+
 import { publish } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
+
+const CUSTOMER_COOKIE = "wsh_customer_session";
 
 type LineInput = {
   productId: number;
@@ -40,12 +46,48 @@ type OrderResult = {
   duplicate: boolean;
 };
 
+function hashAccessToken(token: string) {
+  return crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+}
+
+function getCookieValue(
+  cookieHeader: string | null,
+  name: string,
+) {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const parts = cookieHeader
+    .split(";")
+    .map((part) => part.trim());
+
+  const target = `${name}=`;
+
+  for (const part of parts) {
+    if (part.startsWith(target)) {
+      return decodeURIComponent(
+        part.slice(target.length),
+      );
+    }
+  }
+
+  return null;
+}
+
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>;
+  },
 ) {
   // ---------------------------------------------------------------------------
-  // DESK ID
+  // PHYSICAL LOCATION / QR ID
   // ---------------------------------------------------------------------------
 
   const { id } = await params;
@@ -118,9 +160,6 @@ export async function POST(
 
   // ---------------------------------------------------------------------------
   // ITEMS
-  //
-  // Make a non-optional local variable after validation.
-  // This fixes the TypeScript "possibly undefined" error.
   // ---------------------------------------------------------------------------
 
   if (
@@ -152,7 +191,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------------------------
-  // FIND DESK
+  // FIND PHYSICAL LOCATION
   // ---------------------------------------------------------------------------
 
   const [desk] = await db
@@ -182,8 +221,34 @@ export async function POST(
   }
 
   // ---------------------------------------------------------------------------
-  // FIND ACTIVE BOOKING
+  // FIND CUSTOMER SESSION FROM SECURE COOKIE
+  //
+  // IMPORTANT:
+  // bookings.deskId is NO LONGER used to identify the customer session.
+  //
+  // deskId = physical location scanned by QR
+  // accessTokenHash = customer's active session
   // ---------------------------------------------------------------------------
+
+  const rawToken = getCookieValue(
+    req.headers.get("cookie"),
+    CUSTOMER_COOKIE,
+  );
+
+  if (!rawToken) {
+    return NextResponse.json(
+      {
+        error:
+          "No active customer session. Please connect your phone first.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  const tokenHash =
+    hashAccessToken(rawToken);
 
   const [booking] = await db
     .select({
@@ -201,8 +266,8 @@ export async function POST(
     .where(
       and(
         eq(
-          bookings.deskId,
-          deskId,
+          bookings.accessTokenHash,
+          tokenHash,
         ),
         eq(
           bookings.status,
@@ -216,10 +281,10 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "This desk has no active session. Please ask the staff to check you in first.",
+          "Your customer session is no longer active. Please ask the staff for a new session.",
       },
       {
-        status: 400,
+        status: 401,
       },
     );
   }
@@ -235,9 +300,6 @@ export async function POST(
       async (tx) => {
         // ---------------------------------------------------------------------
         // LOCK THIS REQUEST ID
-        //
-        // Prevents the exact same request from being processed twice at
-        // the same time.
         // ---------------------------------------------------------------------
 
         await tx.execute(
@@ -271,10 +333,6 @@ export async function POST(
           .limit(1);
 
         if (existingRequest) {
-          // ---------------------------------------------------------------
-          // RETURN EXISTING TICKET
-          // ---------------------------------------------------------------
-
           const [
             existingTicket,
           ] = await tx
@@ -325,26 +383,20 @@ export async function POST(
             const itemCount =
               existingItems.reduce(
                 (sum, item) =>
-                  sum +
-                  item.quantity,
+                  sum + item.quantity,
                 0,
               );
 
             return {
               ticketId:
                 existingTicket.id,
-
               ticketNumber:
                 existingTicket.ticketNumber,
-
               total:
                 existingTotal,
-
               itemCount,
-
               createdAt:
                 existingTicket.createdAt,
-
               duplicate: true,
             };
           }
@@ -382,7 +434,9 @@ export async function POST(
           ),
         ];
 
-        if (productIds.length === 0) {
+        if (
+          productIds.length === 0
+        ) {
           throw new Error(
             "No valid products in order",
           );
@@ -470,8 +524,6 @@ export async function POST(
 
         // ---------------------------------------------------------------------
         // LOCK DAILY TICKET NUMBER
-        //
-        // Prevents two different phones from generating the same ticket number.
         // ---------------------------------------------------------------------
 
         await tx.execute(
@@ -518,6 +570,9 @@ export async function POST(
 
         // ---------------------------------------------------------------------
         // INSERT TICKET
+        //
+        // bookingId = customer's session
+        // deskId = physical location where QR was scanned
         // ---------------------------------------------------------------------
 
         const [
@@ -593,7 +648,7 @@ export async function POST(
 
           const itemNote =
             typeof line.note ===
-              "string"
+            "string"
               ? line.note
                   .trim()
                   .slice(
@@ -680,8 +735,7 @@ export async function POST(
           itemCount:
             rowsToInsert.reduce(
               (sum, row) =>
-                sum +
-                row.quantity,
+                sum + row.quantity,
               0,
             ),
 
@@ -764,6 +818,7 @@ export async function POST(
       bookingId:
         booking.id,
 
+      // This is the physical QR location.
       deskId,
 
       deskName:

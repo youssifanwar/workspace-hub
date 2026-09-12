@@ -3,19 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import CheckInModal from "../bookings/CheckInModal";
 
 type Room = {
   id: number;
   name: string;
-  hourlyRate: string;
-};
-
-type Occ = {
-  id: number;
-  customerName: string;
-  customerPhone: string;
-  checkedInAt: string;
   hourlyRate: string;
 };
 
@@ -27,23 +18,17 @@ type ReservationModalProps = {
 
 export default function RoomsGrid({
   rooms,
-  occupancy,
   currency,
   canEditRate,
 }: {
   rooms: Room[];
-  occupancy: Record<number, Occ>;
   currency: string;
   canEditRate: boolean;
 }) {
   const router = useRouter();
 
-  const [now, setNow] = useState<Date>(
-    new Date(),
-  );
-
-  const [checkInRoom, setCheckInRoom] =
-    useState<Room | null>(null);
+  const [now, setNow] =
+    useState<Date>(new Date());
 
   const [reservationRoom, setReservationRoom] =
     useState<Room | null>(null);
@@ -63,7 +48,9 @@ export default function RoomsGrid({
     return () => clearInterval(t);
   }, []);
 
-  async function saveRate(roomId: number) {
+  async function saveRate(
+    roomId: number,
+  ) {
     const rate =
       parseFloat(editValue);
 
@@ -96,24 +83,38 @@ export default function RoomsGrid({
 
   return (
     <>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {rooms.map((r) => {
-          const o = occupancy[r.id];
+      <div className="space-y-5">
+        {/* ------------------------------------------------------------------ */}
+        {/* INFORMATION                                                        */}
+        {/* ------------------------------------------------------------------ */}
 
-          const isEditing =
-            editing === r.id;
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+          <div className="font-bold text-indigo-900">
+            Meeting Rooms
+          </div>
 
-          /*
-           * -------------------------------------------------------------------
-           * AVAILABLE ROOM
-           * -------------------------------------------------------------------
-           */
-          if (!o) {
+          <div className="text-sm text-indigo-700 mt-1">
+            Rooms are physical locations. Customer sessions are managed
+            separately and are not tied to a room.
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* ROOMS                                                              */}
+        {/* ------------------------------------------------------------------ */}
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {rooms.map((room) => {
+            const isEditing =
+              editing === room.id;
+
             return (
               <div
-                key={r.id}
-                className="card p-6 flex flex-col gap-3 hover:border-indigo-300 transition"
+                key={room.id}
+                className="card p-6 flex flex-col gap-3"
               >
+                {/* HEADER */}
+
                 <div className="flex items-center justify-between">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-400 text-white grid place-items-center text-2xl">
                     👥
@@ -124,10 +125,14 @@ export default function RoomsGrid({
                   </span>
                 </div>
 
+                {/* NAME */}
+
                 <div>
                   <div className="text-lg font-bold">
-                    {r.name}
+                    {room.name}
                   </div>
+
+                  {/* RATE */}
 
                   {isEditing ? (
                     <div className="flex items-center gap-2 mt-2">
@@ -147,7 +152,9 @@ export default function RoomsGrid({
                       <button
                         className="btn btn-primary"
                         onClick={() =>
-                          saveRate(r.id)
+                          saveRate(
+                            room.id,
+                          )
                         }
                       >
                         Save
@@ -166,7 +173,7 @@ export default function RoomsGrid({
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-slate-600 text-sm">
                         {parseFloat(
-                          r.hourlyRate,
+                          room.hourlyRate,
                         ).toFixed(2)}{" "}
                         {currency} / hour
                       </span>
@@ -175,12 +182,12 @@ export default function RoomsGrid({
                         <button
                           onClick={() => {
                             setEditing(
-                              r.id,
+                              room.id,
                             );
 
                             setEditValue(
                               parseFloat(
-                                r.hourlyRate,
+                                room.hourlyRate,
                               ).toString(),
                             );
                           }}
@@ -193,126 +200,43 @@ export default function RoomsGrid({
                   )}
                 </div>
 
-                {/* CURRENT CHECK-IN */}
-                <button
-                  className="btn btn-primary mt-auto"
-                  onClick={() =>
-                    setCheckInRoom(r)
-                  }
-                >
-                  Start timer →
-                </button>
+                {/* LOCATION INFO */}
 
-                {/* FUTURE RESERVATION */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
+                  <div className="font-semibold text-slate-800">
+                    Physical location
+                  </div>
+
+                  <div className="mt-1">
+                    Customers use the QR code
+                    for this room after they
+                    connect to their session.
+                  </div>
+                </div>
+
+                {/* RESERVATION */}
+
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="btn btn-primary mt-auto"
                   onClick={() =>
-                    setReservationRoom(r)
+                    setReservationRoom(
+                      room,
+                    )
                   }
                 >
-                  📅 Reserve for a date
+                  📅 Reserve this room
                 </button>
               </div>
             );
-          }
-
-          /*
-           * -------------------------------------------------------------------
-           * OCCUPIED ROOM
-           * -------------------------------------------------------------------
-           */
-
-          const startMs =
-            new Date(
-              o.checkedInAt,
-            ).getTime();
-
-          const dur =
-            now.getTime() -
-            startMs;
-
-          const curCharge =
-            (dur /
-              3_600_000) *
-            parseFloat(
-              o.hourlyRate,
-            );
-
-          return (
-            <Link
-              key={r.id}
-              href={`/bookings/${o.id}`}
-              className="card p-6 bg-gradient-to-br from-rose-500 to-pink-500 text-white border-0 hover:scale-[1.01] transition flex flex-col gap-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-14 h-14 rounded-2xl bg-white/20 grid place-items-center text-2xl">
-                  👥
-                </div>
-
-                <span className="text-xs font-bold bg-white/25 px-2 py-1 rounded-full">
-                  Occupied
-                </span>
-              </div>
-
-              <div>
-                <div className="text-lg font-bold">
-                  {r.name}
-                </div>
-
-                <div className="text-sm opacity-90 truncate">
-                  {o.customerName}
-                </div>
-
-                <div className="text-xs opacity-80">
-                  📞 {o.customerPhone}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-white/25 flex items-end justify-between">
-                <div>
-                  <div className="text-xs opacity-75">
-                    Elapsed
-                  </div>
-
-                  <div className="text-xl font-bold tabular-nums">
-                    {formatDur(
-                      dur,
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-xs opacity-75">
-                    Charge
-                  </div>
-
-                  <div className="text-xl font-bold tabular-nums">
-                    {curCharge.toFixed(
-                      2,
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+          })}
+        </div>
       </div>
 
-      {/* CURRENT CHECK-IN MODAL */}
-      {checkInRoom && (
-        <CheckInModal
-          desk={checkInRoom}
-          currency={currency}
-          onClose={() =>
-            setCheckInRoom(
-              null,
-            )
-          }
-        />
-      )}
+      {/* -------------------------------------------------------------------- */}
+      {/* RESERVATION MODAL                                                    */}
+      {/* -------------------------------------------------------------------- */}
 
-      {/* FUTURE GOOGLE CALENDAR RESERVATION MODAL */}
       {reservationRoom && (
         <ReservationModal
           room={reservationRoom}
@@ -379,10 +303,8 @@ function ReservationModal({
     );
 
   useEffect(() => {
-    const now =
-      new Date();
+    const now = new Date();
 
-    // Round to next 30 minutes.
     now.setSeconds(0);
     now.setMilliseconds(0);
 
@@ -530,7 +452,7 @@ function ReservationModal({
       );
 
       setError(
-        "Could not connect to Google Calendar.",
+        "Could not connect to the reservation service.",
       );
     } finally {
       setChecking(false);
@@ -589,8 +511,7 @@ function ReservationModal({
     }
 
     if (
-      start <=
-      new Date()
+      start <= new Date()
     ) {
       setError(
         "Reservation must be in the future.",
@@ -629,10 +550,12 @@ function ReservationModal({
           "/api/meeting-rooms/reservations",
           {
             method: "POST",
+
             headers: {
               "Content-Type":
                 "application/json",
             },
+
             body: JSON.stringify({
               deskId:
                 room.id,
@@ -677,7 +600,9 @@ function ReservationModal({
         if (
           res.status === 409
         ) {
-          setAvailable(false);
+          setAvailable(
+            false,
+          );
         }
 
         setError(
@@ -697,7 +622,6 @@ function ReservationModal({
           : `${room.name} was reserved successfully.`,
       );
 
-      // Clear customer fields after success.
       setCustomerName("");
       setCustomerPhone("");
       setNotes("");
@@ -719,11 +643,10 @@ function ReservationModal({
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
 
-        {/* HEADER */}
         <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
           <div>
             <div className="text-xs font-bold tracking-wider text-indigo-600">
-              GOOGLE CALENDAR RESERVATION
+              ROOM RESERVATION
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 mt-1">
@@ -748,12 +671,9 @@ function ReservationModal({
           </button>
         </div>
 
-        {/* BODY */}
         <div className="p-6 space-y-5">
 
-          {/* CUSTOMER */}
           <div className="grid md:grid-cols-2 gap-4">
-
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">
                 Customer name
@@ -793,12 +713,9 @@ function ReservationModal({
                 placeholder="e.g. 0100 000 0000"
               />
             </div>
-
           </div>
 
-          {/* DATE/TIME */}
           <div className="grid md:grid-cols-2 gap-4">
-
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">
                 Start
@@ -807,9 +724,7 @@ function ReservationModal({
               <input
                 type="datetime-local"
                 className="input w-full"
-                value={
-                  startAt
-                }
+                value={startAt}
                 onChange={(e) => {
                   setStartAt(
                     e.target.value,
@@ -827,9 +742,7 @@ function ReservationModal({
               <input
                 type="datetime-local"
                 className="input w-full"
-                value={
-                  endAt
-                }
+                value={endAt}
                 onChange={(e) => {
                   setEndAt(
                     e.target.value,
@@ -838,12 +751,9 @@ function ReservationModal({
                 }}
               />
             </div>
-
           </div>
 
-          {/* RECURRENCE */}
           <div className="grid md:grid-cols-2 gap-4">
-
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">
                 Repeat
@@ -861,7 +771,6 @@ function ReservationModal({
                       | "none"
                       | "weekly",
                   );
-
                   resetMessages();
                 }}
               >
@@ -899,10 +808,8 @@ function ReservationModal({
                 />
               </div>
             )}
-
           </div>
 
-          {/* NOTES */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">
               Notes
@@ -921,18 +828,20 @@ function ReservationModal({
             />
           </div>
 
-          {/* STATUS */}
-          {available === true && (
+          {available ===
+            true && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 font-semibold">
-              🟢 This room is available for
-              the selected time.
+              🟢 This room is available
+              for the selected time.
             </div>
           )}
 
-          {available === false && (
+          {available ===
+            false && (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 font-semibold">
-              🔴 This room is not available
-              for the selected time.
+              🔴 This room is not
+              available for the selected
+              time.
             </div>
           )}
 
@@ -947,10 +856,8 @@ function ReservationModal({
               {error}
             </div>
           )}
-
         </div>
 
-        {/* FOOTER */}
         <div className="p-6 border-t border-slate-100 flex flex-col sm:flex-row gap-3 sm:justify-end">
 
           <button
@@ -996,36 +903,12 @@ function ReservationModal({
  * HELPERS
  * -------------------------------------------------------------------------- */
 
-function formatDur(
-  ms: number,
-): string {
-  const s = Math.floor(
-    ms / 1000,
-  );
-
-  const h = Math.floor(
-    s / 3600,
-  );
-
-  const m = Math.floor(
-    (s % 3600) / 60,
-  );
-
-  const sec = s % 60;
-
-  return `${String(
-    h,
-  ).padStart(2, "0")}:${String(
-    m,
-  ).padStart(2, "0")}:${String(
-    sec,
-  ).padStart(2, "0")}`;
-}
-
 function toDateTimeLocal(
   date: Date,
 ): string {
-  const pad = (value: number) =>
+  const pad = (
+    value: number,
+  ) =>
     String(value).padStart(
       2,
       "0",

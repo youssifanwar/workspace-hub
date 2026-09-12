@@ -8,12 +8,15 @@ import {
   timestamp,
   numeric,
   bigint,
+  jsonb,
+  index,
+  uniqueIndex,
   pgEnum,
 } from "drizzle-orm/pg-core";
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // ENUMS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const roleEnum = pgEnum("user_role", [
   "admin",
@@ -57,9 +60,9 @@ export const orderStatusEnum = pgEnum(
   ],
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // USERS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -96,9 +99,9 @@ export const users = pgTable("users", {
     .defaultNow(),
 });
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // SETTINGS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const settings = pgTable(
   "settings",
@@ -111,9 +114,9 @@ export const settings = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // SHIFTS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const shifts = pgTable(
   "shifts",
@@ -164,9 +167,9 @@ export const shifts = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // CUSTOMERS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const customers = pgTable(
   "customers",
@@ -181,6 +184,27 @@ export const customers = pgTable(
       length: 40,
     }).notNull(),
 
+    // Canonical searchable phone value.
+    // Example:
+    // 01012345678 -> 201012345678
+    // +201012345678 -> 201012345678
+    // 00201012345678 -> 201012345678
+    phoneNormalized: varchar(
+      "phone_normalized",
+      {
+        length: 40,
+      },
+    ),
+
+    email: varchar(
+      "email",
+      {
+        length: 255,
+      },
+    ),
+
+    notes: text("notes"),
+
     createdAt: timestamp(
       "created_at",
       {
@@ -189,12 +213,40 @@ export const customers = pgTable(
     )
       .notNull()
       .defaultNow(),
+
+    updatedAt: timestamp(
+      "updated_at",
+      {
+        withTimezone: true,
+      },
+    )
+      .notNull()
+      .defaultNow(),
   },
+  (table) => [
+    uniqueIndex(
+      "customers_phone_normalized_uq",
+    ).on(
+      table.phoneNormalized,
+    ),
+
+    index(
+      "customers_phone_idx",
+    ).on(
+      table.phone,
+    ),
+
+    index(
+      "customers_name_idx",
+    ).on(
+      table.name,
+    ),
+  ],
 );
 
-// -----------------------------------------------------------------------------
-// DESKS
-// -----------------------------------------------------------------------------
+// =============================================================================
+// DESKS / PHYSICAL LOCATIONS
+// =============================================================================
 
 export const desks = pgTable(
   "desks",
@@ -230,63 +282,297 @@ export const desks = pgTable(
       .default(0),
   },
 );
-// -----------------------------------------------------------------------------
-// GOOGLE CALENDAR MAPPING FOR MEETING ROOMS
-// -----------------------------------------------------------------------------
 
-export const meetingRoomCalendars = pgTable(
-  "meeting_room_calendars",
-  {
-    id: serial("id").primaryKey(),
+// =============================================================================
+// SUBSCRIPTION PACKAGE DEFINITIONS
+// =============================================================================
+//
+// These are package templates.
+//
+// Example:
+// 60 hours / 1500 EGP / 30 days
+// 90 hours / 2200 EGP / 60 days
+//
+// They can be edited/deactivated from the application.
+// Existing customer purchases are NOT changed when a template changes.
+// =============================================================================
 
-    deskId: integer(
-      "desk_id",
-    )
-      .notNull()
-      .unique()
-      .references(
-        () => desks.id,
+export const subscriptionPackages =
+  pgTable(
+    "subscription_packages",
+    {
+      id: serial("id").primaryKey(),
+
+      name: varchar("name", {
+        length: 200,
+      }).notNull(),
+
+      totalHours: numeric(
+        "total_hours",
         {
-          onDelete: "cascade",
+          precision: 10,
+          scale: 2,
+        },
+      ).notNull(),
+
+      price: numeric(
+        "price",
+        {
+          precision: 12,
+          scale: 2,
+        },
+      ).notNull(),
+
+      validityDays: integer(
+        "validity_days",
+      ),
+
+      description: text(
+        "description",
+      ),
+
+      active: boolean(
+        "active",
+      )
+        .notNull()
+        .default(true),
+
+      createdAt: timestamp(
+        "created_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+
+      updatedAt: timestamp(
+        "updated_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+    },
+    (table) => [
+      index(
+        "subscription_packages_active_idx",
+      ).on(
+        table.active,
+      ),
+    ],
+  );
+
+// =============================================================================
+// CUSTOMER SUBSCRIPTIONS
+// =============================================================================
+//
+// This is an actual package purchase by a customer.
+//
+// IMPORTANT:
+// packageNameSnapshot / totalHoursSnapshot / priceSnapshot /
+// validityDaysSnapshot preserve what the customer actually bought.
+// Changing subscriptionPackages later will NOT rewrite old subscriptions.
+// =============================================================================
+
+export const customerSubscriptions =
+  pgTable(
+    "customer_subscriptions",
+    {
+      id: serial("id").primaryKey(),
+
+      customerId: integer(
+        "customer_id",
+      )
+        .notNull()
+        .references(
+          () => customers.id,
+          {
+            onDelete: "restrict",
+          },
+        ),
+
+      packageId: integer(
+        "package_id",
+      )
+        .notNull()
+        .references(
+          () => subscriptionPackages.id,
+          {
+            onDelete: "restrict",
+          },
+        ),
+
+      packageNameSnapshot: varchar(
+        "package_name_snapshot",
+        {
+          length: 200,
+        },
+      ).notNull(),
+
+      totalHoursSnapshot: numeric(
+        "total_hours_snapshot",
+        {
+          precision: 10,
+          scale: 2,
+        },
+      ).notNull(),
+
+      priceSnapshot: numeric(
+        "price_snapshot",
+        {
+          precision: 12,
+          scale: 2,
+        },
+      ).notNull(),
+
+      validityDaysSnapshot: integer(
+        "validity_days_snapshot",
+      ),
+
+      purchasedAt: timestamp(
+        "purchased_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+
+      startsAt: timestamp(
+        "starts_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+
+      expiresAt: timestamp(
+        "expires_at",
+        {
+          withTimezone: true,
         },
       ),
 
-    calendarId: text(
-      "calendar_id",
-    )
-      .notNull()
-      .unique(),
+      status: varchar(
+        "status",
+        {
+          length: 30,
+        },
+      )
+        .notNull()
+        .default("active"),
 
-    calendarName: varchar(
-      "calendar_name",
-      {
-        length: 200,
-      },
-    ),
+      note: text("note"),
 
-    createdAt: timestamp(
-      "created_at",
-      {
-        withTimezone: true,
-      },
-    )
-      .notNull()
-      .defaultNow(),
+      createdByUserId: integer(
+        "created_by_user_id",
+      ).references(
+        () => users.id,
+        {
+          onDelete: "set null",
+        },
+      ),
 
-    updatedAt: timestamp(
-      "updated_at",
-      {
-        withTimezone: true,
-      },
-    )
-      .notNull()
-      .defaultNow(),
-  },
-);
+      createdAt: timestamp(
+        "created_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
 
-// -----------------------------------------------------------------------------
+      updatedAt: timestamp(
+        "updated_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+    },
+    (table) => [
+      index(
+        "customer_subscriptions_customer_idx",
+      ).on(
+        table.customerId,
+      ),
+
+      index(
+        "customer_subscriptions_status_idx",
+      ).on(
+        table.status,
+      ),
+
+      index(
+        "customer_subscriptions_expiry_idx",
+      ).on(
+        table.expiresAt,
+      ),
+    ],
+  );
+
+// =============================================================================
+// GOOGLE CALENDAR MAPPING FOR MEETING ROOMS
+// =============================================================================
+
+export const meetingRoomCalendars =
+  pgTable(
+    "meeting_room_calendars",
+    {
+      id: serial("id").primaryKey(),
+
+      deskId: integer(
+        "desk_id",
+      )
+        .notNull()
+        .unique()
+        .references(
+          () => desks.id,
+          {
+            onDelete: "cascade",
+          },
+        ),
+
+      calendarId: text(
+        "calendar_id",
+      )
+        .notNull()
+        .unique(),
+
+      calendarName: varchar(
+        "calendar_name",
+        {
+          length: 200,
+        },
+      ),
+
+      createdAt: timestamp(
+        "created_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+
+      updatedAt: timestamp(
+        "updated_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+    },
+  );
+
+// =============================================================================
 // FUTURE MEETING ROOM RESERVATIONS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const meetingRoomReservations =
   pgTable(
@@ -383,9 +669,10 @@ export const meetingRoomReservations =
         .defaultNow(),
     },
   );
-// -----------------------------------------------------------------------------
+
+// =============================================================================
 // CATEGORIES
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const categories = pgTable(
   "categories",
@@ -410,9 +697,9 @@ export const categories = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // PRODUCTS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const products = pgTable(
   "products",
@@ -434,10 +721,13 @@ export const products = pgTable(
       length: 200,
     }).notNull(),
 
-    price: numeric("price", {
-      precision: 12,
-      scale: 2,
-    })
+    price: numeric(
+      "price",
+      {
+        precision: 12,
+        scale: 2,
+      },
+    )
       .notNull()
       .default("0"),
 
@@ -451,15 +741,23 @@ export const products = pgTable(
       .notNull()
       .default("🍔"),
 
-    active: boolean("active")
+    active: boolean(
+      "active",
+    )
       .notNull()
       .default(true),
   },
 );
 
-// -----------------------------------------------------------------------------
-// BOOKINGS
-// -----------------------------------------------------------------------------
+// =============================================================================
+// BOOKINGS / CUSTOMER SESSIONS
+// =============================================================================
+//
+// IMPORTANT:
+// The session is NOT tied to a physical desk.
+// deskId is nullable because it may only represent the physical QR source.
+// The customer's session and billing live here.
+// =============================================================================
 
 export const bookings = pgTable(
   "bookings",
@@ -474,13 +772,12 @@ export const bookings = pgTable(
         () => customers.id,
       ),
 
+    // Physical location / QR source only.
     deskId: integer(
       "desk_id",
-    )
-      .notNull()
-      .references(
-        () => desks.id,
-      ),
+    ).references(
+      () => desks.id,
+    ),
 
     shiftId: integer(
       "shift_id",
@@ -498,6 +795,32 @@ export const bookings = pgTable(
         () => users.id,
       ),
 
+    // -------------------------------------------------------------------------
+    // CUSTOMER SESSION / QR ACCESS
+    // -------------------------------------------------------------------------
+
+    accessCode: varchar(
+      "access_code",
+      {
+        length: 4,
+      },
+    ),
+
+    accessTokenHash: text(
+      "access_token_hash",
+    ),
+
+    accessTokenCreatedAt: timestamp(
+      "access_token_created_at",
+      {
+        withTimezone: true,
+      },
+    ),
+
+    // -------------------------------------------------------------------------
+    // TIME
+    // -------------------------------------------------------------------------
+
     checkedInAt: timestamp(
       "checked_in_at",
       {
@@ -514,6 +837,13 @@ export const bookings = pgTable(
       },
     ),
 
+    // -------------------------------------------------------------------------
+    // LEGACY / SNAPSHOT RATE
+    //
+    // Kept for compatibility and historical data.
+    // Regular session pricing is handled by application pricing rules.
+    // -------------------------------------------------------------------------
+
     hourlyRateSnapshot: numeric(
       "hourly_rate_snapshot",
       {
@@ -521,6 +851,10 @@ export const bookings = pgTable(
         scale: 2,
       },
     ).notNull(),
+
+    // -------------------------------------------------------------------------
+    // BILLING
+    // -------------------------------------------------------------------------
 
     seatCharge: numeric(
       "seat_charge",
@@ -578,6 +912,44 @@ export const bookings = pgTable(
       "payment_method",
     ),
 
+    // -------------------------------------------------------------------------
+    // SUBSCRIPTION BILLING
+    // -------------------------------------------------------------------------
+
+    billingMode: varchar(
+      "billing_mode",
+      {
+        length: 20,
+      },
+    )
+      .notNull()
+      .default("regular"),
+
+    subscriptionId: integer(
+      "subscription_id",
+    ).references(
+      () => customerSubscriptions.id,
+      {
+        onDelete: "restrict",
+      },
+    ),
+
+    subscriptionHoursUsed: numeric(
+      "subscription_hours_used",
+      {
+        precision: 10,
+        scale: 2,
+      },
+    ),
+
+    billingNote: text(
+      "billing_note",
+    ),
+
+    // -------------------------------------------------------------------------
+    // STATUS
+    // -------------------------------------------------------------------------
+
     status: bookingStatusEnum(
       "status",
     )
@@ -586,15 +958,128 @@ export const bookings = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
+// SUBSCRIPTION USAGE LEDGER
+// =============================================================================
+//
+// Source of truth for package balance.
+//
+// Positive hours = credit
+// Negative hours = usage
+//
+// Example:
+//
+// +60 purchase
+//  -3 session
+//  -2 session
+//  +5 adjustment
+//
+// Current balance = SUM(hours_delta)
+// =============================================================================
+
+export const subscriptionUsageLedger =
+  pgTable(
+    "subscription_usage_ledger",
+    {
+      id: serial("id").primaryKey(),
+
+      subscriptionId: integer(
+        "subscription_id",
+      )
+        .notNull()
+        .references(
+          () => customerSubscriptions.id,
+          {
+            onDelete: "restrict",
+          },
+        ),
+
+      bookingId: integer(
+        "booking_id",
+      ).references(
+        () => bookings.id,
+        {
+          onDelete: "set null",
+        },
+      ),
+
+      userId: integer(
+        "user_id",
+      ).references(
+        () => users.id,
+        {
+          onDelete: "set null",
+        },
+      ),
+
+      entryType: varchar(
+        "entry_type",
+        {
+          length: 30,
+        },
+      ).notNull(),
+
+      hoursDelta: numeric(
+        "hours_delta",
+        {
+          precision: 10,
+          scale: 2,
+        },
+      ).notNull(),
+
+      reason: text(
+        "reason",
+      ),
+
+      // Prevents duplicate accounting actions.
+      idempotencyKey: varchar(
+        "idempotency_key",
+        {
+          length: 200,
+        },
+      ).unique(),
+
+      createdAt: timestamp(
+        "created_at",
+        {
+          withTimezone: true,
+        },
+      )
+        .notNull()
+        .defaultNow(),
+    },
+    (table) => [
+      index(
+        "subscription_usage_ledger_subscription_idx",
+      ).on(
+        table.subscriptionId,
+      ),
+
+      index(
+        "subscription_usage_ledger_booking_idx",
+      ).on(
+        table.bookingId,
+      ),
+
+      index(
+        "subscription_usage_ledger_created_idx",
+      ).on(
+        table.createdAt,
+      ),
+    ],
+  );
+
+// =============================================================================
 // ORDER TICKETS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const orderTickets = pgTable(
   "order_tickets",
   {
     id: serial("id").primaryKey(),
 
+    // Internal ticket number.
+    // requestId below is the duplicate-protection identifier.
     ticketNumber: integer(
       "ticket_number",
     ).notNull(),
@@ -610,6 +1095,7 @@ export const orderTickets = pgTable(
         },
       ),
 
+    // Physical location where order was placed.
     deskId: integer(
       "desk_id",
     )
@@ -659,12 +1145,15 @@ export const orderTickets = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // ORDER REQUESTS
+// =============================================================================
 //
-// Prevents duplicate QR orders when the same request is submitted more than
-// once because of double clicks, retries, or unstable network conditions.
-// -----------------------------------------------------------------------------
+// Prevents duplicate QR orders.
+//
+// requestId is intentionally unique and is generated by the application.
+// It is NOT a sequential ticket number.
+// =============================================================================
 
 export const orderRequests = pgTable(
   "order_requests",
@@ -698,9 +1187,9 @@ export const orderRequests = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // BOOKING ITEMS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const bookingItems = pgTable(
   "booking_items",
@@ -718,7 +1207,6 @@ export const bookingItems = pgTable(
         },
       ),
 
-    // Links this item to the exact order ticket.
     ticketId: integer(
       "ticket_id",
     ).references(
@@ -734,6 +1222,8 @@ export const bookingItems = pgTable(
       () => products.id,
     ),
 
+    // Snapshot of product data at time of ordering.
+    // Product can be changed later without changing historical orders.
     nameSnapshot: varchar(
       "name_snapshot",
       {
@@ -776,9 +1266,94 @@ export const bookingItems = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
+// AUDIT LOGS
+// =============================================================================
+//
+// Important business actions are recorded here.
+//
+// Examples:
+// - customer_created
+// - customer_merged
+// - package_created
+// - package_updated
+// - subscription_purchased
+// - subscription_cancelled
+// - subscription_adjusted
+// - package_hours_used
+// - session_checkout
+// =============================================================================
+
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: serial("id").primaryKey(),
+
+    userId: integer(
+      "user_id",
+    ).references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+
+    action: varchar(
+      "action",
+      {
+        length: 100,
+      },
+    ).notNull(),
+
+    entityType: varchar(
+      "entity_type",
+      {
+        length: 100,
+      },
+    ),
+
+    entityId: integer(
+      "entity_id",
+    ),
+
+    details: jsonb(
+      "details",
+    ),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index(
+      "audit_logs_user_idx",
+    ).on(
+      table.userId,
+    ),
+
+    index(
+      "audit_logs_action_idx",
+    ).on(
+      table.action,
+    ),
+
+    index(
+      "audit_logs_entity_idx",
+    ).on(
+      table.entityType,
+      table.entityId,
+    ),
+  ],
+);
+
+// =============================================================================
 // BANK TRANSACTIONS
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const bankTransactions =
   pgTable(
@@ -814,7 +1389,9 @@ export const bankTransactions =
         },
       ).notNull(),
 
-      note: text("note"),
+      note: text(
+        "note",
+      ),
 
       createdAt: timestamp(
         "created_at",
@@ -827,9 +1404,9 @@ export const bankTransactions =
     },
   );
 
-// -----------------------------------------------------------------------------
+// =============================================================================
 // EXPENSES
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export const expenses = pgTable(
   "expenses",
@@ -869,7 +1446,9 @@ export const expenses = pgTable(
       .notNull()
       .default("General"),
 
-    note: text("note"),
+    note: text(
+      "note",
+    ),
 
     createdAt: timestamp(
       "created_at",
@@ -882,9 +1461,9 @@ export const expenses = pgTable(
   },
 );
 
-// -----------------------------------------------------------------------------
-// SESSIONS
-// -----------------------------------------------------------------------------
+// =============================================================================
+// STAFF SESSIONS
+// =============================================================================
 
 export const sessionsTable =
   pgTable(

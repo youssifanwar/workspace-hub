@@ -1,46 +1,111 @@
 import { db } from "@/db";
-import { users, desks, categories, products, settings } from "@/db/schema";
+import {
+  users,
+  desks,
+  categories,
+  products,
+  settings,
+} from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 
 let seededPromise: Promise<void> | null = null;
 
 export async function ensureSeeded(): Promise<void> {
   if (seededPromise) return seededPromise;
+
   seededPromise = (async () => {
-    // Users
-    const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
-    if (existingUsers.length === 0) {
-      await db.insert(users).values([
-        {
-          username: "admin",
-          passwordHash: hashPassword("admin123"),
-          fullName: "System Administrator",
-          role: "admin",
-        },
-        {
-          username: "manager",
-          passwordHash: hashPassword("manager123"),
-          fullName: "Floor Manager",
-          role: "manager",
-        },
-        {
-          username: "employee",
-          passwordHash: hashPassword("employee123"),
-          fullName: "Front Desk Employee",
-          role: "employee",
-        },
-      ]);
+    // ---------------------------------------------------------------------------
+    // USERS
+    // ---------------------------------------------------------------------------
+
+    const demoUsers = [
+      {
+        username: "admin",
+        password: "admin123",
+        fullName: "System Administrator",
+        role: "admin" as const,
+      },
+      {
+        username: "manager",
+        password: "manager123",
+        fullName: "Floor Manager",
+        role: "manager" as const,
+      },
+      {
+        username: "employee",
+        password: "employee123",
+        fullName: "Front Desk Employee",
+        role: "employee" as const,
+      },
+    ];
+
+    for (const demoUser of demoUsers) {
+      const [existingUser] = await db
+        .select({
+          id: users.id,
+        })
+        .from(users)
+        .where(
+          eq(
+            users.username,
+            demoUser.username,
+          ),
+        )
+        .limit(1);
+
+      if (!existingUser) {
+        await db.insert(users).values({
+          username: demoUser.username,
+          passwordHash: hashPassword(
+            demoUser.password,
+          ),
+          fullName: demoUser.fullName,
+          role: demoUser.role,
+          active: true,
+        });
+      } else {
+        await db
+          .update(users)
+          .set({
+            passwordHash: hashPassword(
+              demoUser.password,
+            ),
+            fullName: demoUser.fullName,
+            role: demoUser.role,
+            active: true,
+          })
+          .where(
+            eq(
+              users.id,
+              existingUser.id,
+            ),
+          );
+      }
     }
 
-    // Desks and meeting rooms
-    const existingDesks = await db.select({ id: desks.id }).from(desks).limit(1);
+    // ---------------------------------------------------------------------------
+    // DESKS AND MEETING ROOMS
+    // ---------------------------------------------------------------------------
+
+    const existingDesks = await db
+      .select({
+        id: desks.id,
+      })
+      .from(desks)
+      .limit(1);
+
     if (existingDesks.length === 0) {
-      const deskRows = Array.from({ length: 12 }, (_, i) => ({
-        name: `Desk ${i + 1}`,
-        type: "desk" as const,
-        hourlyRate: "25.00",
-        sortOrder: i,
-      }));
+      const deskRows = Array.from(
+        { length: 12 },
+        (_, i) => ({
+          name: `Desk ${i + 1}`,
+          type: "desk" as const,
+          hourlyRate: "25.00",
+          sortOrder: i,
+        }),
+      );
+
       const meetingRows = [
         {
           name: "Meeting Room 1",
@@ -61,25 +126,58 @@ export async function ensureSeeded(): Promise<void> {
           sortOrder: 102,
         },
       ];
-      await db.insert(desks).values([...deskRows, ...meetingRows]);
+
+      await db.insert(desks).values([
+        ...deskRows,
+        ...meetingRows,
+      ]);
     }
 
-    // Categories & products
+    // ---------------------------------------------------------------------------
+    // CATEGORIES AND PRODUCTS
+    // ---------------------------------------------------------------------------
+
     const existingCategories = await db
-      .select({ id: categories.id })
+      .select({
+        id: categories.id,
+      })
       .from(categories)
       .limit(1);
+
     if (existingCategories.length === 0) {
       const inserted = await db
         .insert(categories)
         .values([
-          { name: "Hot Drinks", icon: "☕", sortOrder: 1 },
-          { name: "Cold Drinks", icon: "🧊", sortOrder: 2 },
-          { name: "Snacks", icon: "🍪", sortOrder: 3 },
-          { name: "Meals", icon: "🍔", sortOrder: 4 },
+          {
+            name: "Hot Drinks",
+            icon: "☕",
+            sortOrder: 1,
+          },
+          {
+            name: "Cold Drinks",
+            icon: "🧊",
+            sortOrder: 2,
+          },
+          {
+            name: "Snacks",
+            icon: "🍪",
+            sortOrder: 3,
+          },
+          {
+            name: "Meals",
+            icon: "🍔",
+            sortOrder: 4,
+          },
         ])
         .returning();
-      const [hot, cold, snacks, meals] = inserted;
+
+      const [
+        hot,
+        cold,
+        snacks,
+        meals,
+      ] = inserted;
+
       await db.insert(products).values([
         {
           categoryId: hot.id,
@@ -172,23 +270,43 @@ export async function ensureSeeded(): Promise<void> {
       ]);
     }
 
-    // Settings defaults
+    // ---------------------------------------------------------------------------
+    // SETTINGS DEFAULTS
+    // ---------------------------------------------------------------------------
+
     const existingSettings = await db
-      .select({ key: settings.key })
+      .select({
+        key: settings.key,
+      })
       .from(settings)
       .limit(1);
+
     if (existingSettings.length === 0) {
       await db.insert(settings).values([
-        { key: "workspace_name", value: "WorkSpace Hub" },
-        { key: "workspace_address", value: "Cairo, Egypt" },
-        { key: "workspace_phone", value: "+20 100 000 0000" },
-        { key: "currency", value: "EGP" },
+        {
+          key: "workspace_name",
+          value: "WorkSpace Hub",
+        },
+        {
+          key: "workspace_address",
+          value: "Cairo, Egypt",
+        },
+        {
+          key: "workspace_phone",
+          value: "+20 100 000 0000",
+        },
+        {
+          key: "currency",
+          value: "EGP",
+        },
         {
           key: "invoice_footer",
-          value: "Thank you for visiting! نتشرف بزيارتكم مرة أخرى",
+          value:
+            "Thank you for visiting! نتشرف بزيارتكم مرة أخرى",
         },
       ]);
     }
   })();
+
   return seededPromise;
 }

@@ -63,7 +63,7 @@ export default async function BookingsPage() {
   const currency =
     await getSetting("currency");
 
-  const activeSessions =
+  const activeSessionsRaw =
     await db
       .select({
         id: bookings.id,
@@ -111,6 +111,15 @@ export default async function BookingsPage() {
       .orderBy(
         bookings.checkedInAt,
       );
+
+  const activeSessions =
+    activeSessionsRaw.map((session) => ({
+      ...session,
+      billingMode:
+        session.billingMode === "package"
+          ? ("package" as const)
+          : ("regular" as const),
+    }));
 
   return (
     <div className="space-y-6">
@@ -569,7 +578,7 @@ function formatDuration(
     2,
     "0",
   )}:${String(
-    seconds,
+    minutes,
   ).padStart(
     2,
     "0",

@@ -1,185 +1,414 @@
 import { NextResponse } from "next/server";
+
 import * as XLSX from "xlsx";
+
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
+
 import { getCurrentUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const dynamic =
+  "force-dynamic";
 
-function toExcelDate(value: unknown): string {
-  if (!value) return "";
+export const runtime =
+  "nodejs";
 
-  const date = value instanceof Date ? value : new Date(String(value));
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
+function toExcelDate(
+  value: unknown,
+): string {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "";
   }
 
-  return date.toLocaleString("en-GB");
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(
+          String(value),
+        );
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return String(
+      value,
+    );
+  }
+
+  return date.toLocaleString(
+    "en-GB",
+  );
 }
 
-function toNumber(value: unknown): number {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
+function toNumber(
+  value: unknown,
+): number {
+  const n =
+    Number(
+      value ?? 0,
+    );
+
+  return Number.isFinite(
+    n,
+  )
+    ? n
+    : 0;
+}
+
+function toText(
+  value: unknown,
+): string {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  return String(
+    value,
+  );
 }
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    /* ---------------------------------------------------------------------- */
+    /* AUTH                                                                   */
+    /* ---------------------------------------------------------------------- */
+
+    const user =
+      await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        },
       );
     }
+
+    /* ---------------------------------------------------------------------- */
+    /* DATA                                                                   */
+    /* ---------------------------------------------------------------------- */
 
     /*
      * One row per customer.
      *
-     * The active subscription is the most recently purchased active
-     * subscription. Remaining package hours come from the ledger:
+     * The active subscription is the most recently purchased subscription
+     * that is still active and has not expired.
+     *
+     * Remaining package hours come from the usage ledger:
      * SUM(hours_delta).
      */
-    const result = await db.execute(sql`
-      SELECT
-        c.id,
-        c.name,
-        c.phone,
-        c.email,
-        c.notes,
-        c.created_at,
+    const result =
+      await db.execute(
+        sql`
+          SELECT
+            c.id,
+            c.name,
+            c.phone,
+            c.email,
+            c.notes,
+            c.created_at,
 
-        COUNT(DISTINCT b.id)::int AS total_visits,
+            COUNT(
+              DISTINCT b.id
+            )::int AS total_visits,
 
-        COALESCE(
-          SUM(DISTINCT b.total),
-          0
-        )::numeric AS total_spent,
+            COALESCE(
+              SUM(
+                b.total
+              ),
+              0
+            )::numeric AS total_spent,
 
-        MAX(b.checked_in_at) AS last_visit,
+            MAX(
+              b.checked_in_at
+            ) AS last_visit,
 
-        active_sub.id AS subscription_id,
-        active_sub.package_name AS package_name,
-        active_sub.total_hours AS package_total_hours,
-        active_sub.price AS package_price,
-        active_sub.validity_days AS package_validity_days,
-        active_sub.purchased_at AS package_purchased_at,
-        active_sub.starts_at AS package_starts_at,
-        active_sub.expires_at AS package_expires_at,
-        active_sub.status AS package_status,
+            active_sub.id
+              AS subscription_id,
 
-        COALESCE(active_balance.remaining_hours, 0)::numeric
-          AS package_remaining_hours
+            active_sub.package_name
+              AS package_name,
 
-      FROM customers c
+            active_sub.total_hours
+              AS package_total_hours,
 
-      LEFT JOIN bookings b
-        ON b.customer_id = c.id
+            active_sub.price
+              AS package_price,
 
-      LEFT JOIN LATERAL (
-        SELECT
-          cs.id,
-          cs.package_name_snapshot AS package_name,
-          cs.total_hours_snapshot AS total_hours,
-          cs.price_snapshot AS price,
-          cs.validity_days_snapshot AS validity_days,
-          cs.purchased_at,
-          cs.starts_at,
-          cs.expires_at,
-          cs.status
-        FROM customer_subscriptions cs
-        WHERE
-          cs.customer_id = c.id
-          AND cs.status = 'active'
-        ORDER BY cs.purchased_at DESC
-        LIMIT 1
-      ) active_sub
-        ON TRUE
+            active_sub.validity_days
+              AS package_validity_days,
 
-      LEFT JOIN LATERAL (
-        SELECT
-          COALESCE(SUM(sul.hours_delta), 0) AS remaining_hours
-        FROM subscription_usage_ledger sul
-        WHERE sul.subscription_id = active_sub.id
-      ) active_balance
-        ON TRUE
+            active_sub.purchased_at
+              AS package_purchased_at,
 
-      GROUP BY
-        c.id,
-        c.name,
-        c.phone,
-        c.email,
-        c.notes,
-        c.created_at,
+            active_sub.starts_at
+              AS package_starts_at,
 
-        active_sub.id,
-        active_sub.package_name,
-        active_sub.total_hours,
-        active_sub.price,
-        active_sub.validity_days,
-        active_sub.purchased_at,
-        active_sub.starts_at,
-        active_sub.expires_at,
-        active_sub.status,
+            active_sub.expires_at
+              AS package_expires_at,
 
-        active_balance.remaining_hours
+            active_sub.status
+              AS package_status,
 
-      ORDER BY c.created_at DESC
-    `);
+            COALESCE(
+              active_balance.remaining_hours,
+              0
+            )::numeric
+              AS package_remaining_hours
 
-    const rows = result.rows as Record<string, unknown>[];
-    const exportRows = rows.map((row) => ({
-      "Customer ID": toNumber(row.id),
-      Name: String(row.name ?? ""),
-      Phone: String(row.phone ?? ""),
-      Email: String(row.email ?? ""),
-      Notes: String(row.notes ?? ""),
+          FROM customers c
 
-      "Created At": toExcelDate(row.created_at),
-      Visits: toNumber(row.total_visits),
-      "Total Spent": toNumber(row.total_spent),
-      "Last Visit": toExcelDate(row.last_visit),
+          LEFT JOIN bookings b
+            ON b.customer_id =
+              c.id
 
-      "Active Package": String(row.package_name ?? ""),
-      "Package Total Hours": toNumber(row.package_total_hours),
-      "Package Price": toNumber(row.package_price),
-      "Package Validity Days": row.package_validity_days == null
-        ? ""
-        : toNumber(row.package_validity_days),
+          LEFT JOIN LATERAL (
+            SELECT
+              cs.id,
 
-      "Package Purchased At": toExcelDate(row.package_purchased_at),
-      "Package Starts At": toExcelDate(row.package_starts_at),
-      "Package Expires At": toExcelDate(row.package_expires_at),
-      "Package Remaining Hours": toNumber(row.package_remaining_hours),
-      "Package Status": String(row.package_status ?? ""),
-    }));
+              cs.package_name_snapshot
+                AS package_name,
 
-    const workbook = XLSX.utils.book_new();
+              cs.total_hours_snapshot
+                AS total_hours,
 
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+              cs.price_snapshot
+                AS price,
+
+              cs.validity_days_snapshot
+                AS validity_days,
+
+              cs.purchased_at,
+
+              cs.starts_at,
+
+              cs.expires_at,
+
+              cs.status
+
+            FROM customer_subscriptions cs
+
+            WHERE
+              cs.customer_id =
+                c.id
+
+              AND cs.status =
+                'active'
+
+              AND (
+                cs.expires_at IS NULL
+
+                OR cs.expires_at >
+                  NOW()
+              )
+
+              AND cs.starts_at <=
+                NOW()
+
+            ORDER BY
+              cs.purchased_at DESC
+
+            LIMIT 1
+          ) active_sub
+            ON TRUE
+
+          LEFT JOIN LATERAL (
+            SELECT
+              COALESCE(
+                SUM(
+                  sul.hours_delta
+                ),
+                0
+              ) AS remaining_hours
+
+            FROM subscription_usage_ledger sul
+
+            WHERE
+              sul.subscription_id =
+                active_sub.id
+          ) active_balance
+            ON TRUE
+
+          GROUP BY
+            c.id,
+            c.name,
+            c.phone,
+            c.email,
+            c.notes,
+            c.created_at,
+
+            active_sub.id,
+            active_sub.package_name,
+            active_sub.total_hours,
+            active_sub.price,
+            active_sub.validity_days,
+            active_sub.purchased_at,
+            active_sub.starts_at,
+            active_sub.expires_at,
+            active_sub.status,
+
+            active_balance.remaining_hours
+
+          ORDER BY
+            c.created_at DESC
+        `,
+      );
+
+    /* ---------------------------------------------------------------------- */
+    /* EXPORT ROWS                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const rows =
+      result.rows as Record<
+        string,
+        unknown
+      >[];
+
+    const exportRows =
+      rows.map(
+        (
+          row,
+        ) => ({
+          "Customer ID":
+            toNumber(
+              row.id,
+            ),
+
+          Name:
+            toText(
+              row.name,
+            ),
+
+          Phone:
+            toText(
+              row.phone,
+            ),
+
+          Email:
+            toText(
+              row.email,
+            ),
+
+          Notes:
+            toText(
+              row.notes,
+            ),
+
+          "Created At":
+            toExcelDate(
+              row.created_at,
+            ),
+
+          Visits:
+            toNumber(
+              row.total_visits,
+            ),
+
+          "Total Spent":
+            toNumber(
+              row.total_spent,
+            ),
+
+          "Last Visit":
+            toExcelDate(
+              row.last_visit,
+            ),
+
+          "Active Package":
+            toText(
+              row.package_name,
+            ),
+
+          "Package Total Hours":
+            toNumber(
+              row.package_total_hours,
+            ),
+
+          "Package Price":
+            toNumber(
+              row.package_price,
+            ),
+
+          "Package Validity Days":
+            row.package_validity_days ==
+              null
+              ? ""
+              : toNumber(
+                  row.package_validity_days,
+                ),
+
+          "Package Purchased At":
+            toExcelDate(
+              row.package_purchased_at,
+            ),
+
+          "Package Starts At":
+            toExcelDate(
+              row.package_starts_at,
+            ),
+
+          "Package Expires At":
+            toExcelDate(
+              row.package_expires_at,
+            ),
+
+          "Package Remaining Hours":
+            toNumber(
+              row.package_remaining_hours,
+            ),
+
+          "Package Status":
+            toText(
+              row.package_status,
+            ),
+        }),
+      );
+
+    /* ---------------------------------------------------------------------- */
+    /* WORKBOOK                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    const workbook =
+      XLSX.utils.book_new();
+
+    const worksheet =
+      XLSX.utils.json_to_sheet(
+        exportRows,
+      );
 
     worksheet["!cols"] = [
-      { wch: 12 }, // ID
-      { wch: 24 }, // Name
-      { wch: 18 }, // Phone
-      { wch: 30 }, // Email
-      { wch: 35 }, // Notes
-      { wch: 20 }, // Created
-      { wch: 10 }, // Visits
-      { wch: 16 }, // Spent
-      { wch: 20 }, // Last visit
-      { wch: 24 }, // Package
-      { wch: 20 }, // Package hours
-      { wch: 16 }, // Package price
-      { wch: 22 }, // Validity
-      { wch: 22 }, // Purchased
-      { wch: 22 }, // Starts
-      { wch: 22 }, // Expires
-      { wch: 24 }, // Remaining
-      { wch: 16 }, // Status
+      { wch: 12 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 30 },
+      { wch: 35 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 16 },
     ];
 
     XLSX.utils.book_append_sheet(
@@ -188,30 +417,59 @@ export async function GET() {
       "Customers",
     );
 
-    const buffer = XLSX.write(workbook, {
-      type: "buffer",
-      bookType: "xlsx",
-    });
+    /* ---------------------------------------------------------------------- */
+    /* WRITE FILE                                                             */
+    /* ---------------------------------------------------------------------- */
 
-    const filename = `WorkspaceHub-Customers-${new Date()
-      .toISOString()
-      .slice(0, 10)}.xlsx`;
+    const buffer =
+      XLSX.write(
+        workbook,
+        {
+          type: "buffer",
+          bookType:
+            "xlsx",
+        },
+      );
 
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
+    const filename =
+      `WorkspaceHub-Customers-${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSE                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    return new NextResponse(
+      buffer,
+      {
+        status: 200,
+
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+          "Content-Disposition":
+            `attachment; filename="${filename}"`,
+
+          "Cache-Control":
+            "no-store",
+
+          "X-Content-Type-Options":
+            "nosniff",
+        },
       },
-    });
+    );
   } catch (error) {
-    console.error("Customer Excel export failed:", error);
+    console.error(
+      "Customer Excel export failed:",
+      error,
+    );
 
     return NextResponse.json(
       {
-        error: "Could not export customers.",
+        error:
+          "Could not export customers.",
       },
       {
         status: 500,

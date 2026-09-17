@@ -1,52 +1,44 @@
 import { NextResponse } from "next/server";
+
 import {
   canManage,
   getCurrentUser,
 } from "@/lib/auth";
+
 import {
   startGoogleAuthorization,
 } from "@/lib/google-calendar";
-import fs from "node:fs";
-import path from "node:path";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST() {
   try {
-    console.log(
-      "[Google Calendar] Starting authorization...",
-    );
+    // ---------------------------------------------------------------------------
+    // AUTHENTICATION
+    // ---------------------------------------------------------------------------
 
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
     if (!user) {
-      console.error(
-        "[Google Calendar] Unauthorized",
-      );
-
       return NextResponse.json(
         {
           error: "Unauthorized",
         },
         {
           status: 401,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
 
-    console.log(
-      "[Google Calendar] User:",
-      user.username,
-      user.role,
-    );
+    // ---------------------------------------------------------------------------
+    // AUTHORIZATION
+    // ---------------------------------------------------------------------------
 
     if (!canManage(user.role)) {
-      console.error(
-        "[Google Calendar] User has no permission:",
-        user.role,
-      );
-
       return NextResponse.json(
         {
           error:
@@ -54,74 +46,76 @@ export async function POST() {
         },
         {
           status: 403,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
 
-    // Check credentials explicitly in development.
-    const credentialsPath =
-      path.join(
-        process.cwd(),
-        "credentials.json",
-      );
+    // ---------------------------------------------------------------------------
+    // START GOOGLE OAUTH
+    // ---------------------------------------------------------------------------
 
-    console.log(
-      "[Google Calendar] Credentials path:",
-      credentialsPath,
-    );
-
-    console.log(
-      "[Google Calendar] Credentials exists:",
-      fs.existsSync(
-        credentialsPath,
-      ),
-    );
+    const result = await startGoogleAuthorization();
 
     if (
-      !fs.existsSync(
-        credentialsPath,
-      )
+      !result ||
+      typeof result.url !== "string" ||
+      !result.url.trim()
     ) {
+      console.error(
+        "[Google Calendar] Authorization returned an invalid URL.",
+      );
+
       return NextResponse.json(
         {
-          error:
-            `Google credentials.json not found at:\n${credentialsPath}`,
+          error: "Failed to start Google Calendar authorization.",
         },
         {
           status: 500,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
 
-    const result =
-      await startGoogleAuthorization();
+    // ---------------------------------------------------------------------------
+    // RESPONSE
+    // ---------------------------------------------------------------------------
 
-    console.log(
-      "[Google Calendar] Authorization URL created.",
+    return NextResponse.json(
+      {
+        ok: true,
+        url: result.url,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
     );
-
-    return NextResponse.json({
-      ok: true,
-      url: result.url,
-    });
   } catch (error) {
+    // Log the complete server-side error, but do not expose internal
+    // implementation details to the browser.
     console.error(
       "[Google Calendar] AUTH ERROR:",
       error,
     );
 
-    const message =
-      error instanceof Error
-        ? `${error.name}: ${error.message}`
-        : String(error);
-
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error:
+          "Failed to start Google Calendar authorization.",
       },
       {
         status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
       },
     );
   }

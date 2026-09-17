@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
+
 import crypto from "crypto";
-import { and, eq, sql } from "drizzle-orm";
+
+import {
+  and,
+  eq,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
+
 import {
   auditLogs,
   bookings,
@@ -11,69 +18,105 @@ import {
   subscriptionUsageLedger,
 } from "@/db/schema";
 
-import { getCurrentUser } from "@/lib/auth";
-import { getActiveShiftForUser } from "@/lib/shift";
+import {
+  getCurrentUser,
+} from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
+import {
+  getActiveShiftForUser,
+} from "@/lib/shift";
 
-// ============================================================================
-// TYPES
-// ============================================================================
+import {
+  getCustomerSessionPricing,
+} from "@/lib/settings";
+
+export const dynamic =
+  "force-dynamic";
+
+/* -------------------------------------------------------------------------- */
+/* TYPES                                                                      */
+/* -------------------------------------------------------------------------- */
 
 type Body = {
   customerId?: number;
+
   customerName?: string;
+
   customerPhone?: string;
 
-  billingMode?: "regular" | "package";
+  billingMode?:
+    | "regular"
+    | "package";
 
-  subscriptionId?: number | null;
+  subscriptionId?:
+    | number
+    | null;
 };
 
-// ============================================================================
-// PHONE NORMALIZATION
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* PHONE NORMALIZATION                                                        */
+/* -------------------------------------------------------------------------- */
 
-function normalizePhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
+function normalizePhone(
+  value: string,
+): string {
+  const digits =
+    value.replace(
+      /\D/g,
+      "",
+    );
 
   if (!digits) {
     return "";
   }
 
-  // 0020XXXXXXXXXX -> 20XXXXXXXXXX
-  if (digits.startsWith("0020")) {
-    return `20${digits.slice(4)}`;
+  if (
+    digits.startsWith(
+      "0020",
+    )
+  ) {
+    return `20${digits.slice(
+      4,
+    )}`;
   }
 
-  // 20XXXXXXXXXX -> already normalized
-  if (digits.startsWith("20")) {
+  if (
+    digits.startsWith(
+      "20",
+    )
+  ) {
     return digits;
   }
 
-  // 0XXXXXXXXXX -> 20XXXXXXXXXX
-  if (digits.startsWith("0")) {
-    return `20${digits.slice(1)}`;
+  if (
+    digits.startsWith(
+      "0",
+    )
+  ) {
+    return `20${digits.slice(
+      1,
+    )}`;
   }
 
   return digits;
 }
 
-// ============================================================================
-// ACCESS CODE
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* ACCESS CODE                                                                */
+/* -------------------------------------------------------------------------- */
 
 function generateAccessCode(): string {
-  // 1000 - 9999
-  // Avoids codes such as 0000.
   return String(
-    crypto.randomInt(1000, 10000),
+    crypto.randomInt(
+      1000,
+      10000,
+    ),
   );
 }
 
-// ============================================================================
-// SECURE CUSTOMER ACCESS TOKEN
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* ACCESS TOKEN                                                               */
+/* -------------------------------------------------------------------------- */
 
 function generateAccessToken(): string {
   return crypto
@@ -85,22 +128,41 @@ function hashToken(
   token: string,
 ): string {
   return crypto
-    .createHash("sha256")
+    .createHash(
+      "sha256",
+    )
     .update(token)
     .digest("hex");
 }
 
-// ============================================================================
-// MAIN
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* HELPERS                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function isValidPositiveInteger(
+  value: unknown,
+): value is number {
+  return (
+    typeof value ===
+      "number" &&
+    Number.isInteger(
+      value,
+    ) &&
+    value > 0
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* POST                                                                       */
+/* -------------------------------------------------------------------------- */
 
 export async function POST(
   req: Request,
 ) {
   try {
-    // ------------------------------------------------------------------------
-    // AUTH
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* AUTH                                                                   */
+    /* ---------------------------------------------------------------------- */
 
     const user =
       await getCurrentUser();
@@ -108,7 +170,8 @@ export async function POST(
     if (!user) {
       return NextResponse.json(
         {
-          error: "Unauthorized",
+          error:
+            "Unauthorized",
         },
         {
           status: 401,
@@ -116,9 +179,9 @@ export async function POST(
       );
     }
 
-    // ------------------------------------------------------------------------
-    // ACTIVE SHIFT
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* ACTIVE SHIFT                                                            */
+    /* ---------------------------------------------------------------------- */
 
     const activeShift =
       await getActiveShiftForUser(
@@ -137,19 +200,22 @@ export async function POST(
       );
     }
 
-    // ------------------------------------------------------------------------
-    // BODY
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* BODY                                                                    */
+    /* ---------------------------------------------------------------------- */
 
     const body =
       (await req
         .json()
-        .catch(() => null)) as Body | null;
+        .catch(
+          () => null,
+        )) as Body | null;
 
     if (!body) {
       return NextResponse.json(
         {
-          error: "Invalid request.",
+          error:
+            "Invalid request.",
         },
         {
           status: 400,
@@ -164,28 +230,28 @@ export async function POST(
         : "regular";
 
     const suppliedCustomerId =
-      Number.isInteger(
+      isValidPositiveInteger(
         body.customerId,
-      ) && body.customerId! > 0
-        ? body.customerId!
+      )
+        ? body.customerId
         : null;
 
     const customerName =
-      body.customerName
-        ?.trim() || "";
+      body.customerName?.trim() ||
+      "";
 
     const rawPhone =
-      body.customerPhone
-        ?.trim() || "";
+      body.customerPhone?.trim() ||
+      "";
 
     const normalizedPhone =
       normalizePhone(
         rawPhone,
       );
 
-    // ------------------------------------------------------------------------
-    // VALIDATION
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* VALIDATION                                                              */
+    /* ---------------------------------------------------------------------- */
 
     if (
       !suppliedCustomerId &&
@@ -204,7 +270,8 @@ export async function POST(
 
     if (
       !normalizedPhone ||
-      normalizedPhone.length < 8
+      normalizedPhone.length <
+        8
     ) {
       return NextResponse.json(
         {
@@ -220,7 +287,9 @@ export async function POST(
     if (
       billingMode ===
         "package" &&
-      !body.subscriptionId
+      !isValidPositiveInteger(
+        body.subscriptionId,
+      )
     ) {
       return NextResponse.json(
         {
@@ -233,19 +302,51 @@ export async function POST(
       );
     }
 
-    // ------------------------------------------------------------------------
-    // TRANSACTION
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* LOAD CURRENT CUSTOMER SESSION PRICING                                  */
+    /* ---------------------------------------------------------------------- */
+
+    const sessionPricing =
+      await getCustomerSessionPricing();
+
+    const pricingValues = [
+      sessionPricing.oneHour,
+      sessionPricing.twoHours,
+      sessionPricing.threeHours,
+      sessionPricing.fourHours,
+      sessionPricing.dayPass,
+    ];
+
+    if (
+      pricingValues.some(
+        (value) =>
+          !Number.isFinite(
+            value,
+          ) ||
+          value < 0,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid Customer Session pricing configuration.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* TRANSACTION                                                             */
+    /* ---------------------------------------------------------------------- */
 
     const result =
       await db.transaction(
         async (tx) => {
-          // ------------------------------------------------------------------
-          // LOCK CUSTOMER BY PHONE SEARCH
-          //
-          // We first find an existing customer using normalized phone.
-          // The database UNIQUE index is still the final protection.
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* CUSTOMER                                                           */
+          /* ---------------------------------------------------------------- */
 
           let customer:
             | {
@@ -258,16 +359,24 @@ export async function POST(
           let customerWasCreated =
             false;
 
-          // If the UI explicitly supplied a customerId, verify it.
-          if (suppliedCustomerId) {
+          if (
+            suppliedCustomerId
+          ) {
             const rows =
               await tx
                 .select({
-                  id: customers.id,
-                  name: customers.name,
-                  phone: customers.phone,
+                  id:
+                    customers.id,
+
+                  name:
+                    customers.name,
+
+                  phone:
+                    customers.phone,
                 })
-                .from(customers)
+                .from(
+                  customers,
+                )
                 .where(
                   eq(
                     customers.id,
@@ -280,35 +389,40 @@ export async function POST(
               rows[0];
 
             if (!customer) {
-              throw new Error(
+              throw new BookingError(
                 "The selected customer no longer exists.",
               );
             }
 
-            // The phone must still belong to this customer.
-            const customerNormalized =
+            const selectedPhone =
               normalizePhone(
                 customer.phone,
               );
 
             if (
-              customerNormalized !==
+              selectedPhone !==
               normalizedPhone
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The customer phone number does not match the selected customer.",
               );
             }
           } else {
-            // Search by canonical phone.
             const rows =
               await tx
                 .select({
-                  id: customers.id,
-                  name: customers.name,
-                  phone: customers.phone,
+                  id:
+                    customers.id,
+
+                  name:
+                    customers.name,
+
+                  phone:
+                    customers.phone,
                 })
-                .from(customers)
+                .from(
+                  customers,
+                )
                 .where(
                   eq(
                     customers.phoneNormalized,
@@ -320,68 +434,126 @@ export async function POST(
             customer =
               rows[0];
 
-            // ---------------------------------------------------------------
-            // EXISTING CUSTOMER
-            // ---------------------------------------------------------------
+            if (!customer) {
+              try {
+                const inserted =
+                  await tx
+                    .insert(
+                      customers,
+                    )
+                    .values({
+                      name:
+                        customerName,
 
-            if (customer) {
-              // IMPORTANT:
-              // Do NOT overwrite the customer's stored name automatically.
-              // Existing customer profile remains the source of truth.
-            } else {
-              // -------------------------------------------------------------
-              // NEW CUSTOMER
-              // -------------------------------------------------------------
+                      phone:
+                        rawPhone,
 
-              const inserted =
-                await tx
-                  .insert(customers)
-                  .values({
-                    name:
-                      customerName,
-                    phone:
-                      rawPhone,
-                    phoneNormalized:
-                      normalizedPhone,
-                  })
-                  .returning({
-                    id: customers.id,
-                    name: customers.name,
-                    phone: customers.phone,
-                  });
+                      phoneNormalized:
+                        normalizedPhone,
+                    })
+                    .returning({
+                      id:
+                        customers.id,
 
-              customer =
-                inserted[0];
+                      name:
+                        customers.name,
 
-              if (!customer) {
-                throw new Error(
-                  "Could not create the customer.",
-                );
+                      phone:
+                        customers.phone,
+                    });
+
+                customer =
+                  inserted[0];
+
+                customerWasCreated =
+                  true;
+              } catch (
+                error
+              ) {
+                /*
+                 * Another request may have created the same phone between
+                 * our SELECT and INSERT. Re-read the canonical customer.
+                 */
+                const existing =
+                  await tx
+                    .select({
+                      id:
+                        customers.id,
+
+                      name:
+                        customers.name,
+
+                      phone:
+                        customers.phone,
+                    })
+                    .from(
+                      customers,
+                    )
+                    .where(
+                      eq(
+                        customers.phoneNormalized,
+                        normalizedPhone,
+                      ),
+                    )
+                    .limit(1);
+
+                customer =
+                  existing[0];
+
+                if (
+                  !customer
+                ) {
+                  throw error;
+                }
               }
-
-              customerWasCreated =
-                true;
             }
           }
 
-          // ------------------------------------------------------------------
-          // ONE ACTIVE SESSION PER CUSTOMER
-          //
-          // A customer cannot accidentally be checked in twice at once.
-          // ------------------------------------------------------------------
+          if (!customer) {
+            throw new BookingError(
+              "Could not resolve the customer.",
+            );
+          }
+
+          /* ---------------------------------------------------------------- */
+          /* CUSTOMER LOCK                                                     */
+          /* ---------------------------------------------------------------- */
+
+          /*
+           * This is important.
+           *
+           * Without a lock, two simultaneous requests can both execute
+           * "SELECT active session" before either INSERT happens.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                29005,
+                ${customer.id}
+              )
+            `,
+          );
+
+          /* ---------------------------------------------------------------- */
+          /* ONE ACTIVE SESSION PER CUSTOMER                                  */
+          /* ---------------------------------------------------------------- */
 
           const activeSession =
             await tx
               .select({
-                id: bookings.id,
+                id:
+                  bookings.id,
               })
-              .from(bookings)
+              .from(
+                bookings,
+              )
               .where(
                 and(
                   eq(
                     bookings.customerId,
                     customer.id,
                   ),
+
                   eq(
                     bookings.status,
                     "active",
@@ -393,24 +565,33 @@ export async function POST(
           if (
             activeSession[0]
           ) {
-            throw new Error(
+            throw new BookingError(
               `This customer already has an active session (#${activeSession[0].id}).`,
             );
           }
 
-          // ------------------------------------------------------------------
-          // PACKAGE VALIDATION
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* PACKAGE                                                           */
+          /* ---------------------------------------------------------------- */
 
           let selectedSubscription:
             | {
                 id: number;
+
                 customerId: number;
+
                 packageNameSnapshot: string;
+
                 totalHoursSnapshot: string;
+
                 priceSnapshot: string;
+
                 startsAt: Date;
-                expiresAt: Date | null;
+
+                expiresAt:
+                  | Date
+                  | null;
+
                 status: string;
               }
             | undefined;
@@ -428,15 +609,29 @@ export async function POST(
               );
 
             if (
-              !Number.isInteger(
+              !isValidPositiveInteger(
                 subscriptionId,
-              ) ||
-              subscriptionId <= 0
+              )
             ) {
-              throw new Error(
+              throw new BookingError(
                 "Invalid package subscription.",
               );
             }
+
+            /*
+             * Lock the subscription as well.
+             *
+             * This protects the package balance against concurrent
+             * operations touching the same subscription.
+             */
+            await tx.execute(
+              sql`
+                SELECT pg_advisory_xact_lock(
+                  29002,
+                  ${subscriptionId}
+                )
+              `,
+            );
 
             const rows =
               await tx
@@ -474,6 +669,7 @@ export async function POST(
                       customerSubscriptions.id,
                       subscriptionId,
                     ),
+
                     eq(
                       customerSubscriptions.customerId,
                       customer.id,
@@ -488,7 +684,7 @@ export async function POST(
             if (
               !selectedSubscription
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The selected package does not belong to this customer.",
               );
             }
@@ -497,7 +693,7 @@ export async function POST(
               selectedSubscription.status !==
               "active"
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The selected package is not active.",
               );
             }
@@ -509,7 +705,7 @@ export async function POST(
               selectedSubscription.startsAt >
               now
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The selected package has not started yet.",
               );
             }
@@ -519,14 +715,10 @@ export async function POST(
               selectedSubscription.expiresAt <=
                 now
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The selected package has expired.",
               );
             }
-
-            // ---------------------------------------------------------------
-            // LEDGER BALANCE
-            // ---------------------------------------------------------------
 
             const balanceRows =
               await tx
@@ -554,23 +746,33 @@ export async function POST(
             packageBalance =
               Number(
                 balanceRows[0]
-                  ?.balance ?? 0,
+                  ?.balance ??
+                  0,
               );
 
-            // Never allow a package with no remaining time.
+            if (
+              !Number.isFinite(
+                packageBalance,
+              )
+            ) {
+              throw new BookingError(
+                "Invalid package balance.",
+              );
+            }
+
             if (
               packageBalance <=
               0
             ) {
-              throw new Error(
+              throw new BookingError(
                 "The selected package has no remaining hours.",
               );
             }
           }
 
-          // ------------------------------------------------------------------
-          // ACCESS TOKEN
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* ACCESS TOKEN                                                      */
+          /* ---------------------------------------------------------------- */
 
           const rawAccessToken =
             generateAccessToken();
@@ -580,16 +782,14 @@ export async function POST(
               rawAccessToken,
             );
 
-          // ------------------------------------------------------------------
-          // RANDOM 4-DIGIT ACCESS CODE
-          //
-          // We retry in the very unlikely event of a collision with another
-          // active session.
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* ACCESS CODE                                                       */
+          /* ---------------------------------------------------------------- */
 
           let createdBooking:
             | {
                 id: number;
+
                 accessCode: string;
               }
             | undefined;
@@ -605,15 +805,19 @@ export async function POST(
             const existingCode =
               await tx
                 .select({
-                  id: bookings.id,
+                  id:
+                    bookings.id,
                 })
-                .from(bookings)
+                .from(
+                  bookings,
+                )
                 .where(
                   and(
                     eq(
                       bookings.accessCode,
                       accessCode,
                     ),
+
                     eq(
                       bookings.status,
                       "active",
@@ -631,12 +835,16 @@ export async function POST(
             try {
               const inserted =
                 await tx
-                  .insert(bookings)
+                  .insert(
+                    bookings,
+                  )
                   .values({
                     customerId:
                       customer.id,
 
-                    // Session is independent from physical location.
+                    /*
+                     * Customer Session is not tied to a physical desk.
+                     */
                     deskId:
                       null,
 
@@ -656,11 +864,17 @@ export async function POST(
                     checkedInAt:
                       new Date(),
 
-                    // Kept only for backward compatibility.
-                    // Actual regular pricing is handled by the new pricing
-                    // system, not this field.
+                    /*
+                     * Snapshot the configured first-hour price at the
+                     * moment the session starts.
+                     *
+                     * Checkout still determines the final tier/day-pass
+                     * from the business rules.
+                     */
                     hourlyRateSnapshot:
-                      "0",
+                      sessionPricing.oneHour.toFixed(
+                        2,
+                      ),
 
                     billingMode,
 
@@ -678,9 +892,23 @@ export async function POST(
 
                     discount:
                       "0",
+
+                    seatCharge:
+                      "0",
+
+                    total:
+                      "0",
+
+                    paidAmount:
+                      "0",
+
+                    changeAmount:
+                      "0",
                   })
                   .returning({
-                    id: bookings.id,
+                    id:
+                      bookings.id,
+
                     accessCode:
                       bookings.accessCode,
                   });
@@ -689,7 +917,7 @@ export async function POST(
                 inserted[0];
 
               if (!booking) {
-                throw new Error(
+                throw new BookingError(
                   "Could not create the customer session.",
                 );
               }
@@ -697,26 +925,28 @@ export async function POST(
               createdBooking = {
                 id:
                   booking.id,
+
                 accessCode:
                   booking.accessCode!,
               };
 
               break;
-            } catch (error) {
-              // A database UNIQUE collision can theoretically happen between
-              // our check and INSERT. Retry with another random code.
+            } catch (
+              error
+            ) {
+              /*
+               * Retry only for an access-code uniqueness collision.
+               */
               const message =
                 error instanceof
                 Error
-                  ? error.message
+                  ? error.message.toLowerCase()
                   : "";
 
               if (
-                message
-                  .toLowerCase()
-                  .includes(
-                    "access_code",
-                  )
+                message.includes(
+                  "access_code",
+                )
               ) {
                 continue;
               }
@@ -728,75 +958,103 @@ export async function POST(
           if (
             !createdBooking
           ) {
-            throw new Error(
+            throw new BookingError(
               "Could not generate a unique customer access code. Please try again.",
             );
           }
 
-          // ------------------------------------------------------------------
-          // AUDIT
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* AUDIT                                                             */
+          /* ---------------------------------------------------------------- */
 
           if (
             customerWasCreated
           ) {
-            await tx.insert(
+            await tx
+              .insert(
+                auditLogs,
+              )
+              .values({
+                userId:
+                  user.id,
+
+                action:
+                  "customer_created",
+
+                entityType:
+                  "customer",
+
+                entityId:
+                  customer.id,
+
+                details: {
+                  name:
+                    customer.name,
+
+                  phone:
+                    customer.phone,
+
+                  phoneNormalized:
+                    normalizedPhone,
+                },
+              });
+          }
+
+          await tx
+            .insert(
               auditLogs,
-            ).values({
+            )
+            .values({
               userId:
                 user.id,
 
               action:
-                "customer_created",
+                "session_started",
 
               entityType:
-                "customer",
+                "booking",
 
               entityId:
-                customer.id,
+                createdBooking.id,
 
               details: {
-                name:
-                  customer.name,
-                phone:
-                  customer.phone,
-                phoneNormalized:
-                  normalizedPhone,
+                customerId:
+                  customer.id,
+
+                billingMode,
+
+                subscriptionId:
+                  billingMode ===
+                  "package"
+                    ? selectedSubscription!.id
+                    : null,
+
+                accessCode:
+                  createdBooking.accessCode,
+
+                /*
+                 * Keep the configured prices that were active when the
+                 * session started in the audit trail.
+                 */
+                pricingSnapshot:
+                  {
+                    oneHour:
+                      sessionPricing.oneHour,
+
+                    twoHours:
+                      sessionPricing.twoHours,
+
+                    threeHours:
+                      sessionPricing.threeHours,
+
+                    fourHours:
+                      sessionPricing.fourHours,
+
+                    dayPass:
+                      sessionPricing.dayPass,
+                  },
               },
             });
-          }
-
-          await tx.insert(
-            auditLogs,
-          ).values({
-            userId:
-              user.id,
-
-            action:
-              "session_started",
-
-            entityType:
-              "booking",
-
-            entityId:
-              createdBooking.id,
-
-            details: {
-              customerId:
-                customer.id,
-
-              billingMode,
-
-              subscriptionId:
-                billingMode ===
-                "package"
-                  ? selectedSubscription!.id
-                  : null,
-
-              accessCode:
-                createdBooking.accessCode,
-            },
-          });
 
           return {
             bookingId:
@@ -830,13 +1088,31 @@ export async function POST(
               "package"
                 ? packageBalance
                 : null,
+
+            pricingSnapshot:
+              {
+                oneHour:
+                  sessionPricing.oneHour,
+
+                twoHours:
+                  sessionPricing.twoHours,
+
+                threeHours:
+                  sessionPricing.threeHours,
+
+                fourHours:
+                  sessionPricing.fourHours,
+
+                dayPass:
+                  sessionPricing.dayPass,
+              },
           };
         },
       );
 
-    // ------------------------------------------------------------------------
-    // RESPONSE
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSE                                                               */
+    /* ---------------------------------------------------------------------- */
 
     return NextResponse.json({
       ok: true,
@@ -847,8 +1123,10 @@ export async function POST(
       accessCode:
         result.accessCode,
 
-      // Returned only once to the staff device.
-      // We do not store the raw token in the database.
+      /*
+       * Returned only to the staff device.
+       * The raw token is never stored in the database.
+       */
       accessToken:
         result.accessToken,
 
@@ -869,25 +1147,62 @@ export async function POST(
 
       packageBalance:
         result.packageBalance,
+
+      pricingSnapshot:
+        result.pricingSnapshot,
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Start customer session error:",
       error,
     );
 
+    if (
+      error instanceof
+      BookingError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     const message =
-      error instanceof Error
+      error instanceof
+      Error
         ? error.message
         : "Could not start customer session.";
 
     return NextResponse.json(
       {
-        error: message,
+        error:
+          message,
       },
       {
         status: 400,
       },
     );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* ERROR                                                                      */
+/* -------------------------------------------------------------------------- */
+
+class BookingError extends Error {
+  constructor(
+    message: string,
+  ) {
+    super(message);
+
+    this.name =
+      "BookingError";
   }
 }

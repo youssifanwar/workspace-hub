@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import CheckInModal from "./CheckInModal";
 
 export default function OpenSessionButton({
@@ -8,30 +10,35 @@ export default function OpenSessionButton({
 }: {
   currency: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  function openModal() {
+    setOpen(true);
+  }
+
+  function closeModal() {
+    setOpen(false);
+    router.refresh();
+  }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openModal}
         className="btn btn-primary"
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         + Open Session
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-[420px]">
-            <CheckInModal
-              currency={currency}
-              onClose={() => {
-                setOpen(false);
-                window.location.reload();
-              }}
-            />
-          </div>
-        </div>
+        <CheckInModal
+          currency={currency}
+          onClose={closeModal}
+        />
       )}
     </>
   );

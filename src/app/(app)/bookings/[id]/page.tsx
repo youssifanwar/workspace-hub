@@ -1,5 +1,4 @@
 import { db } from "@/db";
-
 import {
   bookings,
   customers,
@@ -10,24 +9,19 @@ import {
   customerSubscriptions,
   subscriptionUsageLedger,
 } from "@/db/schema";
-
 import {
   and,
   asc,
   eq,
   sql,
 } from "drizzle-orm";
-
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
-
 import {
   redirect,
   notFound,
 } from "next/navigation";
-
 import { getSetting } from "@/lib/settings";
-
 import BookingView from "./BookingView";
 
 export const dynamic = "force-dynamic";
@@ -38,10 +32,6 @@ export default async function BookingDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  /* ---------------------------------------------------------------------- */
-  /* AUTH                                                                   */
-  /* ---------------------------------------------------------------------- */
 
   const user = await getCurrentUser();
 
@@ -58,10 +48,6 @@ export default async function BookingDetail({
     redirect("/shift");
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* BOOKING ID                                                             */
-  /* ---------------------------------------------------------------------- */
-
   const bookingId = Number(id);
 
   if (
@@ -72,10 +58,6 @@ export default async function BookingDetail({
   ) {
     notFound();
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* BOOKING                                                                */
-  /* ---------------------------------------------------------------------- */
 
   const [row] = await db
     .select({
@@ -110,8 +92,6 @@ export default async function BookingDetail({
 
       discount:
         bookings.discount,
-
-      /* PACKAGE BILLING */
 
       billingMode:
         bookings.billingMode,
@@ -149,10 +129,6 @@ export default async function BookingDetail({
     notFound();
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* CLOSED BOOKING                                                         */
-  /* ---------------------------------------------------------------------- */
-
   if (
     row.status ===
     "closed"
@@ -161,10 +137,6 @@ export default async function BookingDetail({
       `/invoice/${bookingId}`,
     );
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* SUBSCRIPTION                                                            */
-  /* ---------------------------------------------------------------------- */
 
   let subscription:
     | {
@@ -230,13 +202,6 @@ export default async function BookingDetail({
       )
       .limit(1);
 
-    /*
-     * The condition above references customers.id in a
-     * query where customers is not part of FROM.
-     *
-     * Therefore, if no row is found, we'll load the
-     * subscription by ID below.
-     */
     if (subscriptionRow) {
       const [
         balanceRow,
@@ -296,11 +261,6 @@ export default async function BookingDetail({
       };
     }
   }
-
-  /*
-   * Safe fallback: if the customer restriction in the
-   * query above caused no result, fetch by subscription ID.
-   */
 
   if (
     row.billingMode ===
@@ -404,10 +364,6 @@ export default async function BookingDetail({
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* BOOKING ITEMS                                                          */
-  /* ---------------------------------------------------------------------- */
-
   const items = await db
     .select()
     .from(bookingItems)
@@ -423,10 +379,6 @@ export default async function BookingDetail({
       ),
     );
 
-  /* ---------------------------------------------------------------------- */
-  /* CATEGORIES                                                             */
-  /* ---------------------------------------------------------------------- */
-
   const cats = await db
     .select()
     .from(categories)
@@ -435,10 +387,6 @@ export default async function BookingDetail({
         categories.sortOrder,
       ),
     );
-
-  /* ---------------------------------------------------------------------- */
-  /* PRODUCTS                                                               */
-  /* ---------------------------------------------------------------------- */
 
   const prods = await db
     .select()
@@ -453,16 +401,38 @@ export default async function BookingDetail({
       asc(products.name),
     );
 
-  /* ---------------------------------------------------------------------- */
-  /* CURRENCY                                                               */
-  /* ---------------------------------------------------------------------- */
+  const [
+    currency,
+    oneHourSetting,
+    twoHoursSetting,
+    threeHoursSetting,
+    fourHoursSetting,
+    dayPassSetting,
+  ] = await Promise.all([
+    getSetting("currency"),
+    getSetting("customer_session_1h"),
+    getSetting("customer_session_2h"),
+    getSetting("customer_session_3h"),
+    getSetting("customer_session_4h"),
+    getSetting("customer_session_day_pass"),
+  ]);
 
-  const currency =
-    await getSetting("currency");
+  const sessionPricing = {
+    oneHour:
+      Number(oneHourSetting),
 
-  /* ---------------------------------------------------------------------- */
-  /* BOOKING VIEW                                                           */
-  /* ---------------------------------------------------------------------- */
+    twoHours:
+      Number(twoHoursSetting),
+
+    threeHours:
+      Number(threeHoursSetting),
+
+    fourHours:
+      Number(fourHoursSetting),
+
+    dayPass:
+      Number(dayPassSetting),
+  };
 
   return (
     <BookingView
@@ -590,6 +560,10 @@ export default async function BookingDetail({
 
       currency={
         currency
+      }
+
+      sessionPricing={
+        sessionPricing
       }
     />
   );

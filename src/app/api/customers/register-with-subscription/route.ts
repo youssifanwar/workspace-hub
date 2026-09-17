@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+
+import {
+  eq,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 
@@ -14,7 +18,8 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 type Body = {
   name?: string;
@@ -24,393 +29,802 @@ type Body = {
   note?: string | null;
 };
 
-function normalizePhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
+class ApiError extends Error {
+  status: number;
+
+  constructor(
+    message: string,
+    status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function normalizePhone(
+  value: string,
+): string {
+  const digits =
+    value.replace(
+      /\D/g,
+      "",
+    );
 
   if (!digits) {
     return "";
   }
 
-  if (digits.startsWith("0020")) {
+  if (
+    digits.startsWith(
+      "0020",
+    )
+  ) {
     return `20${digits.slice(4)}`;
   }
 
-  if (digits.startsWith("20")) {
+  if (
+    digits.startsWith(
+      "20",
+    )
+  ) {
     return digits;
   }
 
-  if (digits.startsWith("0")) {
+  if (
+    digits.startsWith("0")
+  ) {
     return `20${digits.slice(1)}`;
   }
 
   return digits;
 }
 
-function parseId(value: unknown): number | null {
-  const id = Number(value);
+function parseId(
+  value: unknown,
+): number | null {
+  const id =
+    Number(value);
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (
+    !Number.isSafeInteger(
+      id,
+    ) ||
+    id <= 0
+  ) {
     return null;
   }
 
   return id;
 }
 
-export async function POST(req: Request) {
+function normalizeEmail(
+  value: unknown,
+): string | null {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value !==
+    "string"
+  ) {
+    throw new ApiError(
+      "Invalid email address.",
+      400,
+    );
+  }
+
+  const email =
+    value.trim();
+
+  if (!email) {
+    return null;
+  }
+
+  if (
+    email.length >
+    320
+  ) {
+    throw new ApiError(
+      "Email address is too long.",
+      400,
+    );
+  }
+
+  const emailPattern =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (
+    !emailPattern.test(
+      email,
+    )
+  ) {
+    throw new ApiError(
+      "Invalid email address.",
+      400,
+    );
+  }
+
+  return email;
+}
+
+function normalizeNote(
+  value: unknown,
+): string | null {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value !==
+    "string"
+  ) {
+    throw new ApiError(
+      "Invalid note.",
+      400,
+    );
+  }
+
+  const note =
+    value.trim();
+
+  if (
+    note.length >
+    2000
+  ) {
+    throw new ApiError(
+      "Note is too long.",
+      400,
+    );
+  }
+
+  return note ||
+    null;
+}
+
+export async function POST(
+  req: Request,
+) {
   try {
     /* ---------------------------------------------------------------------- */
     /* AUTH                                                                   */
     /* ---------------------------------------------------------------------- */
 
-    const user = await getCurrentUser();
+    const user =
+      await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    /* ---------------------------------------------------------------------- */
-    /* SHIFT                                                                  */
-    /* ---------------------------------------------------------------------- */
-
-    const shift = await getActiveShiftForUser(user.id);
-
-    if (!shift) {
-      return NextResponse.json(
         {
           error:
-            "No active shift. Open a shift before registering a customer and selling a package.",
+            "Unauthorized",
         },
-        { status: 400 },
+        {
+          status: 401,
+        },
       );
     }
 
     /* ---------------------------------------------------------------------- */
-    /* BODY                                                                   */
+    /* ACTIVE SHIFT                                                           */
+    /* ---------------------------------------------------------------------- */
+
+    const shift =
+      await getActiveShiftForUser(
+        user.id,
+      );
+
+    if (!shift) {
+      throw new ApiError(
+        "No active shift. Open a shift before registering a customer and selling a package.",
+        400,
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* REQUEST BODY                                                            */
     /* ---------------------------------------------------------------------- */
 
     const body =
-      (await req.json().catch(() => null)) as Body | null;
+      (await req
+        .json()
+        .catch(
+          () => null,
+        )) as
+        | Body
+        | null;
 
     if (!body) {
-      return NextResponse.json(
-        { error: "Invalid request." },
-        { status: 400 },
+      throw new ApiError(
+        "Invalid request.",
+        400,
       );
     }
 
-    const name = body.name?.trim() || "";
-    const phone = body.phone?.trim() || "";
-    const email = body.email?.trim() || null;
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER NAME                                                          */
+    /* ---------------------------------------------------------------------- */
 
-    const packageId = parseId(body.packageId);
+    const name =
+      typeof body.name ===
+      "string"
+        ? body.name.trim()
+        : "";
 
     if (!name) {
-      return NextResponse.json(
-        { error: "Customer name is required." },
-        { status: 400 },
+      throw new ApiError(
+        "Customer name is required.",
+        400,
       );
     }
+
+    if (
+      name.length >
+      200
+    ) {
+      throw new ApiError(
+        "Customer name is too long.",
+        400,
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* PHONE                                                                  */
+    /* ---------------------------------------------------------------------- */
+
+    const phone =
+      typeof body.phone ===
+      "string"
+        ? body.phone.trim()
+        : "";
 
     if (!phone) {
-      return NextResponse.json(
-        { error: "Customer phone is required." },
-        { status: 400 },
+      throw new ApiError(
+        "Customer phone is required.",
+        400,
       );
     }
 
-    const phoneNormalized = normalizePhone(phone);
+    const phoneNormalized =
+      normalizePhone(
+        phone,
+      );
 
-    if (!phoneNormalized || phoneNormalized.length < 8) {
-      return NextResponse.json(
-        {
-          error: "A valid customer phone number is required.",
-        },
-        { status: 400 },
+    if (
+      !phoneNormalized ||
+      phoneNormalized.length <
+        8
+    ) {
+      throw new ApiError(
+        "A valid customer phone number is required.",
+        400,
       );
     }
+
+    if (
+      phoneNormalized.length >
+      20
+    ) {
+      throw new ApiError(
+        "Customer phone number is too long.",
+        400,
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* EMAIL                                                                  */
+    /* ---------------------------------------------------------------------- */
+
+    const email =
+      normalizeEmail(
+        body.email,
+      );
+
+    /* ---------------------------------------------------------------------- */
+    /* PACKAGE                                                                */
+    /* ---------------------------------------------------------------------- */
+
+    const packageId =
+      parseId(
+        body.packageId,
+      );
 
     if (!packageId) {
-      return NextResponse.json(
-        {
-          error: "A valid package ID is required.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        "A valid package ID is required.",
+        400,
       );
     }
 
     /* ---------------------------------------------------------------------- */
-    /* TRANSACTION                                                             */
+    /* NOTE                                                                   */
     /* ---------------------------------------------------------------------- */
 
-    const result = await db.transaction(async (tx) => {
-      /* -------------------------------------------------------------------- */
-      /* DUPLICATE CUSTOMER CHECK                                             */
-      /* -------------------------------------------------------------------- */
+    const note =
+      normalizeNote(
+        body.note,
+      );
 
-      const existingRows = await tx
-        .select({
-          id: customers.id,
-          name: customers.name,
-          phone: customers.phone,
-        })
-        .from(customers)
-        .where(
-          eq(
-            customers.phoneNormalized,
-            phoneNormalized,
-          ),
-        )
-        .limit(1);
+    /* ---------------------------------------------------------------------- */
+    /* TRANSACTION                                                            */
+    /* ---------------------------------------------------------------------- */
 
-      const existingCustomer = existingRows[0];
+    const result =
+      await db.transaction(
+        async (tx) => {
+          /* ---------------------------------------------------------------- */
+          /* PHONE LOCK                                                        */
+          /* ---------------------------------------------------------------- */
 
-      if (existingCustomer) {
-        throw new Error(
-          `A customer with this phone number already exists: ${existingCustomer.name} (#${existingCustomer.id}).`,
-        );
-      }
+          /*
+           * Serialize registrations for the same normalized phone number.
+           * This prevents two concurrent requests from both passing the
+           * "customer does not exist" check.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                hashtextextended(
+                  ${phoneNormalized},
+                  0
+                )
+              )
+            `,
+          );
 
-      /* -------------------------------------------------------------------- */
-      /* PACKAGE                                                              */
-      /* -------------------------------------------------------------------- */
+          /* ---------------------------------------------------------------- */
+          /* DUPLICATE CUSTOMER CHECK                                         */
+          /* ---------------------------------------------------------------- */
 
-      const packageRows = await tx
-        .select({
-          id: subscriptionPackages.id,
-          name: subscriptionPackages.name,
-          totalHours: subscriptionPackages.totalHours,
-          price: subscriptionPackages.price,
-          validityDays: subscriptionPackages.validityDays,
-          active: subscriptionPackages.active,
-        })
-        .from(subscriptionPackages)
-        .where(
-          eq(
-            subscriptionPackages.id,
-            packageId,
-          ),
-        )
-        .limit(1);
+          const existingRows =
+            await tx
+              .select({
+                id:
+                  customers.id,
 
-      const pkg = packageRows[0];
+                name:
+                  customers.name,
 
-      if (!pkg) {
-        throw new Error(
-          "Subscription package not found.",
-        );
-      }
+                phone:
+                  customers.phone,
+              })
+              .from(
+                customers,
+              )
+              .where(
+                eq(
+                  customers.phoneNormalized,
+                  phoneNormalized,
+                ),
+              )
+              .limit(1);
 
-      if (!pkg.active) {
-        throw new Error(
-          "This package is not available for new purchases.",
-        );
-      }
+          const existingCustomer =
+            existingRows[0];
 
-      /* -------------------------------------------------------------------- */
-      /* CREATE CUSTOMER                                                      */
-      /* -------------------------------------------------------------------- */
+          if (
+            existingCustomer
+          ) {
+            throw new ApiError(
+              `A customer with this phone number already exists: ${existingCustomer.name} (#${existingCustomer.id}).`,
+              409,
+            );
+          }
 
-      const customerInserted = await tx
-        .insert(customers)
-        .values({
-          name,
-          phone,
-          phoneNormalized,
-          email,
-        })
-        .returning({
-          id: customers.id,
-          name: customers.name,
-          phone: customers.phone,
-        });
+          /* ---------------------------------------------------------------- */
+          /* PACKAGE                                                           */
+          /* ---------------------------------------------------------------- */
 
-      const customer = customerInserted[0];
+          const packageRows =
+            await tx
+              .select({
+                id:
+                  subscriptionPackages.id,
 
-      if (!customer) {
-        throw new Error(
-          "Could not create customer.",
-        );
-      }
+                name:
+                  subscriptionPackages.name,
 
-      /* -------------------------------------------------------------------- */
-      /* DATES                                                                 */
-      /* -------------------------------------------------------------------- */
+                totalHours:
+                  subscriptionPackages.totalHours,
 
-      const now = new Date();
+                price:
+                  subscriptionPackages.price,
 
-      const expiresAt =
-        pkg.validityDays !== null &&
-        pkg.validityDays !== undefined
-          ? new Date(
-              now.getTime() +
-                pkg.validityDays *
-                  24 *
-                  60 *
-                  60 *
-                  1000,
+                validityDays:
+                  subscriptionPackages.validityDays,
+
+                active:
+                  subscriptionPackages.active,
+              })
+              .from(
+                subscriptionPackages,
+              )
+              .where(
+                eq(
+                  subscriptionPackages.id,
+                  packageId,
+                ),
+              )
+              .limit(1);
+
+          const pkg =
+            packageRows[0];
+
+          if (!pkg) {
+            throw new ApiError(
+              "Subscription package not found.",
+              404,
+            );
+          }
+
+          if (!pkg.active) {
+            throw new ApiError(
+              "This package is not available for new purchases.",
+              400,
+            );
+          }
+
+          /* ---------------------------------------------------------------- */
+          /* PACKAGE VALIDATION                                               */
+          /* ---------------------------------------------------------------- */
+
+          const totalHours =
+            Number(
+              pkg.totalHours,
+            );
+
+          const packagePrice =
+            Number(
+              pkg.price,
+            );
+
+          if (
+            !Number.isFinite(
+              totalHours,
+            ) ||
+            totalHours <=
+              0
+          ) {
+            throw new ApiError(
+              "Subscription package has an invalid number of hours.",
+              500,
+            );
+          }
+
+          if (
+            !Number.isFinite(
+              packagePrice,
+            ) ||
+            packagePrice < 0
+          ) {
+            throw new ApiError(
+              "Subscription package has an invalid price.",
+              500,
+            );
+          }
+
+          if (
+            pkg.validityDays !==
+              null &&
+            pkg.validityDays !==
+              undefined &&
+            (
+              !Number.isSafeInteger(
+                pkg.validityDays,
+              ) ||
+              pkg.validityDays <=
+                0
             )
-          : null;
+          ) {
+            throw new ApiError(
+              "Subscription package has an invalid validity period.",
+              500,
+            );
+          }
 
-      /* -------------------------------------------------------------------- */
-      /* CREATE SUBSCRIPTION                                                   */
-      /* -------------------------------------------------------------------- */
+          /* ---------------------------------------------------------------- */
+          /* CREATE CUSTOMER                                                  */
+          /* ---------------------------------------------------------------- */
 
-      const subscriptionInserted = await tx
-        .insert(customerSubscriptions)
-        .values({
-          customerId: customer.id,
-          packageId: pkg.id,
+          const customerInserted =
+            await tx
+              .insert(
+                customers,
+              )
+              .values({
+                name,
 
-          packageNameSnapshot: pkg.name,
+                phone,
 
-          totalHoursSnapshot:
-            Number(pkg.totalHours).toFixed(2),
+                phoneNormalized,
 
-          priceSnapshot:
-            Number(pkg.price).toFixed(2),
+                email,
+              })
+              .returning({
+                id:
+                  customers.id,
 
-          validityDaysSnapshot:
-            pkg.validityDays,
+                name:
+                  customers.name,
 
-          purchasedAt: now,
-          startsAt: now,
-          expiresAt,
+                phone:
+                  customers.phone,
+              });
 
-          status: "active",
+          const customer =
+            customerInserted[0];
 
-          note: body.note?.trim() || null,
+          if (!customer) {
+            throw new ApiError(
+              "Could not create customer.",
+              500,
+            );
+          }
 
-          createdByUserId: user.id,
-        })
-        .returning({
-          id: customerSubscriptions.id,
-        });
+          /* ---------------------------------------------------------------- */
+          /* DATES                                                            */
+          /* ---------------------------------------------------------------- */
 
-      const subscription = subscriptionInserted[0];
+          const now =
+            new Date();
 
-      if (!subscription) {
-        throw new Error(
-          "Could not create customer subscription.",
-        );
-      }
+          const expiresAt =
+            pkg.validityDays !==
+              null &&
+            pkg.validityDays !==
+              undefined
+              ? new Date(
+                  now.getTime() +
+                    pkg.validityDays *
+                      24 *
+                      60 *
+                      60 *
+                      1000,
+                )
+              : null;
 
-      /* -------------------------------------------------------------------- */
-      /* INITIAL HOURS CREDIT                                                  */
-      /* -------------------------------------------------------------------- */
+          /* ---------------------------------------------------------------- */
+          /* CREATE SUBSCRIPTION                                              */
+          /* ---------------------------------------------------------------- */
 
-      await tx
-        .insert(subscriptionUsageLedger)
-        .values({
-          subscriptionId: subscription.id,
+          const subscriptionInserted =
+            await tx
+              .insert(
+                customerSubscriptions,
+              )
+              .values({
+                customerId:
+                  customer.id,
 
-          bookingId: null,
+                packageId:
+                  pkg.id,
 
-          userId: user.id,
+                packageNameSnapshot:
+                  pkg.name,
 
-          entryType: "purchase",
+                totalHoursSnapshot:
+                  totalHours.toFixed(
+                    2,
+                  ),
 
-          hoursDelta:
-            Number(pkg.totalHours).toFixed(2),
+                priceSnapshot:
+                  packagePrice.toFixed(
+                    2,
+                  ),
 
-          reason:
-            `Purchased package "${pkg.name}" for new customer`,
+                validityDaysSnapshot:
+                  pkg.validityDays,
 
-          idempotencyKey:
-            `subscription_purchase_${subscription.id}`,
-        });
+                purchasedAt:
+                  now,
 
-      /* -------------------------------------------------------------------- */
-      /* AUDIT - CUSTOMER CREATED                                              */
-      /* -------------------------------------------------------------------- */
+                startsAt:
+                  now,
 
-      await tx
-        .insert(auditLogs)
-        .values({
-          userId: user.id,
+                expiresAt,
 
-          action: "customer_created",
+                status:
+                  "active",
 
-          entityType: "customer",
+                note,
 
-          entityId: customer.id,
+                createdByUserId:
+                  user.id,
+              })
+              .returning({
+                id:
+                  customerSubscriptions.id,
+              });
 
-          details: {
-            name: customer.name,
-            phone: customer.phone,
-            phoneNormalized,
-            createdWithPackage: true,
-            packageId: pkg.id,
-            packageName: pkg.name,
-          },
-        });
+          const subscription =
+            subscriptionInserted[0];
 
-      /* -------------------------------------------------------------------- */
-      /* AUDIT - SUBSCRIPTION PURCHASED                                        */
-      /* -------------------------------------------------------------------- */
+          if (!subscription) {
+            throw new ApiError(
+              "Could not create customer subscription.",
+              500,
+            );
+          }
 
-      await tx
-        .insert(auditLogs)
-        .values({
-          userId: user.id,
+          /* ---------------------------------------------------------------- */
+          /* INITIAL HOURS CREDIT                                             */
+          /* ---------------------------------------------------------------- */
 
-          action: "subscription_purchased",
+          await tx
+            .insert(
+              subscriptionUsageLedger,
+            )
+            .values({
+              subscriptionId:
+                subscription.id,
 
-          entityType: "customer_subscription",
+              bookingId:
+                null,
 
-          entityId: subscription.id,
+              userId:
+                user.id,
 
-          details: {
-            customerId: customer.id,
-            customerName: customer.name,
+              entryType:
+                "purchase",
 
-            packageId: pkg.id,
-            packageName: pkg.name,
+              hoursDelta:
+                totalHours.toFixed(
+                  2,
+                ),
 
-            totalHours:
-              Number(pkg.totalHours),
+              reason:
+                `Purchased package "${pkg.name}" for new customer`,
+
+              idempotencyKey:
+                `subscription_purchase_${subscription.id}`,
+            });
+
+          /* ---------------------------------------------------------------- */
+          /* AUDIT - CUSTOMER                                                 */
+          /* ---------------------------------------------------------------- */
+
+          await tx
+            .insert(
+              auditLogs,
+            )
+            .values({
+              userId:
+                user.id,
+
+              action:
+                "customer_created",
+
+              entityType:
+                "customer",
+
+              entityId:
+                customer.id,
+
+              details: {
+                name:
+                  customer.name,
+
+                phone:
+                  customer.phone,
+
+                phoneNormalized,
+
+                email,
+
+                createdWithPackage:
+                  true,
+
+                packageId:
+                  pkg.id,
+
+                packageName:
+                  pkg.name,
+
+                shiftId:
+                  shift.id,
+              },
+            });
+
+          /* ---------------------------------------------------------------- */
+          /* AUDIT - SUBSCRIPTION                                             */
+          /* ---------------------------------------------------------------- */
+
+          await tx
+            .insert(
+              auditLogs,
+            )
+            .values({
+              userId:
+                user.id,
+
+              action:
+                "subscription_purchased",
+
+              entityType:
+                "customer_subscription",
+
+              entityId:
+                subscription.id,
+
+              details: {
+                customerId:
+                  customer.id,
+
+                customerName:
+                  customer.name,
+
+                packageId:
+                  pkg.id,
+
+                packageName:
+                  pkg.name,
+
+                totalHours,
+
+                price:
+                  packagePrice,
+
+                validityDays:
+                  pkg.validityDays,
+
+                expiresAt:
+                  expiresAt
+                    ? expiresAt.toISOString()
+                    : null,
+
+                newCustomer:
+                  true,
+
+                shiftId:
+                  shift.id,
+              },
+            });
+
+          /* ---------------------------------------------------------------- */
+          /* RESULT                                                           */
+          /* ---------------------------------------------------------------- */
+
+          return {
+            customerId:
+              customer.id,
+
+            customerName:
+              customer.name,
+
+            customerPhone:
+              customer.phone,
+
+            subscriptionId:
+              subscription.id,
+
+            packageId:
+              pkg.id,
+
+            packageName:
+              pkg.name,
+
+            totalHours,
 
             price:
-              Number(pkg.price),
+              packagePrice,
 
             validityDays:
               pkg.validityDays,
 
-            expiresAt:
-              expiresAt
-                ? expiresAt.toISOString()
-                : null,
+            startsAt:
+              now,
 
-            newCustomer: true,
-          },
-        });
-
-      return {
-        customerId: customer.id,
-        customerName: customer.name,
-        customerPhone: customer.phone,
-
-        subscriptionId:
-          subscription.id,
-
-        packageId: pkg.id,
-        packageName: pkg.name,
-
-        totalHours:
-          Number(pkg.totalHours),
-
-        price:
-          Number(pkg.price),
-
-        validityDays:
-          pkg.validityDays,
-
-        startsAt: now,
-        expiresAt,
-      };
-    });
+            expiresAt,
+          };
+        },
+      );
 
     /* ---------------------------------------------------------------------- */
     /* RESPONSE                                                               */
@@ -421,13 +835,19 @@ export async function POST(req: Request) {
         ok: true,
 
         customer: {
-          id: result.customerId,
-          name: result.customerName,
-          phone: result.customerPhone,
+          id:
+            result.customerId,
+
+          name:
+            result.customerName,
+
+          phone:
+            result.customerPhone,
         },
 
         subscription: {
-          id: result.subscriptionId,
+          id:
+            result.subscriptionId,
 
           packageId:
             result.packageId,
@@ -447,7 +867,8 @@ export async function POST(req: Request) {
           validityDays:
             result.validityDays,
 
-          status: "active",
+          status:
+            "active",
 
           startsAt:
             result.startsAt.toISOString(),
@@ -468,15 +889,29 @@ export async function POST(req: Request) {
       error,
     );
 
+    if (
+      error instanceof
+      ApiError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status:
+            error.status,
+        },
+      );
+    }
+
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not register customer with package.",
+          "Could not register customer with package.",
       },
       {
-        status: 400,
+        status: 500,
       },
     );
   }

@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, sql } from "drizzle-orm";
+
+import {
+  and,
+  desc,
+  eq,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
+
 import {
   bookings,
   customerSubscriptions,
@@ -11,11 +18,12 @@ import {
 
 import { getCurrentUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
-// ============================================================================
-// PHONE NORMALIZATION
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* PHONE NORMALIZATION                                                        */
+/* -------------------------------------------------------------------------- */
 
 function normalizePhone(
   value: string,
@@ -30,7 +38,6 @@ function normalizePhone(
     return "";
   }
 
-  // 0020XXXXXXXXXX -> 20XXXXXXXXXX
   if (
     digits.startsWith(
       "0020",
@@ -41,16 +48,18 @@ function normalizePhone(
     )}`;
   }
 
-  // 20XXXXXXXXXX -> already normalized
   if (
-    digits.startsWith("20")
+    digits.startsWith(
+      "20",
+    )
   ) {
     return digits;
   }
 
-  // 0XXXXXXXXXX -> 20XXXXXXXXXX
   if (
-    digits.startsWith("0")
+    digits.startsWith(
+      "0",
+    )
   ) {
     return `20${digits.slice(
       1,
@@ -60,29 +69,72 @@ function normalizePhone(
   return digits;
 }
 
-// ============================================================================
-// DATE SERIALIZATION
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* DATE SERIALIZATION                                                         */
+/* -------------------------------------------------------------------------- */
 
 function toIso(
-  value: Date | null | undefined,
-) {
-  return value
-    ? value.toISOString()
-    : null;
+  value:
+    | Date
+    | null
+    | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(
+          value,
+        );
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return null;
+  }
+
+  return date.toISOString();
 }
 
-// ============================================================================
-// GET CUSTOMER BY PHONE
-// ============================================================================
+/* -------------------------------------------------------------------------- */
+/* SAFE NUMBER                                                                */
+/* -------------------------------------------------------------------------- */
+
+function toSafeNumber(
+  value: unknown,
+): number {
+  const number =
+    Number(
+      value ?? 0,
+    );
+
+  if (
+    !Number.isFinite(
+      number,
+    )
+  ) {
+    return 0;
+  }
+
+  return number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* GET CUSTOMER BY PHONE                                                      */
+/* -------------------------------------------------------------------------- */
 
 export async function GET(
   req: Request,
 ) {
   try {
-    // ------------------------------------------------------------------------
-    // AUTH
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* AUTH                                                                   */
+    /* ---------------------------------------------------------------------- */
 
     const user =
       await getCurrentUser();
@@ -99,51 +151,85 @@ export async function GET(
       );
     }
 
-    // ------------------------------------------------------------------------
-    // READ PHONE
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* READ PHONE                                                             */
+    /* ---------------------------------------------------------------------- */
 
     const url =
-      new URL(req.url);
+      new URL(
+        req.url,
+      );
 
     const phone =
-      url.searchParams.get(
-        "phone",
-      )?.trim() || "";
+      url.searchParams
+        .get(
+          "phone",
+        )
+        ?.trim() ?? "";
+
+    if (!phone) {
+      return NextResponse.json({
+        found: false,
+      });
+    }
 
     const phoneNormalized =
-      normalizePhone(phone);
+      normalizePhone(
+        phone,
+      );
 
     if (
       phoneNormalized.length <
       8
     ) {
+      return NextResponse.json({
+        found: false,
+      });
+    }
+
+    if (
+      phoneNormalized.length >
+      20
+    ) {
       return NextResponse.json(
         {
-          found: false,
+          error:
+            "Invalid phone number.",
         },
         {
-          status: 200,
+          status: 400,
         },
       );
     }
 
-    // ------------------------------------------------------------------------
-    // CUSTOMER
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER                                                               */
+    /* ---------------------------------------------------------------------- */
 
     const customerRows =
       await db
         .select({
-          id: customers.id,
-          name: customers.name,
-          phone: customers.phone,
-          email: customers.email,
-          notes: customers.notes,
+          id:
+            customers.id,
+
+          name:
+            customers.name,
+
+          phone:
+            customers.phone,
+
+          email:
+            customers.email,
+
+          notes:
+            customers.notes,
+
           createdAt:
             customers.createdAt,
         })
-        .from(customers)
+        .from(
+          customers,
+        )
         .where(
           eq(
             customers.phoneNormalized,
@@ -155,28 +241,19 @@ export async function GET(
     const customer =
       customerRows[0];
 
-    // ------------------------------------------------------------------------
-    // CUSTOMER NOT FOUND
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER NOT FOUND                                                     */
+    /* ---------------------------------------------------------------------- */
 
     if (!customer) {
-      return NextResponse.json(
-        {
-          found: false,
-        },
-        {
-          status: 200,
-        },
-      );
+      return NextResponse.json({
+        found: false,
+      });
     }
 
-    // ------------------------------------------------------------------------
-    // CUSTOMER STATS
-    //
-    // Visits = all sessions for this customer.
-    // Hours = actual session duration where possible.
-    // Spent = closed-session totals.
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER STATS                                                         */
+    /* ---------------------------------------------------------------------- */
 
     const statsRows =
       await db
@@ -211,25 +288,39 @@ export async function GET(
                 SUM(
                   CASE
                     WHEN ${bookings.checkedOutAt} IS NOT NULL
-                    THEN EXTRACT(
-                      EPOCH FROM (
-                        ${bookings.checkedOutAt} -
-                        ${bookings.checkedInAt}
-                      )
-                    ) / 3600
-                    ELSE EXTRACT(
-                      EPOCH FROM (
-                        NOW() -
-                        ${bookings.checkedInAt}
-                      )
-                    ) / 3600
+                    THEN GREATEST(
+                      0,
+                      EXTRACT(
+                        EPOCH FROM (
+                          ${bookings.checkedOutAt}
+                          -
+                          ${bookings.checkedInAt}
+                        )
+                      ) / 3600
+                    )
+
+                    WHEN ${bookings.checkedInAt} IS NOT NULL
+                    THEN GREATEST(
+                      0,
+                      EXTRACT(
+                        EPOCH FROM (
+                          NOW()
+                          -
+                          ${bookings.checkedInAt}
+                        )
+                      ) / 3600
+                    )
+
+                    ELSE 0
                   END
                 ),
                 0
               )
             `,
         })
-        .from(bookings)
+        .from(
+          bookings,
+        )
         .where(
           eq(
             bookings.customerId,
@@ -240,14 +331,9 @@ export async function GET(
     const stats =
       statsRows[0];
 
-    // ------------------------------------------------------------------------
-    // ACTIVE SUBSCRIPTIONS
-    // ------------------------------------------------------------------------
-    //
-    // IMPORTANT:
-    // We calculate remaining hours from the ledger instead of trusting a
-    // manually updated "remaining" number.
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* SUBSCRIPTIONS                                                          */
+    /* ---------------------------------------------------------------------- */
 
     const subscriptionsRows =
       await db
@@ -273,14 +359,21 @@ export async function GET(
           status:
             customerSubscriptions.status,
 
+          purchasedAt:
+            customerSubscriptions.purchasedAt,
+
           usedHours:
             sql<string>`
               COALESCE(
                 -SUM(
                   CASE
-                    WHEN ${subscriptionUsageLedger.hoursDelta} < 0
-                    THEN ${subscriptionUsageLedger.hoursDelta}
-                    ELSE 0
+                    WHEN
+                      ${subscriptionUsageLedger.hoursDelta}
+                      < 0
+                    THEN
+                      ${subscriptionUsageLedger.hoursDelta}
+                    ELSE
+                      0
                   END
                 ),
                 0
@@ -315,12 +408,20 @@ export async function GET(
         )
         .groupBy(
           customerSubscriptions.id,
+
           customerSubscriptions.packageNameSnapshot,
+
           customerSubscriptions.totalHoursSnapshot,
+
           customerSubscriptions.priceSnapshot,
+
           customerSubscriptions.startsAt,
+
           customerSubscriptions.expiresAt,
+
           customerSubscriptions.status,
+
+          customerSubscriptions.purchasedAt,
         )
         .orderBy(
           desc(
@@ -328,35 +429,39 @@ export async function GET(
           ),
         );
 
-    // ------------------------------------------------------------------------
-    // NORMALIZE SUBSCRIPTIONS
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* NORMALIZE SUBSCRIPTIONS                                                */
+    /* ---------------------------------------------------------------------- */
 
     const now =
       new Date();
 
     const subscriptions =
       subscriptionsRows.map(
-        (subscription) => {
+        (
+          subscription,
+        ) => {
           const ledgerBalance =
-            Number(
-              subscription.balance ??
-                "0",
+            toSafeNumber(
+              subscription.balance,
             );
 
           const usedHours =
-            Number(
-              subscription.usedHours ??
-                "0",
+            Math.max(
+              0,
+              toSafeNumber(
+                subscription.usedHours,
+              ),
             );
 
           const totalHours =
-            Number(
-              subscription.totalHours ??
-                "0",
+            Math.max(
+              0,
+              toSafeNumber(
+                subscription.totalHours,
+              ),
             );
 
-          // Never expose a negative remaining balance.
           const remainingHours =
             Math.max(
               0,
@@ -366,18 +471,21 @@ export async function GET(
           let status =
             subscription.status;
 
-          // ------------------------------------------------------------------
-          // Derived expiration status.
-          //
-          // We do not mutate the DB here.
-          // The actual subscription status can be updated by the subscription
-          // management API later.
-          // ------------------------------------------------------------------
+          /* ---------------------------------------------------------------- */
+          /* DERIVED STATUS                                                    */
+          /* ---------------------------------------------------------------- */
 
           if (
-            status === "active"
+            status ===
+            "active"
           ) {
             if (
+              subscription.startsAt >
+              now
+            ) {
+              status =
+                "active";
+            } else if (
               subscription.expiresAt &&
               subscription.expiresAt <=
                 now
@@ -392,6 +500,10 @@ export async function GET(
                 "exhausted";
             }
           }
+
+          /* ---------------------------------------------------------------- */
+          /* RESPONSE                                                          */
+          /* ---------------------------------------------------------------- */
 
           return {
             id:
@@ -416,10 +528,11 @@ export async function GET(
               ),
 
             price:
-              Number(
-                subscription.price ??
-                  "0",
-              ).toFixed(2),
+              toSafeNumber(
+                subscription.price,
+              ).toFixed(
+                2,
+              ),
 
             startsAt:
               toIso(
@@ -441,12 +554,13 @@ export async function GET(
         },
       );
 
-    // ------------------------------------------------------------------------
-    // RESPONSE
-    // ------------------------------------------------------------------------
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSE                                                               */
+    /* ---------------------------------------------------------------------- */
 
     return NextResponse.json({
-      found: true,
+      found:
+        true,
 
       customer: {
         id:
@@ -472,21 +586,29 @@ export async function GET(
 
       stats: {
         visits:
-          Number(
-            stats?.visits ??
-              0,
+          Math.max(
+            0,
+            Math.trunc(
+              toSafeNumber(
+                stats?.visits,
+              ),
+            ),
           ),
 
         totalHours:
-          Number(
-            stats?.totalHours ??
-              0,
+          Math.max(
+            0,
+            toSafeNumber(
+              stats?.totalHours,
+            ),
           ),
 
         totalSpent:
-          Number(
-            stats?.totalSpent ??
-              0,
+          Math.max(
+            0,
+            toSafeNumber(
+              stats?.totalSpent,
+            ),
           ),
       },
 
@@ -501,9 +623,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not search for customer.",
+          "Could not search for customer.",
       },
       {
         status: 500,

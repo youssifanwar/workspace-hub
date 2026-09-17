@@ -1,27 +1,53 @@
-import { db } from "@/db";
-import {
-  bookings,
-  bookingItems,
-  expenses,
-  bankTransactions,
-  customers,
-} from "@/db/schema";
-import {
-  sql,
-  eq,
-  and,
-  gte,
-  desc,
-} from "drizzle-orm";
-import { getCurrentUser } from "@/lib/auth";
-import {
-  getSetting,
-  formatMoney,
-} from "@/lib/settings";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
+
+import { db } from "@/db";
+import {
+  bankTransactions,
+  bookings,
+  customers,
+  expenses,
+} from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  calculateCustomerSessionSeatCharge,
+  formatMoney,
+  getCustomerSessionPricing,
+  getSetting,
+} from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+
+type PaymentBreakdownRow = {
+  method: string | null;
+  total: string | null;
+};
+
+type ActiveSessionRow = {
+  id: number;
+  customerName: string;
+  customerPhone: string | null;
+  accessCode: string | null;
+  checkedInAt: Date;
+  hourlyRate: string | null;
+  ordersTotal: string | null;
+  discount: string | null;
+  billingMode: string | null;
+};
+
+function safeNumber(value: string | number | null | undefined): number {
+  const parsed =
+    typeof value === "number" ? value : Number.parseFloat(value ?? "0");
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getTodayStart() {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  return startOfDay;
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -30,10 +56,12 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const currency = await getSetting("currency");
+  const [currency, sessionPricing] = await Promise.all([
+    getSetting("currency"),
+    getCustomerSessionPricing(),
+  ]);
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getTodayStart();
 
   const [
     todayRevenueRow,
@@ -57,10 +85,7 @@ export default async function DashboardPage() {
       .where(
         and(
           eq(bookings.status, "closed"),
-          gte(
-            bookings.checkedOutAt,
-            startOfDay,
-          ),
+          gte(bookings.checkedOutAt, startOfDay),
         ),
       ),
 
@@ -75,10 +100,7 @@ export default async function DashboardPage() {
       .where(
         and(
           eq(bookings.status, "closed"),
-          gte(
-            bookings.checkedOutAt,
-            startOfDay,
-          ),
+          gte(bookings.checkedOutAt, startOfDay),
         ),
       ),
 
@@ -93,10 +115,7 @@ export default async function DashboardPage() {
       .where(
         and(
           eq(bookings.status, "closed"),
-          gte(
-            bookings.checkedOutAt,
-            startOfDay,
-          ),
+          gte(bookings.checkedOutAt, startOfDay),
         ),
       ),
 
@@ -108,14 +127,9 @@ export default async function DashboardPage() {
         `,
       })
       .from(expenses)
-      .where(
-        gte(
-          expenses.createdAt,
-          startOfDay,
-        ),
-      ),
+      .where(gte(expenses.createdAt, startOfDay)),
 
-    // TODAY'S BANK
+    // TODAY'S BANK MOVEMENT
     db
       .select({
         deposits: sql<string>`
@@ -144,14 +158,9 @@ export default async function DashboardPage() {
         `,
       })
       .from(bankTransactions)
-      .where(
-        gte(
-          bankTransactions.createdAt,
-          startOfDay,
-        ),
-      ),
+      .where(gte(bankTransactions.createdAt, startOfDay)),
 
-    // CUSTOMERS
+    // TOTAL CUSTOMERS
     db
       .select({
         c: sql<number>`count(*)::int`,
@@ -169,24 +178,15 @@ export default async function DashboardPage() {
         hourlyRate: bookings.hourlyRateSnapshot,
         ordersTotal: bookings.ordersTotal,
         discount: bookings.discount,
+        billingMode: bookings.billingMode,
       })
       .from(bookings)
       .innerJoin(
         customers,
-        eq(
-          customers.id,
-          bookings.customerId,
-        ),
+        eq(customers.id, bookings.customerId),
       )
-      .where(
-        eq(
-          bookings.status,
-          "active",
-        ),
-      )
-      .orderBy(
-        bookings.checkedInAt,
-      ),
+      .where(eq(bookings.status, "active"))
+      .orderBy(bookings.checkedInAt),
 
     // RECENT CLOSED SESSIONS
     db
@@ -194,170 +194,95 @@ export default async function DashboardPage() {
         id: bookings.id,
         customerName: customers.name,
         total: bookings.total,
-        paymentMethod:
-          bookings.paymentMethod,
-        checkedOutAt:
-          bookings.checkedOutAt,
+        paymentMethod: bookings.paymentMethod,
+        checkedOutAt: bookings.checkedOutAt,
       })
       .from(bookings)
       .innerJoin(
         customers,
-        eq(
-          customers.id,
-          bookings.customerId,
-        ),
+        eq(customers.id, bookings.customerId),
       )
-      .where(
-        eq(
-          bookings.status,
-          "closed",
-        ),
-      )
-      .orderBy(
-        desc(bookings.checkedOutAt),
-      )
+      .where(eq(bookings.status, "closed"))
+      .orderBy(desc(bookings.checkedOutAt))
       .limit(6),
 
     // PAYMENTS TODAY
     db
       .select({
-        method:
-          bookings.paymentMethod,
+        method: bookings.paymentMethod,
         total: sql<string>`
-          coalesce(
-            sum(${bookings.total}),
-            0
-          )
+          coalesce(sum(${bookings.total}), 0)
         `,
       })
       .from(bookings)
       .where(
         and(
           eq(bookings.status, "closed"),
-          gte(
-            bookings.checkedOutAt,
-            startOfDay,
-          ),
+          gte(bookings.checkedOutAt, startOfDay),
         ),
       )
-      .groupBy(
-        bookings.paymentMethod,
-      ),
+      .groupBy(bookings.paymentMethod),
   ]);
 
-  const todayRevenue =
-    parseFloat(
-      todayRevenueRow[0]?.total ||
-        "0",
-    );
+  const todayRevenue = safeNumber(todayRevenueRow[0]?.total);
+  const todayOrders = safeNumber(todayOrdersRow[0]?.total);
+  const todaySeat = safeNumber(todaySeatRow[0]?.total);
+  const todayExpenses = safeNumber(todayExpensesRow[0]?.total);
 
-  const todayOrders =
-    parseFloat(
-      todayOrdersRow[0]?.total ||
-        "0",
-    );
+  const bankDeposits = safeNumber(todayBankRow[0]?.deposits);
+  const bankWithdrawals = safeNumber(todayBankRow[0]?.withdrawals);
 
-  const todaySeat =
-    parseFloat(
-      todaySeatRow[0]?.total ||
-        "0",
-    );
-
-  const todayExpenses =
-    parseFloat(
-      todayExpensesRow[0]?.total ||
-        "0",
-    );
-
-  const bankDeposits =
-    parseFloat(
-      todayBankRow[0]?.deposits ||
-        "0",
-    );
-
-  const bankWithdrawals =
-    parseFloat(
-      todayBankRow[0]?.withdrawals ||
-        "0",
-    );
-
-  const netRevenue =
-    todayRevenue -
-    todayExpenses;
-
-  const activeCount =
-    activeSessionsRows.length;
+  const netRevenue = todayRevenue - todayExpenses;
+  const activeCount = activeSessionsRows.length;
+  const totalCustomers = Number(customersCount[0]?.c ?? 0);
 
   const kpis = [
     {
       label: "Today's Revenue",
-      value: formatMoney(
-        todayRevenue,
-        currency,
-      ),
+      value: formatMoney(todayRevenue, currency),
       icon: "💰",
-      grad:
-        "from-emerald-500 to-teal-500",
+      grad: "from-emerald-500 to-teal-500",
     },
     {
       label: "Seat Charges",
-      value: formatMoney(
-        todaySeat,
-        currency,
-      ),
+      value: formatMoney(todaySeat, currency),
       icon: "⏱️",
-      grad:
-        "from-indigo-500 to-purple-500",
+      grad: "from-indigo-500 to-purple-500",
     },
     {
       label: "F&B Sales",
-      value: formatMoney(
-        todayOrders,
-        currency,
-      ),
+      value: formatMoney(todayOrders, currency),
       icon: "🍔",
-      grad:
-        "from-orange-500 to-pink-500",
+      grad: "from-orange-500 to-pink-500",
     },
     {
       label: "Expenses",
-      value: formatMoney(
-        todayExpenses,
-        currency,
-      ),
+      value: formatMoney(todayExpenses, currency),
       icon: "💸",
-      grad:
-        "from-rose-500 to-red-500",
+      grad: "from-rose-500 to-red-500",
     },
     {
       label: "Net Profit",
-      value: formatMoney(
-        netRevenue,
-        currency,
-      ),
+      value: formatMoney(netRevenue, currency),
       icon: "📈",
-      grad:
-        "from-cyan-500 to-blue-500",
+      grad: "from-cyan-500 to-blue-500",
     },
     {
       label: "Active Sessions",
       value: `${activeCount}`,
       icon: "👤",
-      grad:
-        "from-fuchsia-500 to-pink-500",
+      grad: "from-fuchsia-500 to-pink-500",
     },
     {
       label: "Customers",
-      value: `${customersCount[0]?.c || 0}`,
+      value: `${totalCustomers}`,
       icon: "👥",
-      grad:
-        "from-slate-700 to-slate-500",
+      grad: "from-slate-700 to-slate-500",
     },
     {
       label: "Bank Δ Today",
       value: formatMoney(
-        bankDeposits -
-          bankWithdrawals,
+        bankDeposits - bankWithdrawals,
         currency,
       ),
       sub: `+${formatMoney(
@@ -368,14 +293,12 @@ export default async function DashboardPage() {
         currency,
       )}`,
       icon: "🏦",
-      grad:
-        "from-amber-500 to-orange-500",
+      grad: "from-amber-500 to-orange-500",
     },
   ];
 
   return (
     <div className="space-y-6">
-
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
@@ -385,12 +308,7 @@ export default async function DashboardPage() {
 
           <p className="text-slate-500">
             Welcome back,{" "}
-            {
-              user.fullName.split(
-                " ",
-              )[0]
-            }{" "}
-            👋
+            {user.fullName.trim().split(/\s+/)[0] || user.fullName} 👋
           </p>
         </div>
 
@@ -406,30 +324,30 @@ export default async function DashboardPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {kpis.map((k) => (
+        {kpis.map((kpi) => (
           <div
-            key={k.label}
-            className={`kpi bg-gradient-to-br ${k.grad}`}
+            key={kpi.label}
+            className={`kpi bg-gradient-to-br ${kpi.grad}`}
           >
             <div className="flex items-start justify-between relative z-10">
               <div>
                 <div className="text-xs uppercase tracking-wider text-white/80 font-semibold">
-                  {k.label}
+                  {kpi.label}
                 </div>
 
                 <div className="text-2xl font-bold mt-2 tabular-nums">
-                  {k.value}
+                  {kpi.value}
                 </div>
 
-                {k.sub && (
+                {kpi.sub && (
                   <div className="text-[11px] mt-1 text-white/85">
-                    {k.sub}
+                    {kpi.sub}
                   </div>
                 )}
               </div>
 
               <div className="text-3xl relative z-10">
-                {k.icon}
+                {kpi.icon}
               </div>
             </div>
           </div>
@@ -438,7 +356,6 @@ export default async function DashboardPage() {
 
       {/* ACTIVE SESSIONS + PAYMENTS */}
       <div className="grid lg:grid-cols-3 gap-6">
-
         {/* ACTIVE SESSIONS */}
         <div className="card p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
@@ -464,58 +381,53 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="divide-soft">
-              {activeSessionsRows.map(
+              {(activeSessionsRows as ActiveSessionRow[]).map(
                 (session) => {
-                  const startedAt =
-                    new Date(
-                      session.checkedInAt,
-                    ).getTime();
+                  const startedAt = new Date(
+                    session.checkedInAt,
+                  ).getTime();
 
-                  const elapsedMs =
-                    Math.max(
-                      0,
-                      Date.now() -
-                        startedAt,
-                    );
+                  const elapsedMs = Math.max(
+                    0,
+                    Date.now() - startedAt,
+                  );
 
                   const elapsedHours =
-                    elapsedMs /
-                    3_600_000;
+                    elapsedMs / 3_600_000;
 
-                  const billableHours =
-                    Math.max(
-                      1,
-                      Math.ceil(
-                        elapsedHours,
-                      ),
-                    );
+                  const isPackage =
+                    session.billingMode === "package";
 
-                  const hourlyRate =
-                    parseFloat(
-                      session.hourlyRate ||
-                        "0",
-                    );
+                  /*
+                   * Customer Session billing:
+                   * - Package => seat charge = 0
+                   * - Regular => 1h 40, 2h 70, 3h 100,
+                   *   4h 130, >4h Day Pass 150
+                   *
+                   * This keeps the dashboard aligned with
+                   * the server-side customer session pricing.
+                   */
+                  const seatCharge = isPackage
+                    ? 0
+                    : calculateCustomerSessionSeatCharge(
+                        Math.max(1, Math.ceil(elapsedHours)),
+                        sessionPricing,
+                      );
 
-                  const ordersTotal =
-                    parseFloat(
-                      session.ordersTotal ||
-                        "0",
-                    );
+                  const ordersTotal = safeNumber(
+                    session.ordersTotal,
+                  );
 
-                  const discount =
-                    parseFloat(
-                      session.discount ||
-                        "0",
-                    );
+                  const discount = safeNumber(
+                    session.discount,
+                  );
 
-                  const currentTotal =
-                    Math.max(
-                      0,
-                      billableHours *
-                        hourlyRate +
-                        ordersTotal -
-                        discount,
-                    );
+                  const currentTotal = Math.max(
+                    0,
+                    seatCharge +
+                      ordersTotal -
+                      discount,
+                  );
 
                   return (
                     <Link
@@ -535,8 +447,7 @@ export default async function DashboardPage() {
                         </div>
 
                         <div className="text-xs text-slate-500">
-                          Session #
-                          {session.id}
+                          Session #{session.id}
                           {" · "}
                           started{" "}
                           {new Date(
@@ -571,28 +482,32 @@ export default async function DashboardPage() {
             Payments Today
           </h2>
 
-          {paymentBreakdown.length ===
-          0 ? (
+          {paymentBreakdown.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">
               No payments yet
             </div>
           ) : (
             <div className="space-y-3">
-              {paymentBreakdown.map(
-                (p) => {
+              {(paymentBreakdown as PaymentBreakdownRow[]).map(
+                (payment) => {
                   const label =
-                    p.method === "cash"
+                    payment.method === "cash"
                       ? "💵 Cash"
-                      : p.method === "visa"
-                      ? "💳 Visa"
-                      : "📱 InstaPay";
+                      : payment.method === "visa"
+                        ? "💳 Visa"
+                        : payment.method === "instapay"
+                          ? "📱 InstaPay"
+                          : payment.method === "bank"
+                            ? "🏦 Bank"
+                            : payment.method === "card"
+                              ? "💳 Card"
+                              : payment.method
+                                ? payment.method
+                                : "Unknown";
 
                   return (
                     <div
-                      key={
-                        p.method ||
-                        "unknown"
-                      }
+                      key={payment.method ?? "unknown"}
                       className="flex items-center justify-between p-3 rounded-xl bg-slate-50"
                     >
                       <div className="text-sm font-semibold">
@@ -601,10 +516,7 @@ export default async function DashboardPage() {
 
                       <div className="font-bold text-slate-800 tabular-nums">
                         {formatMoney(
-                          parseFloat(
-                            p.total ||
-                              "0",
-                          ),
+                          safeNumber(payment.total),
                           currency,
                         )}
                       </div>
@@ -623,8 +535,7 @@ export default async function DashboardPage() {
           Recent Closed Sessions
         </h2>
 
-        {recentSessions.length ===
-        0 ? (
+        {recentSessions.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             No closed sessions yet
           </div>
@@ -656,45 +567,39 @@ export default async function DashboardPage() {
               </thead>
 
               <tbody>
-                {recentSessions.map(
-                  (session) => (
-                    <tr
-                      key={session.id}
-                      className="border-t border-slate-100"
-                    >
-                      <td className="py-3 px-2 font-semibold">
-                        {session.customerName}
-                      </td>
+                {recentSessions.map((session) => (
+                  <tr
+                    key={session.id}
+                    className="border-t border-slate-100"
+                  >
+                    <td className="py-3 px-2 font-semibold">
+                      {session.customerName}
+                    </td>
 
-                      <td className="py-3 px-2">
-                        #{session.id}
-                      </td>
+                    <td className="py-3 px-2">
+                      #{session.id}
+                    </td>
 
-                      <td className="py-3 px-2 capitalize">
-                        {session.paymentMethod ||
-                          "-"}
-                      </td>
+                    <td className="py-3 px-2 capitalize">
+                      {session.paymentMethod || "-"}
+                    </td>
 
-                      <td className="py-3 px-2 text-slate-500">
-                        {session.checkedOutAt
-                          ? new Date(
-                              session.checkedOutAt,
-                            ).toLocaleString()
-                          : "-"}
-                      </td>
+                    <td className="py-3 px-2 text-slate-500">
+                      {session.checkedOutAt
+                        ? new Date(
+                            session.checkedOutAt,
+                          ).toLocaleString()
+                        : "-"}
+                    </td>
 
-                      <td className="py-3 px-2 text-right font-bold tabular-nums">
-                        {formatMoney(
-                          parseFloat(
-                            session.total ||
-                              "0",
-                          ),
-                          currency,
-                        )}
-                      </td>
-                    </tr>
-                  ),
-                )}
+                    <td className="py-3 px-2 text-right font-bold tabular-nums">
+                      {formatMoney(
+                        safeNumber(session.total),
+                        currency,
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

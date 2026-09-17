@@ -35,6 +35,21 @@ export const deskTypeEnum = pgEnum("desk_type", [
   "meeting_room",
 ]);
 
+export const meetingRoomPackageStatusEnum = pgEnum(
+  "meeting_room_package_status",
+  ["active", "inactive"],
+);
+
+export const meetingRoomPackagePurchaseStatusEnum = pgEnum(
+  "meeting_room_package_purchase_status",
+  ["active", "exhausted", "expired", "cancelled"],
+);
+
+export const meetingRoomPackageUsageTypeEnum = pgEnum(
+  "meeting_room_package_usage_type",
+  ["purchase", "usage", "adjustment", "refund", "reversal"],
+);
+
 export const bookingStatusEnum = pgEnum(
   "booking_status",
   ["active", "closed"],
@@ -271,6 +286,10 @@ export const desks = pgTable(
       .notNull()
       .default("0"),
 
+    capacity: integer("capacity")
+      .notNull()
+      .default(1),
+
     active: boolean("active")
       .notNull()
       .default(true),
@@ -281,6 +300,58 @@ export const desks = pgTable(
       .notNull()
       .default(0),
   },
+);
+
+// =============================================================================
+// MEETING ROOM PRICING
+// =============================================================================
+
+export const meetingRoomPricing = pgTable(
+  "meeting_room_pricing",
+  {
+    id: serial("id").primaryKey(),
+
+    deskId: integer("desk_id")
+      .notNull()
+      .references(() => desks.id, {
+        onDelete: "cascade",
+      }),
+
+    minPeople: integer("min_people")
+      .notNull(),
+
+    maxPeople: integer("max_people")
+      .notNull(),
+
+    hourlyRate: numeric("hourly_rate", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    active: boolean("active")
+      .notNull()
+      .default(true),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("meeting_room_pricing_desk_idx").on(table.deskId),
+    uniqueIndex("meeting_room_pricing_desk_range_uq").on(
+      table.deskId,
+      table.minPeople,
+      table.maxPeople,
+    ),
+  ],
 );
 
 // =============================================================================
@@ -363,6 +434,62 @@ export const subscriptionPackages =
       ),
     ],
   );
+
+// =============================================================================
+// MEETING ROOM PACKAGE DEFINITIONS
+// =============================================================================
+
+export const meetingRoomPackages = pgTable(
+  "meeting_room_packages",
+  {
+    id: serial("id").primaryKey(),
+
+    name: varchar("name", {
+      length: 200,
+    }).notNull(),
+
+    totalHours: numeric("total_hours", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    discountPercent: numeric("discount_percent", {
+      precision: 5,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    price: numeric("price", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    validityDays: integer("validity_days"),
+
+    description: text("description"),
+
+    status: meetingRoomPackageStatusEnum("status")
+      .notNull()
+      .default("active"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("meeting_room_packages_status_idx").on(table.status),
+    index("meeting_room_packages_total_hours_idx").on(table.totalHours),
+  ],
+);
 
 // =============================================================================
 // CUSTOMER SUBSCRIPTIONS
@@ -516,6 +643,96 @@ export const customerSubscriptions =
   );
 
 // =============================================================================
+// CUSTOMER MEETING ROOM PACKAGE PURCHASES
+// =============================================================================
+
+export const customerMeetingRoomPackages = pgTable(
+  "customer_meeting_room_packages",
+  {
+    id: serial("id").primaryKey(),
+
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, {
+        onDelete: "restrict",
+      }),
+
+    packageId: integer("package_id")
+      .notNull()
+      .references(() => meetingRoomPackages.id, {
+        onDelete: "restrict",
+      }),
+
+    packageNameSnapshot: varchar("package_name_snapshot", {
+      length: 200,
+    }).notNull(),
+
+    totalHoursSnapshot: numeric("total_hours_snapshot", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    discountPercentSnapshot: numeric("discount_percent_snapshot", {
+      precision: 5,
+      scale: 2,
+    }).notNull(),
+
+    priceSnapshot: numeric("price_snapshot", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    validityDaysSnapshot: integer("validity_days_snapshot"),
+
+    purchasedAt: timestamp("purchased_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    startsAt: timestamp("starts_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+    }),
+
+    status: meetingRoomPackagePurchaseStatusEnum("status")
+      .notNull()
+      .default("active"),
+
+    note: text("note"),
+
+    createdByUserId: integer("created_by_user_id").references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("customer_meeting_room_packages_customer_idx").on(table.customerId),
+    index("customer_meeting_room_packages_status_idx").on(table.status),
+    index("customer_meeting_room_packages_expiry_idx").on(table.expiresAt),
+  ],
+);
+
+// =============================================================================
 // GOOGLE CALENDAR MAPPING FOR MEETING ROOMS
 // =============================================================================
 
@@ -580,95 +797,167 @@ export const meetingRoomReservations =
     {
       id: serial("id").primaryKey(),
 
-      deskId: integer(
-        "desk_id",
-      )
+      deskId: integer("desk_id")
         .notNull()
-        .references(
-          () => desks.id,
-          {
-            onDelete: "cascade",
-          },
-        ),
+        .references(() => desks.id, {
+          onDelete: "cascade",
+        }),
 
-      customerId: integer(
-        "customer_id",
-      ).references(
-        () => customers.id,
-        {
-          onDelete: "set null",
-        },
-      ),
+      customerId: integer("customer_id").references(() => customers.id, {
+        onDelete: "set null",
+      }),
 
-      userId: integer(
-        "user_id",
-      )
+      /**
+       * Links the meeting-room reservation to the customer session used by
+       * the existing QR / F&B ordering flow.
+       */
+      bookingId: integer("booking_id").references(() => bookings.id, {
+        onDelete: "set null",
+      }),
+
+      userId: integer("user_id")
         .notNull()
-        .references(
-          () => users.id,
-        ),
+        .references(() => users.id),
 
-      startAt: timestamp(
-        "start_at",
+      startAt: timestamp("start_at", {
+        withTimezone: true,
+      }).notNull(),
+
+      endAt: timestamp("end_at", {
+        withTimezone: true,
+      }).notNull(),
+
+      attendeeCount: integer("attendee_count").notNull(),
+
+      hourlyRateSnapshot: numeric("hourly_rate_snapshot", {
+        precision: 12,
+        scale: 2,
+      }).notNull(),
+
+      durationHours: numeric("duration_hours", {
+        precision: 10,
+        scale: 2,
+      }).notNull(),
+
+      subtotalAmount: numeric("subtotal_amount", {
+        precision: 12,
+        scale: 2,
+      }).notNull(),
+
+      discountPercentSnapshot: numeric("discount_percent_snapshot", {
+        precision: 5,
+        scale: 2,
+      })
+        .notNull()
+        .default("0"),
+
+      discountAmount: numeric("discount_amount", {
+        precision: 12,
+        scale: 2,
+      })
+        .notNull()
+        .default("0"),
+
+      totalAmount: numeric("total_amount", {
+        precision: 12,
+        scale: 2,
+      }).notNull(),
+
+      packagePurchaseId: integer("package_purchase_id").references(
+        () => customerMeetingRoomPackages.id,
         {
-          withTimezone: true,
+          onDelete: "restrict",
         },
-      ).notNull(),
-
-      endAt: timestamp(
-        "end_at",
-        {
-          withTimezone: true,
-        },
-      ).notNull(),
-
-      recurrenceRule: text(
-        "recurrence_rule",
       ),
 
-      recurrenceCount: integer(
-        "recurrence_count",
-      ),
+      packageHoursUsed: numeric("package_hours_used", {
+        precision: 10,
+        scale: 2,
+      }),
 
-      googleEventId: varchar(
-        "google_event_id",
-        {
-          length: 1024,
-        },
-      ).unique(),
+      recurrenceRule: text("recurrence_rule"),
 
-      status: varchar(
-        "status",
-        {
-          length: 30,
-        },
-      )
+      recurrenceCount: integer("recurrence_count"),
+
+      googleEventId: varchar("google_event_id", {
+        length: 1024,
+      }).unique(),
+
+      status: varchar("status", {
+        length: 30,
+      })
         .notNull()
         .default("confirmed"),
 
-      notes: text(
-        "notes",
-      ),
+      notes: text("notes"),
 
-      createdAt: timestamp(
-        "created_at",
-        {
-          withTimezone: true,
-        },
-      )
+      createdAt: timestamp("created_at", {
+        withTimezone: true,
+      })
         .notNull()
         .defaultNow(),
 
-      updatedAt: timestamp(
-        "updated_at",
-        {
-          withTimezone: true,
-        },
-      )
+      updatedAt: timestamp("updated_at", {
+        withTimezone: true,
+      })
         .notNull()
         .defaultNow(),
     },
   );
+
+// =============================================================================
+// MEETING ROOM PACKAGE USAGE LEDGER
+// =============================================================================
+
+export const meetingRoomPackageUsageLedger = pgTable(
+  "meeting_room_package_usage_ledger",
+  {
+    id: serial("id").primaryKey(),
+
+    packagePurchaseId: integer("package_purchase_id")
+      .notNull()
+      .references(() => customerMeetingRoomPackages.id, {
+        onDelete: "restrict",
+      }),
+
+    reservationId: integer("reservation_id").references(
+      () => meetingRoomReservations.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    entryType: meetingRoomPackageUsageTypeEnum("entry_type").notNull(),
+
+    hoursDelta: numeric("hours_delta", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    reason: text("reason"),
+
+    idempotencyKey: varchar("idempotency_key", {
+      length: 200,
+    })
+      .notNull()
+      .unique(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("meeting_room_package_usage_purchase_idx").on(table.packagePurchaseId),
+    index("meeting_room_package_usage_reservation_idx").on(table.reservationId),
+    index("meeting_room_package_usage_created_idx").on(table.createdAt),
+  ],
+);
 
 // =============================================================================
 // CATEGORIES

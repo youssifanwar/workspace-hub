@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
+
 import {
   canManage,
   getCurrentUser,
 } from "@/lib/auth";
+
 import {
   getGoogleCalendarStatus,
 } from "@/lib/google-calendar";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const user =
-      await getCurrentUser();
+    // ---------------------------------------------------------------------------
+    // AUTHENTICATION
+    // ---------------------------------------------------------------------------
+
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
@@ -21,9 +27,16 @@ export async function GET() {
         },
         {
           status: 401,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
+
+    // ---------------------------------------------------------------------------
+    // AUTHORIZATION
+    // ---------------------------------------------------------------------------
 
     if (!canManage(user.role)) {
       return NextResponse.json(
@@ -33,19 +46,35 @@ export async function GET() {
         },
         {
           status: 403,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
 
-    const status =
-      await getGoogleCalendarStatus();
+    // ---------------------------------------------------------------------------
+    // GOOGLE CALENDAR STATUS
+    // ---------------------------------------------------------------------------
+
+    const status = await getGoogleCalendarStatus();
+
+    // ---------------------------------------------------------------------------
+    // RESPONSE
+    // ---------------------------------------------------------------------------
 
     return NextResponse.json(
       status,
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
     );
   } catch (error) {
     console.error(
-      "Google Calendar status error:",
+      "[Google Calendar] STATUS ERROR:",
       error,
     );
 
@@ -56,6 +85,9 @@ export async function GET() {
       },
       {
         status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
       },
     );
   }

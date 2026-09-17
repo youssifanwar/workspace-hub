@@ -5,97 +5,108 @@ import { db } from "@/db";
 import {
   bookings,
   bookingItems,
+  customerSubscriptions,
+  subscriptionUsageLedger,
 } from "@/db/schema";
 
-import { eq } from "drizzle-orm";
+import {
+  and,
+  eq,
+  sql,
+} from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
 
 import { getActiveShiftForUser } from "@/lib/shift";
 
-/**
- * SESSION PRICING
- *
- * 1st started hour = 40 EGP
- * 2nd started hour = +30 EGP
- * 3rd started hour = +30 EGP
- * 4th started hour = +30 EGP
- *
- * Once the session goes beyond 4 started hours,
- * it becomes a Day Pass for 150 EGP.
- *
- * Examples:
- *
- * 00:01 -> 40
- * 00:59 -> 40
- *
- * 01:01 -> 70
- * 01:59 -> 70
- *
- * 02:01 -> 100
- * 02:59 -> 100
- *
- * 03:01 -> 130
- * 03:59 -> 130
- *
- * 04:00 -> 130
- *
- * 04:01 -> 150 Day Pass
- * 05:00 -> 150 Day Pass
- * 08:00 -> 150 Day Pass
- */
+import {
+  getCustomerSessionPricing,
+} from "@/lib/settings";
 
-const FIRST_HOUR_PRICE = 40;
-const EXTRA_HOUR_PRICE = 30;
-const DAY_PASS_PRICE = 150;
+/**
+ * CUSTOMER SESSION CHECKOUT
+ *
+ * Pricing is loaded from settings.
+ *
+ * Regular Customer Session:
+ *
+ * 1 hour  -> configured 1h price
+ * 2 hours -> configured 2h price
+ * 3 hours -> configured 3h price
+ * 4 hours -> configured 4h price
+ * >4 hours -> configured Day Pass price
+ *
+ * Package Customer Session:
+ *
+ * Seat time = 0
+ * Required hours are deducted from the subscription usage ledger.
+ *
+ * The database transaction + advisory locks make checkout safe against
+ * duplicate/concurrent checkout requests.
+ */
 
 function calculateSessionPrice(
   billableHours: number,
+  pricing: {
+    oneHour: number;
+    twoHours: number;
+    threeHours: number;
+    fourHours: number;
+    dayPass: number;
+  },
 ) {
-  // First hour
   if (billableHours <= 1) {
     return {
-      seatCharge: FIRST_HOUR_PRICE,
-      pricingType: "hour",
-    } as const;
+      seatCharge:
+        pricing.oneHour,
+      pricingType:
+        "hour" as const,
+    };
   }
 
-  // Second hour
   if (billableHours === 2) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE,
-      pricingType: "hour",
-    } as const;
+        pricing.twoHours,
+      pricingType:
+        "hour" as const,
+    };
   }
 
-  // Third hour
   if (billableHours === 3) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE * 2,
-      pricingType: "hour",
-    } as const;
+        pricing.threeHours,
+      pricingType:
+        "hour" as const,
+    };
   }
 
-  // Fourth hour
   if (billableHours === 4) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE * 3,
-      pricingType: "hour",
-    } as const;
+        pricing.fourHours,
+      pricingType:
+        "hour" as const,
+    };
   }
 
-  // Anything beyond 4 started hours
-  // becomes the Day Pass.
   return {
-    seatCharge: DAY_PASS_PRICE,
-    pricingType: "day",
-  } as const;
+    seatCharge:
+      pricing.dayPass,
+    pricingType:
+      "day" as const,
+  };
+}
+
+function isFiniteNonNegativeNumber(
+  value: unknown,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0
+  );
 }
 
 export async function POST(
@@ -109,7 +120,8 @@ export async function POST(
   },
 ) {
   try {
-    const { id } = await params;
+    const { id } =
+      await params;
 
     const user =
       await getCurrentUser();
@@ -117,7 +129,8 @@ export async function POST(
     if (!user) {
       return NextResponse.json(
         {
-          error: "Unauthorized",
+          error:
+            "Unauthorized",
         },
         {
           status: 401,
@@ -133,7 +146,8 @@ export async function POST(
     if (!shift) {
       return NextResponse.json(
         {
-          error: "No active shift",
+          error:
+            "No active shift",
         },
         {
           status: 400,
@@ -141,7 +155,8 @@ export async function POST(
       );
     }
 
-    const bookingId = Number(id);
+    const bookingId =
+      Number(id);
 
     if (
       !Number.isInteger(
@@ -160,23 +175,34 @@ export async function POST(
       );
     }
 
-    const body =
-      (await req.json()) as {
-        paymentMethod?:
-          | "cash"
-          | "visa"
-          | "instapay";
+    let body: {
+      paymentMethod?:
+        | "cash"
+        | "visa"
+        | "instapay";
 
-        paidAmount?: number;
+      paidAmount?: number;
 
-        discount?: number;
-      };
+      discount?: number;
+    };
 
-    if (!body.paymentMethod) {
+    try {
+      body =
+        (await req.json()) as {
+          paymentMethod?:
+            | "cash"
+            | "visa"
+            | "instapay";
+
+          paidAmount?: number;
+
+          discount?: number;
+        };
+    } catch {
       return NextResponse.json(
         {
           error:
-            "paymentMethod required",
+            "Invalid JSON body",
         },
         {
           status: 400,
@@ -184,193 +210,42 @@ export async function POST(
       );
     }
 
-    /* ---------------------------------------------------------------------- */
-    /* LOAD SESSION                                                            */
-    /* ---------------------------------------------------------------------- */
-
-    const [booking] =
-      await db
-        .select()
-        .from(bookings)
-        .where(
-          eq(
-            bookings.id,
-            bookingId,
-          ),
-        )
-        .limit(1);
-
-    if (!booking) {
-      return NextResponse.json(
-        {
-          error:
-            "Session not found",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
+    const paymentMethod =
+      body.paymentMethod;
 
     if (
-      booking.status ===
-      "closed"
+      paymentMethod !== "cash" &&
+      paymentMethod !== "visa" &&
+      paymentMethod !== "instapay"
     ) {
       return NextResponse.json(
         {
           error:
-            "Session already closed",
+            "Invalid payment method",
         },
         {
           status: 400,
         },
       );
     }
-
-    /* ---------------------------------------------------------------------- */
-    /* F&B                                                                     */
-    /* ---------------------------------------------------------------------- */
-
-    const items =
-      await db
-        .select()
-        .from(bookingItems)
-        .where(
-          eq(
-            bookingItems.bookingId,
-            bookingId,
-          ),
-        );
-
-    const ordersTotal =
-      items.reduce(
-        (
-          sum,
-          item,
-        ) => {
-          return (
-            sum +
-            item.quantity *
-              parseFloat(
-                item.unitPrice,
-              )
-          );
-        },
-        0,
-      );
-
-    /* ---------------------------------------------------------------------- */
-    /* TIME                                                                     */
-    /* ---------------------------------------------------------------------- */
-
-    const closedAt =
-      new Date();
-
-    const checkedInAt =
-      new Date(
-        booking.checkedInAt,
-      );
-
-    const elapsedMs =
-      Math.max(
-        0,
-        closedAt.getTime() -
-          checkedInAt.getTime(),
-      );
-
-    const elapsedHours =
-      elapsedMs /
-      3_600_000;
-
-    /*
-     * Every started hour is billed
-     * as a complete hour.
-     *
-     * 00:01 -> 1
-     * 01:01 -> 2
-     * 02:01 -> 3
-     * 03:01 -> 4
-     * 04:01 -> 5 -> Day Pass
-     */
-    const billableHours =
-      Math.max(
-        1,
-        Math.ceil(
-          elapsedHours,
-        ),
-      );
-
-    /* ---------------------------------------------------------------------- */
-    /* PRICING                                                                 */
-    /* ---------------------------------------------------------------------- */
-
-    const pricing =
-      calculateSessionPrice(
-        billableHours,
-      );
-
-    const seatCharge =
-      pricing.seatCharge;
-
-    /* ---------------------------------------------------------------------- */
-    /* DISCOUNT                                                                 */
-    /* ---------------------------------------------------------------------- */
-
-    const discount =
-      Math.max(
-        0,
-        Number(
-          body.discount || 0,
-        ),
-      );
-
-    const total =
-      Math.max(
-        0,
-        seatCharge +
-          ordersTotal -
-          discount,
-      );
-
-    /* ---------------------------------------------------------------------- */
-    /* PAYMENT                                                                  */
-    /* ---------------------------------------------------------------------- */
 
     const paid =
-      Math.max(
-        0,
-        Number(
-          body.paidAmount || 0,
-        ),
-      );
+      body.paidAmount ??
+      0;
 
-    const change =
-      body.paymentMethod ===
-      "cash"
-        ? Math.max(
-            0,
-            paid - total,
-          )
-        : 0;
+    const discount =
+      body.discount ??
+      0;
 
     if (
-      body.paymentMethod ===
-        "cash" &&
-      paid < total
+      !isFiniteNonNegativeNumber(
+        paid,
+      )
     ) {
       return NextResponse.json(
         {
           error:
-            "Insufficient cash paid",
-
-          total,
-
-          paid,
-
-          billableHours,
-
-          pricingType:
-            pricing.pricingType,
+            "Invalid paid amount",
         },
         {
           status: 400,
@@ -378,84 +253,696 @@ export async function POST(
       );
     }
 
-    /* ---------------------------------------------------------------------- */
-    /* CLOSE SESSION                                                            */
-    /* ---------------------------------------------------------------------- */
-
-    await db
-      .update(bookings)
-      .set({
-        checkedOutAt:
-          closedAt,
-
-        seatCharge:
-          seatCharge.toFixed(2),
-
-        ordersTotal:
-          ordersTotal.toFixed(2),
-
-        discount:
-          discount.toFixed(2),
-
-        total:
-          total.toFixed(2),
-
-        paidAmount:
-          paid.toFixed(2),
-
-        changeAmount:
-          change.toFixed(2),
-
-        paymentMethod:
-          body.paymentMethod,
-
-        status: "closed",
-      })
-      .where(
-        eq(
-          bookings.id,
-          bookingId,
-        ),
+    if (
+      !isFiniteNonNegativeNumber(
+        discount,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid discount",
+        },
+        {
+          status: 400,
+        },
       );
+    }
 
-    /* ---------------------------------------------------------------------- */
-    /* RESPONSE                                                                 */
-    /* ---------------------------------------------------------------------- */
+    /*
+     * Load current Customer Session pricing from Settings.
+     *
+     * This removes the hard-coded 40 / 30 / 150 values.
+     */
+    const sessionPricing =
+      await getCustomerSessionPricing();
+
+    /*
+     * Basic sanity check so a broken setting cannot make checkout
+     * silently use NaN / Infinity / negative values.
+     */
+    if (
+      !isFiniteNonNegativeNumber(
+        sessionPricing.oneHour,
+      ) ||
+      !isFiniteNonNegativeNumber(
+        sessionPricing.twoHours,
+      ) ||
+      !isFiniteNonNegativeNumber(
+        sessionPricing.threeHours,
+      ) ||
+      !isFiniteNonNegativeNumber(
+        sessionPricing.fourHours,
+      ) ||
+      !isFiniteNonNegativeNumber(
+        sessionPricing.dayPass,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid Customer Session pricing configuration",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /*
+     * Use a transaction + advisory lock for this booking.
+     *
+     * That prevents two simultaneous checkout requests from both
+     * successfully closing the same session.
+     */
+    const result =
+      await db.transaction(
+        async (tx) => {
+          /*
+           * Lock the booking itself.
+           *
+           * Different checkout requests for the same booking therefore
+           * serialize until the first transaction finishes.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                29003,
+                ${bookingId}
+              )
+            `,
+          );
+
+          const [
+            booking,
+          ] =
+            await tx
+              .select()
+              .from(
+                bookings,
+              )
+              .where(
+                eq(
+                  bookings.id,
+                  bookingId,
+                ),
+              )
+              .limit(1);
+
+          if (!booking) {
+            throw new CheckoutError(
+              "Session not found",
+              404,
+            );
+          }
+
+          if (
+            booking.status ===
+            "closed"
+          ) {
+            throw new CheckoutError(
+              "Session already closed",
+              400,
+            );
+          }
+
+          if (
+            booking.status !==
+            "active"
+          ) {
+            throw new CheckoutError(
+              "Session is not active",
+              400,
+            );
+          }
+
+          /*
+           * Load F&B items inside the same transaction.
+           */
+          const items =
+            await tx
+              .select()
+              .from(
+                bookingItems,
+              )
+              .where(
+                eq(
+                  bookingItems.bookingId,
+                  bookingId,
+                ),
+              );
+
+          const ordersTotal =
+            items.reduce(
+              (
+                sum,
+                item,
+              ) => {
+                const unitPrice =
+                  parseFloat(
+                    item.unitPrice,
+                  );
+
+                if (
+                  !Number.isFinite(
+                    unitPrice,
+                  ) ||
+                  unitPrice <
+                    0
+                ) {
+                  throw new CheckoutError(
+                    "Invalid item price in session",
+                    500,
+                  );
+                }
+
+                if (
+                  !Number.isInteger(
+                    item.quantity,
+                  ) ||
+                  item.quantity <=
+                    0
+                ) {
+                  throw new CheckoutError(
+                    "Invalid item quantity in session",
+                    500,
+                  );
+                }
+
+                return (
+                  sum +
+                  item.quantity *
+                    unitPrice
+                );
+              },
+              0,
+            );
+
+          /*
+           * TIME
+           */
+          const closedAt =
+            new Date();
+
+          const checkedInAt =
+            new Date(
+              booking.checkedInAt,
+            );
+
+          const elapsedMs =
+            Math.max(
+              0,
+              closedAt.getTime() -
+                checkedInAt.getTime(),
+            );
+
+          const elapsedHours =
+            elapsedMs /
+            3_600_000;
+
+          /*
+           * Every started hour is billable.
+           *
+           * 00:01 -> 1
+           * 01:01 -> 2
+           * 02:01 -> 3
+           * 03:01 -> 4
+           * 04:01 -> 5 -> Day Pass
+           */
+          const billableHours =
+            Math.max(
+              1,
+              Math.ceil(
+                elapsedHours,
+              ),
+            );
+
+          /*
+           * BILLING
+           *
+           * Package:
+           *   seat charge is always zero.
+           *
+           * Regular:
+           *   use the configured Customer Session price.
+           */
+          const isPackage =
+            booking.billingMode ===
+            "package";
+
+          const regularPricing =
+            calculateSessionPrice(
+              billableHours,
+              sessionPricing,
+            );
+
+          const pricing =
+            isPackage
+              ? {
+                  seatCharge: 0,
+                  pricingType:
+                    "package" as const,
+                }
+              : regularPricing;
+
+          const seatCharge =
+            pricing.seatCharge;
+
+          /*
+           * Discount cannot exceed the amount before discount.
+           *
+           * We reject the request rather than silently changing what
+           * the cashier entered.
+           */
+          const subtotal =
+            seatCharge +
+            ordersTotal;
+
+          if (
+            discount >
+            subtotal
+          ) {
+            throw new CheckoutError(
+              "Discount cannot exceed the session subtotal",
+              400,
+            );
+          }
+
+          const total =
+            Math.max(
+              0,
+              subtotal -
+                discount,
+            );
+
+          /*
+           * For non-cash payments we still keep the supplied paid amount
+           * for the invoice/history, but checkout must cover the total.
+           */
+          if (
+            paid < total
+          ) {
+            throw new CheckoutError(
+              "Insufficient payment",
+              400,
+              {
+                total,
+                paid,
+                billableHours,
+                pricingType:
+                  pricing.pricingType,
+              },
+            );
+          }
+
+          const change =
+            paymentMethod ===
+            "cash"
+              ? Math.max(
+                  0,
+                  paid -
+                    total,
+                )
+              : 0;
+
+          /*
+           * PACKAGE USAGE
+           *
+           * Package hours are the source of truth in the usage ledger.
+           * We lock the subscription while calculating the balance so
+           * concurrent sessions cannot both spend the same hours.
+           */
+          if (
+            isPackage
+          ) {
+            if (
+              !booking.subscriptionId
+            ) {
+              throw new CheckoutError(
+                "Package session has no subscription",
+                400,
+              );
+            }
+
+            await tx.execute(
+              sql`
+                SELECT pg_advisory_xact_lock(
+                  29002,
+                  ${booking.subscriptionId}
+                )
+              `,
+            );
+
+            const [
+              subscription,
+            ] =
+              await tx
+                .select()
+                .from(
+                  customerSubscriptions,
+                )
+                .where(
+                  eq(
+                    customerSubscriptions.id,
+                    booking.subscriptionId,
+                  ),
+                )
+                .limit(1);
+
+            if (
+              !subscription
+            ) {
+              throw new CheckoutError(
+                "Subscription not found",
+                404,
+              );
+            }
+
+            if (
+              subscription.status !==
+              "active"
+            ) {
+              throw new CheckoutError(
+                "Subscription is not active",
+                400,
+              );
+            }
+
+            const now =
+              new Date();
+
+            if (
+              subscription.startsAt >
+              now
+            ) {
+              throw new CheckoutError(
+                "Subscription has not started yet",
+                400,
+              );
+            }
+
+            if (
+              subscription.expiresAt &&
+              subscription.expiresAt <
+                now
+            ) {
+              throw new CheckoutError(
+                "Subscription has expired",
+                400,
+              );
+            }
+
+            const [
+              balanceRow,
+            ] =
+              await tx
+                .select({
+                  balance:
+                    sql<string>`
+                      COALESCE(
+                        SUM(
+                          ${subscriptionUsageLedger.hoursDelta}
+                        ),
+                        0
+                      )
+                    `,
+                })
+                .from(
+                  subscriptionUsageLedger,
+                )
+                .where(
+                  eq(
+                    subscriptionUsageLedger.subscriptionId,
+                    subscription.id,
+                  ),
+                );
+
+            const remainingHours =
+              Number(
+                balanceRow?.balance ??
+                  0,
+              );
+
+            if (
+              !Number.isFinite(
+                remainingHours,
+              )
+            ) {
+              throw new CheckoutError(
+                "Invalid subscription balance",
+                500,
+              );
+            }
+
+            if (
+              remainingHours <
+              billableHours
+            ) {
+              throw new CheckoutError(
+                `Not enough package hours. Remaining ${remainingHours.toFixed(
+                  2,
+                )}h, required ${billableHours}h.`,
+                400,
+                {
+                  remainingHours,
+                  requiredHours:
+                    billableHours,
+                },
+              );
+            }
+
+            /*
+             * Deterministic idempotency key.
+             *
+             * Retrying the same checkout cannot create a second usage entry.
+             */
+            const usageKey =
+              `booking-checkout:${bookingId}`;
+
+            const [
+              existingUsage,
+            ] =
+              await tx
+                .select({
+                  id:
+                    subscriptionUsageLedger.id,
+                })
+                .from(
+                  subscriptionUsageLedger,
+                )
+                .where(
+                  eq(
+                    subscriptionUsageLedger.idempotencyKey,
+                    usageKey,
+                  ),
+                )
+                .limit(1);
+
+            if (
+              !existingUsage
+            ) {
+              await tx
+                .insert(
+                  subscriptionUsageLedger,
+                )
+                .values({
+                  subscriptionId:
+                    subscription.id,
+
+                  bookingId:
+                    bookingId,
+
+                  userId:
+                    user.id,
+
+                  entryType:
+                    "usage",
+
+                  hoursDelta:
+                    (
+                      -billableHours
+                    ).toFixed(
+                      2,
+                    ),
+
+                  reason:
+                    `Customer Session #${bookingId} package usage`,
+
+                  idempotencyKey:
+                    usageKey,
+                });
+            }
+          }
+
+          /*
+           * Close the booking only after every validation above succeeds.
+           *
+           * WHERE status='active' is an extra defensive check.
+           */
+          const updated =
+            await tx
+              .update(
+                bookings,
+              )
+              .set({
+                checkedOutAt:
+                  closedAt,
+
+                seatCharge:
+                  seatCharge.toFixed(
+                    2,
+                  ),
+
+                ordersTotal:
+                  ordersTotal.toFixed(
+                    2,
+                  ),
+
+                discount:
+                  discount.toFixed(
+                    2,
+                  ),
+
+                total:
+                  total.toFixed(
+                    2,
+                  ),
+
+                paidAmount:
+                  paid.toFixed(
+                    2,
+                  ),
+
+                changeAmount:
+                  change.toFixed(
+                    2,
+                  ),
+
+                paymentMethod:
+                  paymentMethod,
+
+                subscriptionHoursUsed:
+                  isPackage
+                    ? billableHours.toFixed(
+                        2,
+                      )
+                    : null,
+
+                billingNote:
+                  isPackage
+                    ? `Package session checkout. ${billableHours}h consumed.`
+                    : pricing.pricingType ===
+                      "day"
+                    ? "Customer Session Day Pass"
+                    : `Customer Session ${billableHours} started hour${
+                        billableHours ===
+                        1
+                          ? ""
+                          : "s"
+                      }`,
+
+                status:
+                  "closed",
+              })
+              .where(
+                and(
+                  eq(
+                    bookings.id,
+                    bookingId,
+                  ),
+                  eq(
+                    bookings.status,
+                    "active",
+                  ),
+                ),
+              )
+              .returning({
+                id:
+                  bookings.id,
+              });
+
+          if (
+            updated.length ===
+            0
+          ) {
+            throw new CheckoutError(
+              "Session could not be closed. It may have been checked out already.",
+              409,
+            );
+          }
+
+          return {
+            sessionId:
+              bookingId,
+
+            elapsedHours,
+
+            billableHours,
+
+            pricingType:
+              pricing.pricingType,
+
+            firstHourPrice:
+              sessionPricing.oneHour,
+
+            secondHourPrice:
+              sessionPricing.twoHours,
+
+            thirdHourPrice:
+              sessionPricing.threeHours,
+
+            fourthHourPrice:
+              sessionPricing.fourHours,
+
+            dayPassPrice:
+              sessionPricing.dayPass,
+
+            seatCharge,
+
+            ordersTotal,
+
+            discount,
+
+            total,
+
+            paid,
+
+            change,
+
+            isPackage,
+
+            packageHoursUsed:
+              isPackage
+                ? billableHours
+                : 0,
+          };
+        },
+      );
 
     return NextResponse.json({
       ok: true,
 
-      sessionId: bookingId,
-
-      elapsedHours,
-
-      billableHours,
-
-      pricingType:
-        pricing.pricingType,
-
-      firstHourPrice:
-        FIRST_HOUR_PRICE,
-
-      extraHourPrice:
-        EXTRA_HOUR_PRICE,
-
-      dayPassPrice:
-        DAY_PASS_PRICE,
-
-      seatCharge,
-
-      ordersTotal,
-
-      discount,
-
-      total,
-
-      paid,
-
-      change,
+      ...result,
     });
   } catch (error) {
+    if (
+      error instanceof
+      CheckoutError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+
+          ...error.details,
+        },
+        {
+          status:
+            error.status,
+        },
+      );
+    }
+
     console.error(
       "[checkout] failed:",
       error,
@@ -470,5 +957,34 @@ export async function POST(
         status: 500,
       },
     );
+  }
+}
+
+class CheckoutError extends Error {
+  status: number;
+
+  details: Record<
+    string,
+    unknown
+  >;
+
+  constructor(
+    message: string,
+    status: number,
+    details: Record<
+      string,
+      unknown
+    > = {},
+  ) {
+    super(message);
+
+    this.name =
+      "CheckoutError";
+
+    this.status =
+      status;
+
+    this.details =
+      details;
   }
 }

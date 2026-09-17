@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { and, eq, sql } from "drizzle-orm";
+
+import {
+  and,
+  eq,
+  gt,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 
@@ -14,21 +21,80 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 type PurchaseBody = {
   packageId?: number | string;
   note?: string | null;
 };
 
-function parseId(value: unknown): number | null {
-  const id = Number(value);
+class ApiError extends Error {
+  status: number;
 
-  if (!Number.isInteger(id) || id <= 0) {
+  constructor(
+    message: string,
+    status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function parseId(
+  value: unknown,
+): number | null {
+  const id =
+    Number(value);
+
+  if (
+    !Number.isSafeInteger(
+      id,
+    ) ||
+    id <= 0
+  ) {
     return null;
   }
 
   return id;
+}
+
+function cleanOptionalNote(
+  value: unknown,
+): string | null {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value !==
+    "string"
+  ) {
+    throw new ApiError(
+      "Invalid note.",
+      400,
+    );
+  }
+
+  const note =
+    value.trim();
+
+  if (
+    note.length >
+    2000
+  ) {
+    throw new ApiError(
+      "Note is too long.",
+      400,
+    );
+  }
+
+  return note ||
+    null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -40,88 +106,165 @@ export async function GET(
   {
     params,
   }: {
-    params: Promise<{ id: string }>;
+    params: Promise<{
+      id: string;
+    }>;
   },
 ) {
   try {
-    const user = await getCurrentUser();
+    /* ---------------------------------------------------------------------- */
+    /* AUTH                                                                   */
+    /* ---------------------------------------------------------------------- */
+
+    const user =
+      await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        },
       );
     }
 
-    const { id: rawId } = await params;
-    const customerId = parseId(rawId);
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER ID                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const {
+      id: rawId,
+    } = await params;
+
+    const customerId =
+      parseId(rawId);
 
     if (!customerId) {
       return NextResponse.json(
-        { error: "Invalid customer ID." },
-        { status: 400 },
+        {
+          error:
+            "Invalid customer ID.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
-    const customerRows = await db
-      .select({
-        id: customers.id,
-        name: customers.name,
-        phone: customers.phone,
-      })
-      .from(customers)
-      .where(eq(customers.id, customerId))
-      .limit(1);
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER                                                               */
+    /* ---------------------------------------------------------------------- */
 
-    const customer = customerRows[0];
+    const customerRows =
+      await db
+        .select({
+          id:
+            customers.id,
+          name:
+            customers.name,
+          phone:
+            customers.phone,
+        })
+        .from(
+          customers,
+        )
+        .where(
+          eq(
+            customers.id,
+            customerId,
+          ),
+        )
+        .limit(1);
+
+    const customer =
+      customerRows[0];
 
     if (!customer) {
       return NextResponse.json(
-        { error: "Customer not found." },
-        { status: 404 },
+        {
+          error:
+            "Customer not found.",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const subscriptionRows = await db
-      .select({
-        id: customerSubscriptions.id,
-        packageId: customerSubscriptions.packageId,
-        packageName:
-          customerSubscriptions.packageNameSnapshot,
-        totalHours:
-          customerSubscriptions.totalHoursSnapshot,
-        price:
-          customerSubscriptions.priceSnapshot,
-        validityDays:
-          customerSubscriptions.validityDaysSnapshot,
-        purchasedAt:
-          customerSubscriptions.purchasedAt,
-        startsAt:
-          customerSubscriptions.startsAt,
-        expiresAt:
-          customerSubscriptions.expiresAt,
-        status:
-          customerSubscriptions.status,
-      })
-      .from(customerSubscriptions)
-      .where(
-        and(
-          eq(
-            customerSubscriptions.customerId,
-            customerId,
-          ),
-          eq(
-            customerSubscriptions.status,
-            "active",
-          ),
-        ),
-      )
-      .orderBy(
-        sql`${customerSubscriptions.purchasedAt} DESC`,
-      )
-      .limit(1);
+    /* ---------------------------------------------------------------------- */
+    /* FIND CURRENT VALID SUBSCRIPTION                                        */
+    /* ---------------------------------------------------------------------- */
 
-    const subscription = subscriptionRows[0];
+    const now =
+      new Date();
+
+    const subscriptionRows =
+      await db
+        .select({
+          id:
+            customerSubscriptions.id,
+
+          packageId:
+            customerSubscriptions.packageId,
+
+          packageName:
+            customerSubscriptions.packageNameSnapshot,
+
+          totalHours:
+            customerSubscriptions.totalHoursSnapshot,
+
+          price:
+            customerSubscriptions.priceSnapshot,
+
+          validityDays:
+            customerSubscriptions.validityDaysSnapshot,
+
+          purchasedAt:
+            customerSubscriptions.purchasedAt,
+
+          startsAt:
+            customerSubscriptions.startsAt,
+
+          expiresAt:
+            customerSubscriptions.expiresAt,
+
+          status:
+            customerSubscriptions.status,
+        })
+        .from(
+          customerSubscriptions,
+        )
+        .where(
+          and(
+            eq(
+              customerSubscriptions.customerId,
+              customerId,
+            ),
+
+            eq(
+              customerSubscriptions.status,
+              "active",
+            ),
+
+            or(
+              sql`${customerSubscriptions.expiresAt} IS NULL`,
+              gt(
+                customerSubscriptions.expiresAt,
+                now,
+              ),
+            ),
+          ),
+        )
+        .orderBy(
+          sql`${customerSubscriptions.purchasedAt} DESC`,
+        )
+        .limit(1);
+
+    const subscription =
+      subscriptionRows[0];
 
     if (!subscription) {
       return NextResponse.json({
@@ -130,53 +273,94 @@ export async function GET(
       });
     }
 
-    const balanceRows = await db
-      .select({
-        balance: sql<string>`
-          COALESCE(
-            SUM(
-              ${subscriptionUsageLedger.hoursDelta}
-            ),
-            0
-          )
-        `,
-      })
-      .from(subscriptionUsageLedger)
-      .where(
-        eq(
-          subscriptionUsageLedger.subscriptionId,
-          subscription.id,
-        ),
+    /* ---------------------------------------------------------------------- */
+    /* BALANCE FROM LEDGER                                                    */
+    /* ---------------------------------------------------------------------- */
+
+    const balanceRows =
+      await db
+        .select({
+          balance:
+            sql<string>`
+              COALESCE(
+                SUM(
+                  ${subscriptionUsageLedger.hoursDelta}
+                ),
+                0
+              )
+            `,
+        })
+        .from(
+          subscriptionUsageLedger,
+        )
+        .where(
+          eq(
+            subscriptionUsageLedger.subscriptionId,
+            subscription.id,
+          ),
+        );
+
+    const rawBalance =
+      Number(
+        balanceRows[0]
+          ?.balance ?? 0,
       );
 
-    const balance = Number(
-      balanceRows[0]?.balance ?? 0,
-    );
+    const remainingHours =
+      Number.isFinite(
+        rawBalance,
+      )
+        ? Math.max(
+            0,
+            rawBalance,
+          )
+        : 0;
+
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSE                                                               */
+    /* ---------------------------------------------------------------------- */
 
     return NextResponse.json({
       active: true,
+
       subscription: {
-        id: subscription.id,
-        packageId: subscription.packageId,
+        id:
+          subscription.id,
+
+        packageId:
+          subscription.packageId,
+
         packageName:
           subscription.packageName,
+
         totalHours:
-          Number(subscription.totalHours),
+          Number(
+            subscription.totalHours,
+          ),
+
         price:
-          Number(subscription.price),
+          Number(
+            subscription.price,
+          ),
+
         validityDays:
           subscription.validityDays,
+
         purchasedAt:
           subscription.purchasedAt.toISOString(),
+
         startsAt:
           subscription.startsAt.toISOString(),
+
         expiresAt:
           subscription.expiresAt
             ? subscription.expiresAt.toISOString()
             : null,
+
         status:
           subscription.status,
-        remainingHours: balance,
+
+        remainingHours,
       },
     });
   } catch (error) {
@@ -206,87 +390,144 @@ export async function POST(
   {
     params,
   }: {
-    params: Promise<{ id: string }>;
+    params: Promise<{
+      id: string;
+    }>;
   },
 ) {
   try {
-    const user = await getCurrentUser();
+    /* ---------------------------------------------------------------------- */
+    /* AUTH                                                                   */
+    /* ---------------------------------------------------------------------- */
+
+    const user =
+      await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    const shift =
-      await getActiveShiftForUser(user.id);
-
-    if (!shift) {
-      return NextResponse.json(
         {
           error:
-            "No active shift. Open a shift before selling a package.",
+            "Unauthorized",
         },
         {
-          status: 400,
+          status: 401,
         },
       );
     }
 
-    const { id: rawId } = await params;
-    const customerId = parseId(rawId);
+    /* ---------------------------------------------------------------------- */
+    /* ACTIVE SHIFT                                                           */
+    /* ---------------------------------------------------------------------- */
 
-    if (!customerId) {
-      return NextResponse.json(
-        { error: "Invalid customer ID." },
-        { status: 400 },
+    const shift =
+      await getActiveShiftForUser(
+        user.id,
+      );
+
+    if (!shift) {
+      throw new ApiError(
+        "No active shift. Open a shift before selling a package.",
+        400,
       );
     }
+
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER ID                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const {
+      id: rawId,
+    } = await params;
+
+    const customerId =
+      parseId(rawId);
+
+    if (!customerId) {
+      throw new ApiError(
+        "Invalid customer ID.",
+        400,
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* REQUEST BODY                                                            */
+    /* ---------------------------------------------------------------------- */
 
     const body =
       (await req
         .json()
-        .catch(() => null)) as PurchaseBody | null;
+        .catch(() => null)) as
+        | PurchaseBody
+        | null;
 
     if (!body) {
-      return NextResponse.json(
-        { error: "Invalid request." },
-        { status: 400 },
+      throw new ApiError(
+        "Invalid request.",
+        400,
       );
     }
 
-    const packageId = parseId(
-      String(body.packageId ?? ""),
-    );
+    const packageId =
+      parseId(
+        String(
+          body.packageId ??
+            "",
+        ),
+      );
 
     if (!packageId) {
-      return NextResponse.json(
-        {
-          error:
-            "A valid package ID is required.",
-        },
-        {
-          status: 400,
-        },
+      throw new ApiError(
+        "A valid package ID is required.",
+        400,
       );
     }
+
+    const note =
+      cleanOptionalNote(
+        body.note,
+      );
+
+    /* ---------------------------------------------------------------------- */
+    /* TRANSACTION                                                            */
+    /* ---------------------------------------------------------------------- */
 
     const result =
       await db.transaction(
         async (tx) => {
-          /* ------------------------------------------------------------------ */
-          /* CUSTOMER                                                             */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* CUSTOMER LOCK                                                     */
+          /* ---------------------------------------------------------------- */
+
+          /*
+           * Every subscription purchase for the same customer gets
+           * serialized by PostgreSQL transaction advisory lock.
+           *
+           * This prevents two simultaneous requests from both passing
+           * the "no active package" check.
+           */
+          await tx.execute(
+            sql`SELECT pg_advisory_xact_lock(${customerId})`,
+          );
+
+          /* ---------------------------------------------------------------- */
+          /* CUSTOMER                                                           */
+          /* ---------------------------------------------------------------- */
 
           const customerRows =
             await tx
               .select({
-                id: customers.id,
-                name: customers.name,
-                phone: customers.phone,
+                id:
+                  customers.id,
+
+                name:
+                  customers.name,
+
+                phone:
+                  customers.phone,
               })
-              .from(customers)
+              .from(
+                customers,
+              )
               .where(
                 eq(
                   customers.id,
@@ -299,22 +540,30 @@ export async function POST(
             customerRows[0];
 
           if (!customer) {
-            throw new Error(
+            throw new ApiError(
               "Customer not found.",
+              404,
             );
           }
 
-          /* ------------------------------------------------------------------ */
-          /* ACTIVE SUBSCRIPTION CHECK                                           */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* ACTIVE SUBSCRIPTION CHECK                                        */
+          /* ---------------------------------------------------------------- */
+
+          const now =
+            new Date();
 
           const activeRows =
             await tx
               .select({
                 id:
                   customerSubscriptions.id,
+
                 packageName:
                   customerSubscriptions.packageNameSnapshot,
+
+                expiresAt:
+                  customerSubscriptions.expiresAt,
               })
               .from(
                 customerSubscriptions,
@@ -325,37 +574,60 @@ export async function POST(
                     customerSubscriptions.customerId,
                     customerId,
                   ),
+
                   eq(
                     customerSubscriptions.status,
                     "active",
                   ),
+
+                  or(
+                    sql`${customerSubscriptions.expiresAt} IS NULL`,
+                    gt(
+                      customerSubscriptions.expiresAt,
+                      now,
+                    ),
+                  ),
                 ),
+              )
+              .orderBy(
+                sql`${customerSubscriptions.purchasedAt} DESC`,
               )
               .limit(1);
 
-          if (activeRows[0]) {
-            throw new Error(
-              `Customer already has an active package: ${activeRows[0].packageName}.`,
+          const activeSubscription =
+            activeRows[0];
+
+          if (
+            activeSubscription
+          ) {
+            throw new ApiError(
+              `Customer already has an active package: ${activeSubscription.packageName}.`,
+              409,
             );
           }
 
-          /* ------------------------------------------------------------------ */
-          /* PACKAGE                                                              */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* PACKAGE                                                           */
+          /* ---------------------------------------------------------------- */
 
           const packageRows =
             await tx
               .select({
                 id:
                   subscriptionPackages.id,
+
                 name:
                   subscriptionPackages.name,
+
                 totalHours:
                   subscriptionPackages.totalHours,
+
                 price:
                   subscriptionPackages.price,
+
                 validityDays:
                   subscriptionPackages.validityDays,
+
                 active:
                   subscriptionPackages.active,
               })
@@ -374,26 +646,67 @@ export async function POST(
             packageRows[0];
 
           if (!pkg) {
-            throw new Error(
+            throw new ApiError(
               "Subscription package not found.",
+              404,
             );
           }
 
           if (!pkg.active) {
-            throw new Error(
+            throw new ApiError(
               "This package is not available for new purchases.",
+              400,
             );
           }
 
-          /* ------------------------------------------------------------------ */
-          /* DATES                                                                */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* PACKAGE VALUES VALIDATION                                       */
+          /* ---------------------------------------------------------------- */
 
-          const now = new Date();
+          const totalHours =
+            Number(
+              pkg.totalHours,
+            );
+
+          const price =
+            Number(
+              pkg.price,
+            );
+
+          if (
+            !Number.isFinite(
+              totalHours,
+            ) ||
+            totalHours <=
+              0
+          ) {
+            throw new ApiError(
+              "Subscription package has an invalid number of hours.",
+              500,
+            );
+          }
+
+          if (
+            !Number.isFinite(
+              price,
+            ) ||
+            price < 0
+          ) {
+            throw new ApiError(
+              "Subscription package has an invalid price.",
+              500,
+            );
+          }
+
+          /* ---------------------------------------------------------------- */
+          /* EXPIRATION                                                        */
+          /* ---------------------------------------------------------------- */
 
           const expiresAt =
-            pkg.validityDays !== null &&
-            pkg.validityDays !== undefined
+            pkg.validityDays !==
+              null &&
+            pkg.validityDays !==
+              undefined
               ? new Date(
                   now.getTime() +
                     pkg.validityDays *
@@ -404,9 +717,9 @@ export async function POST(
                 )
               : null;
 
-          /* ------------------------------------------------------------------ */
-          /* CREATE SUBSCRIPTION                                                 */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* CREATE SUBSCRIPTION                                              */
+          /* ---------------------------------------------------------------- */
 
           const inserted =
             await tx
@@ -424,14 +737,14 @@ export async function POST(
                   pkg.name,
 
                 totalHoursSnapshot:
-                  Number(
-                    pkg.totalHours,
-                  ).toFixed(2),
+                  totalHours.toFixed(
+                    2,
+                  ),
 
                 priceSnapshot:
-                  Number(
-                    pkg.price,
-                  ).toFixed(2),
+                  price.toFixed(
+                    2,
+                  ),
 
                 validityDaysSnapshot:
                   pkg.validityDays,
@@ -447,9 +760,7 @@ export async function POST(
                 status:
                   "active",
 
-                note:
-                  body.note?.trim() ||
-                  null,
+                note,
 
                 createdByUserId:
                   user.id,
@@ -463,14 +774,15 @@ export async function POST(
             inserted[0];
 
           if (!subscription) {
-            throw new Error(
+            throw new ApiError(
               "Could not create customer subscription.",
+              500,
             );
           }
 
-          /* ------------------------------------------------------------------ */
-          /* INITIAL HOURS CREDIT                                                 */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* INITIAL LEDGER CREDIT                                            */
+          /* ---------------------------------------------------------------- */
 
           await tx
             .insert(
@@ -490,9 +802,9 @@ export async function POST(
                 "purchase",
 
               hoursDelta:
-                Number(
-                  pkg.totalHours,
-                ).toFixed(2),
+                totalHours.toFixed(
+                  2,
+                ),
 
               reason:
                 `Purchased package "${pkg.name}"`,
@@ -501,12 +813,14 @@ export async function POST(
                 `subscription_purchase_${subscription.id}`,
             });
 
-          /* ------------------------------------------------------------------ */
-          /* AUDIT                                                                */
-          /* ------------------------------------------------------------------ */
+          /* ---------------------------------------------------------------- */
+          /* AUDIT                                                            */
+          /* ---------------------------------------------------------------- */
 
           await tx
-            .insert(auditLogs)
+            .insert(
+              auditLogs,
+            )
             .values({
               userId:
                 user.id,
@@ -533,15 +847,9 @@ export async function POST(
                 packageName:
                   pkg.name,
 
-                totalHours:
-                  Number(
-                    pkg.totalHours,
-                  ),
+                totalHours,
 
-                price:
-                  Number(
-                    pkg.price,
-                  ),
+                price,
 
                 validityDays:
                   pkg.validityDays,
@@ -550,8 +858,15 @@ export async function POST(
                   expiresAt
                     ? expiresAt.toISOString()
                     : null,
+
+                shiftId:
+                  shift.id,
               },
             });
+
+          /* ---------------------------------------------------------------- */
+          /* RESULT                                                           */
+          /* ---------------------------------------------------------------- */
 
           return {
             subscriptionId:
@@ -569,15 +884,9 @@ export async function POST(
             packageName:
               pkg.name,
 
-            totalHours:
-              Number(
-                pkg.totalHours,
-              ),
+            totalHours,
 
-            price:
-              Number(
-                pkg.price,
-              ),
+            price,
 
             validityDays:
               pkg.validityDays,
@@ -589,6 +898,10 @@ export async function POST(
           };
         },
       );
+
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSE                                                               */
+    /* ---------------------------------------------------------------------- */
 
     return NextResponse.json(
       {
@@ -644,15 +957,29 @@ export async function POST(
       error,
     );
 
+    if (
+      error instanceof
+      ApiError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status:
+            error.status,
+        },
+      );
+    }
+
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not purchase subscription.",
+          "Could not purchase subscription.",
       },
       {
-        status: 400,
+        status: 500,
       },
     );
   }

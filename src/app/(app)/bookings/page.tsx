@@ -1,6 +1,14 @@
 import { db } from "@/db";
-import { bookings, customers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  bookings,
+  customers,
+  meetingRoomReservations,
+} from "@/db/schema";
+import {
+  and,
+  eq,
+  notExists,
+} from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveShiftForUser } from "@/lib/shift";
@@ -103,23 +111,40 @@ export default async function BookingsPage() {
         ),
       )
       .where(
-        eq(
-          bookings.status,
-          "active",
+        and(
+          eq(
+            bookings.status,
+            "active",
+          ),
+          notExists(
+            db
+              .select({
+                id:
+                  meetingRoomReservations.id,
+              })
+              .from(
+                meetingRoomReservations,
+              )
+              .where(
+                eq(
+                  meetingRoomReservations.bookingId,
+                  bookings.id,
+                ),
+              ),
+          ),
         ),
       )
       .orderBy(
         bookings.checkedInAt,
       );
 
-  const activeSessions =
-    activeSessionsRaw.map((session) => ({
-      ...session,
-      billingMode:
-        session.billingMode === "package"
-          ? ("package" as const)
-          : ("regular" as const),
-    }));
+  const activeSessions = activeSessionsRaw.map((session) => ({
+    ...session,
+    billingMode:
+      session.billingMode === "package"
+        ? ("package" as const)
+        : ("regular" as const),
+  }));
 
   return (
     <div className="space-y-6">
@@ -578,7 +603,7 @@ function formatDuration(
     2,
     "0",
   )}:${String(
-    minutes,
+    seconds,
   ).padStart(
     2,
     "0",

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+
 import crypto from "crypto";
 
 import { db } from "@/db";
+
 import {
   desks,
   products,
@@ -21,9 +23,11 @@ import {
 
 import { publish } from "@/lib/events";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
-const CUSTOMER_COOKIE = "wsh_customer_session";
+const CUSTOMER_COOKIE =
+  "wsh_customer_session";
 
 type LineInput = {
   productId: number;
@@ -33,22 +37,56 @@ type LineInput = {
 
 type RequestBody = {
   requestId?: string;
+
   items?: LineInput[];
+
   customerNote?: string;
 };
 
 type OrderResult = {
   ticketId: number;
+
   ticketNumber: number;
+
   total: number;
+
   itemCount: number;
+
   createdAt: Date;
+
   duplicate: boolean;
+
+  bookingId: number;
 };
 
-function hashAccessToken(token: string) {
+class OrderError extends Error {
+  status: number;
+
+  constructor(
+    message: string,
+    status: number,
+  ) {
+    super(message);
+
+    this.name =
+      "OrderError";
+
+    this.status =
+      status;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* HELPERS                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function hashAccessToken(
+  token: string,
+) {
   return crypto
-    .createHash("sha256")
+    .createHash(
+      "sha256",
+    )
     .update(token)
     .digest("hex");
 }
@@ -61,45 +99,144 @@ function getCookieValue(
     return null;
   }
 
-  const parts = cookieHeader
-    .split(";")
-    .map((part) => part.trim());
-
-  const target = `${name}=`;
-
-  for (const part of parts) {
-    if (part.startsWith(target)) {
-      return decodeURIComponent(
-        part.slice(target.length),
+  const parts =
+    cookieHeader
+      .split(";")
+      .map(
+        (part) =>
+          part.trim(),
       );
+
+  const target =
+    `${name}=`;
+
+  for (
+    const part of parts
+  ) {
+    if (
+      part.startsWith(
+        target,
+      )
+    ) {
+      try {
+        return decodeURIComponent(
+          part.slice(
+            target.length,
+          ),
+        );
+      } catch {
+        return null;
+      }
     }
   }
 
   return null;
 }
 
+function isPositiveInteger(
+  value: unknown,
+): value is number {
+  return (
+    typeof value ===
+      "number" &&
+    Number.isInteger(
+      value,
+    ) &&
+    value > 0
+  );
+}
+
+function normalizeRequestId(
+  value: unknown,
+): string {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
+}
+
+function normalizeNote(
+  value: unknown,
+  maxLength: number,
+) {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return null;
+  }
+
+  return (
+    value
+      .trim()
+      .slice(
+        0,
+        maxLength,
+      ) || null
+  );
+}
+
+function parsePrice(
+  value: unknown,
+): number {
+  const price =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      price,
+    ) ||
+    price < 0
+  ) {
+    throw new OrderError(
+      "Product has an invalid price",
+      500,
+    );
+  }
+
+  return price;
+}
+
+/* -------------------------------------------------------------------------- */
+/* POST                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export async function POST(
   req: Request,
   {
     params,
   }: {
-    params: Promise<{ id: string }>;
+    params: Promise<{
+      id: string;
+    }>;
   },
 ) {
-  // ---------------------------------------------------------------------------
-  // PHYSICAL LOCATION / QR ID
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * PHYSICAL LOCATION / QR ID
+   * ------------------------------------------------------------------------
+   */
 
-  const { id } = await params;
-  const deskId = Number(id);
+  const { id } =
+    await params;
+
+  const deskId =
+    Number(id);
 
   if (
-    !Number.isInteger(deskId) ||
+    !Number.isInteger(
+      deskId,
+    ) ||
     deskId <= 0
   ) {
     return NextResponse.json(
       {
-        error: "Invalid desk id",
+        error:
+          "Invalid desk id",
       },
       {
         status: 400,
@@ -107,18 +244,24 @@ export async function POST(
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // REQUEST BODY
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * REQUEST BODY
+   * ------------------------------------------------------------------------
+   */
 
-  const body = (await req
-    .json()
-    .catch(() => null)) as RequestBody | null;
+  const body =
+    (await req
+      .json()
+      .catch(
+        () => null,
+      )) as RequestBody | null;
 
   if (!body) {
     return NextResponse.json(
       {
-        error: "Invalid request body",
+        error:
+          "Invalid request body",
       },
       {
         status: 400,
@@ -126,14 +269,16 @@ export async function POST(
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // REQUEST ID
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * REQUEST ID
+   * ------------------------------------------------------------------------
+   */
 
   const requestId =
-    typeof body.requestId === "string"
-      ? body.requestId.trim()
-      : "";
+    normalizeRequestId(
+      body.requestId,
+    );
 
   if (!requestId) {
     return NextResponse.json(
@@ -147,28 +292,14 @@ export async function POST(
     );
   }
 
-  if (requestId.length > 128) {
-    return NextResponse.json(
-      {
-        error: "Invalid requestId",
-      },
-      {
-        status: 400,
-      },
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // ITEMS
-  // ---------------------------------------------------------------------------
-
   if (
-    !Array.isArray(body.items) ||
-    body.items.length === 0
+    requestId.length >
+    128
   ) {
     return NextResponse.json(
       {
-        error: "Empty order",
+        error:
+          "Invalid requestId",
       },
       {
         status: 400,
@@ -176,9 +307,37 @@ export async function POST(
     );
   }
 
-  const items = body.items;
+  /*
+   * ------------------------------------------------------------------------
+   * ITEMS
+   * ------------------------------------------------------------------------
+   */
 
-  if (items.length > 50) {
+  if (
+    !Array.isArray(
+      body.items,
+    ) ||
+    body.items.length ===
+      0
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Empty order",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+
+  const items =
+    body.items;
+
+  if (
+    items.length >
+    50
+  ) {
     return NextResponse.json(
       {
         error:
@@ -190,50 +349,19 @@ export async function POST(
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // FIND PHYSICAL LOCATION
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * CUSTOMER COOKIE
+   * ------------------------------------------------------------------------
+   */
 
-  const [desk] = await db
-    .select({
-      id: desks.id,
-      name: desks.name,
-      active: desks.active,
-    })
-    .from(desks)
-    .where(
-      and(
-        eq(desks.id, deskId),
-        eq(desks.active, true),
+  const rawToken =
+    getCookieValue(
+      req.headers.get(
+        "cookie",
       ),
-    )
-    .limit(1);
-
-  if (!desk) {
-    return NextResponse.json(
-      {
-        error: "Desk not found",
-      },
-      {
-        status: 404,
-      },
+      CUSTOMER_COOKIE,
     );
-  }
-
-  // ---------------------------------------------------------------------------
-  // FIND CUSTOMER SESSION FROM SECURE COOKIE
-  //
-  // IMPORTANT:
-  // bookings.deskId is NO LONGER used to identify the customer session.
-  //
-  // deskId = physical location scanned by QR
-  // accessTokenHash = customer's active session
-  // ---------------------------------------------------------------------------
-
-  const rawToken = getCookieValue(
-    req.headers.get("cookie"),
-    CUSTOMER_COOKIE,
-  );
 
   if (!rawToken) {
     return NextResponse.json(
@@ -248,542 +376,893 @@ export async function POST(
   }
 
   const tokenHash =
-    hashAccessToken(rawToken);
-
-  const [booking] = await db
-    .select({
-      id: bookings.id,
-      customerName: customers.name,
-    })
-    .from(bookings)
-    .innerJoin(
-      customers,
-      eq(
-        customers.id,
-        bookings.customerId,
-      ),
-    )
-    .where(
-      and(
-        eq(
-          bookings.accessTokenHash,
-          tokenHash,
-        ),
-        eq(
-          bookings.status,
-          "active",
-        ),
-      ),
-    )
-    .limit(1);
-
-  if (!booking) {
-    return NextResponse.json(
-      {
-        error:
-          "Your customer session is no longer active. Please ask the staff for a new session.",
-      },
-      {
-        status: 401,
-      },
+    hashAccessToken(
+      rawToken,
     );
-  }
 
-  // ---------------------------------------------------------------------------
-  // TRANSACTION
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * TRANSACTION
+   * ------------------------------------------------------------------------
+   */
 
-  let result: OrderResult;
+  let result:
+    | OrderResult
+    | undefined;
 
   try {
-    result = await db.transaction(
-      async (tx) => {
-        // ---------------------------------------------------------------------
-        // LOCK THIS REQUEST ID
-        // ---------------------------------------------------------------------
+    result =
+      await db.transaction(
+        async (
+          tx,
+        ) => {
+          /*
+           * ---------------------------------------------------------------
+           * LOCK REQUEST ID
+           * ---------------------------------------------------------------
+           *
+           * Same requestId can be submitted several times by the browser,
+           * phone, bad network retry, or double tap.
+           *
+           * Every operation for the same requestId is serialized.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                hashtext(${requestId})
+              )
+            `,
+          );
 
-        await tx.execute(
-          sql`
-            SELECT pg_advisory_xact_lock(
-              hashtext(${requestId})
-            )
-          `,
-        );
+          /*
+           * ---------------------------------------------------------------
+           * VERIFY PHYSICAL LOCATION
+           * ---------------------------------------------------------------
+           */
 
-        // ---------------------------------------------------------------------
-        // CHECK IF REQUEST ALREADY EXISTS
-        // ---------------------------------------------------------------------
-
-        const [
-          existingRequest,
-        ] = await tx
-          .select({
-            requestId:
-              orderRequests.requestId,
-            ticketId:
-              orderRequests.ticketId,
-          })
-          .from(orderRequests)
-          .where(
-            eq(
-              orderRequests.requestId,
-              requestId,
-            ),
-          )
-          .limit(1);
-
-        if (existingRequest) {
           const [
-            existingTicket,
-          ] = await tx
-            .select({
-              id: orderTickets.id,
-              ticketNumber:
-                orderTickets.ticketNumber,
-              createdAt:
-                orderTickets.createdAt,
-            })
-            .from(orderTickets)
-            .where(
-              eq(
-                orderTickets.id,
-                existingRequest.ticketId,
-              ),
-            )
-            .limit(1);
+            desk,
+          ] =
+            await tx
+              .select({
+                id:
+                  desks.id,
 
-          if (existingTicket) {
-            const existingItems =
-              await tx
-                .select({
-                  quantity:
-                    bookingItems.quantity,
-                  unitPrice:
-                    bookingItems.unitPrice,
-                })
-                .from(bookingItems)
-                .where(
+                name:
+                  desks.name,
+
+                active:
+                  desks.active,
+              })
+              .from(
+                desks,
+              )
+              .where(
+                and(
                   eq(
-                    bookingItems.ticketId,
-                    existingTicket.id,
+                    desks.id,
+                    deskId,
                   ),
-                );
 
-            const existingTotal =
-              existingItems.reduce(
-                (sum, item) =>
-                  sum +
-                  item.quantity *
-                    parseFloat(
-                      item.unitPrice,
-                    ),
-                0,
-              );
-
-            const itemCount =
-              existingItems.reduce(
-                (sum, item) =>
-                  sum + item.quantity,
-                0,
-              );
-
-            return {
-              ticketId:
-                existingTicket.id,
-              ticketNumber:
-                existingTicket.ticketNumber,
-              total:
-                existingTotal,
-              itemCount,
-              createdAt:
-                existingTicket.createdAt,
-              duplicate: true,
-            };
-          }
-
-          // Should only happen if data was manually corrupted.
-          await tx
-            .delete(orderRequests)
-            .where(
-              eq(
-                orderRequests.requestId,
-                requestId,
-              ),
-            );
-        }
-
-        // ---------------------------------------------------------------------
-        // PRODUCT IDS
-        // ---------------------------------------------------------------------
-
-        const productIds = [
-          ...new Set(
-            items
-              .map((line) =>
-                Number(
-                  line.productId,
+                  eq(
+                    desks.active,
+                    true,
+                  ),
                 ),
               )
-              .filter(
-                (productId) =>
-                  Number.isInteger(
-                    productId,
-                  ) &&
-                  productId > 0,
-              ),
-          ),
-        ];
+              .limit(1);
 
-        if (
-          productIds.length === 0
-        ) {
-          throw new Error(
-            "No valid products in order",
-          );
-        }
-
-        // ---------------------------------------------------------------------
-        // LOAD PRODUCTS
-        // ---------------------------------------------------------------------
-
-        const productRows =
-          await tx
-            .select()
-            .from(products)
-            .where(
-              inArray(
-                products.id,
-                productIds,
-              ),
-            );
-
-        const productMap =
-          new Map(
-            productRows.map(
-              (product) => [
-                product.id,
-                product,
-              ],
-            ),
-          );
-
-        // ---------------------------------------------------------------------
-        // VALIDATE PRODUCTS + QUANTITIES
-        // ---------------------------------------------------------------------
-
-        for (const line of items) {
-          const productId =
-            Number(
-              line.productId,
-            );
-
-          const product =
-            productMap.get(
-              productId,
-            );
-
-          if (
-            !product ||
-            !product.active
-          ) {
-            throw new Error(
-              `Product ${productId} is unavailable`,
+          if (!desk) {
+            throw new OrderError(
+              "Desk not found",
+              404,
             );
           }
 
-          const quantity =
-            Number(
-              line.quantity,
-            );
+          /*
+           * ---------------------------------------------------------------
+           * VERIFY ACTIVE CUSTOMER SESSION
+           * ---------------------------------------------------------------
+           *
+           * We verify the session AGAIN inside the transaction.
+           *
+           * The earlier versions checked it before entering the transaction,
+           * which leaves a race window where the staff could close the
+           * session between the check and creation of the order.
+           */
+          const [
+            booking,
+          ] =
+            await tx
+              .select({
+                id:
+                  bookings.id,
 
-          if (
-            !Number.isFinite(
-              quantity,
-            ) ||
-            !Number.isInteger(
-              quantity,
-            ) ||
-            quantity < 1 ||
-            quantity > 50
-          ) {
-            throw new Error(
-              `Invalid quantity for product ${productId}`,
-            );
-          }
+                customerId:
+                  bookings.customerId,
 
-          if (
-            typeof line.note ===
-              "string" &&
-            line.note.length > 500
-          ) {
-            throw new Error(
-              `Note is too long for product ${productId}`,
-            );
-          }
-        }
+                customerName:
+                  customers.name,
 
-        // ---------------------------------------------------------------------
-        // LOCK DAILY TICKET NUMBER
-        // ---------------------------------------------------------------------
+                customerPhone:
+                  customers.phone,
 
-        await tx.execute(
-          sql`
-            SELECT pg_advisory_xact_lock(
-              987654321
-            )
-          `,
-        );
-
-        // ---------------------------------------------------------------------
-        // GET TODAY'S MAX TICKET
-        // ---------------------------------------------------------------------
-
-        const [row] =
-          await tx
-            .select({
-              max: sql<number>`
-                COALESCE(
-                  MAX(
-                    ${orderTickets.ticketNumber}
+                status:
+                  bookings.status,
+              })
+              .from(
+                bookings,
+              )
+              .innerJoin(
+                customers,
+                eq(
+                  customers.id,
+                  bookings.customerId,
+                ),
+              )
+              .where(
+                and(
+                  eq(
+                    bookings.accessTokenHash,
+                    tokenHash,
                   ),
-                  0
-                )::int
-              `,
-            })
-            .from(orderTickets)
-            .where(
-              sql`
-                DATE_TRUNC(
-                  'day',
-                  ${orderTickets.createdAt}
-                )
-                =
-                DATE_TRUNC(
-                  'day',
-                  NOW()
-                )
-              `,
-            );
 
-        const ticketNumber =
-          (row?.max || 0) + 1;
+                  eq(
+                    bookings.status,
+                    "active",
+                  ),
+                ),
+              )
+              .limit(1);
 
-        // ---------------------------------------------------------------------
-        // INSERT TICKET
-        //
-        // bookingId = customer's session
-        // deskId = physical location where QR was scanned
-        // ---------------------------------------------------------------------
-
-        const [
-          ticket,
-        ] = await tx
-          .insert(orderTickets)
-          .values({
-            ticketNumber,
-
-            bookingId:
-              booking.id,
-
-            deskId,
-
-            source: "qr",
-
-            status: "pending",
-
-            customerNote:
-              typeof body.customerNote ===
-              "string"
-                ? body.customerNote
-                    .trim()
-                    .slice(
-                      0,
-                      1000,
-                    ) || null
-                : null,
-          })
-          .returning();
-
-        if (!ticket) {
-          throw new Error(
-            "Failed to create order ticket",
-          );
-        }
-
-        // ---------------------------------------------------------------------
-        // BUILD ITEMS
-        // ---------------------------------------------------------------------
-
-        let total = 0;
-
-        const rowsToInsert: Array<{
-          bookingId: number;
-          ticketId: number;
-          productId: number;
-          nameSnapshot: string;
-          unitPrice: string;
-          quantity: number;
-          source: "qr";
-          itemNote: string | null;
-        }> = [];
-
-        for (const line of items) {
-          const product =
-            productMap.get(
-              Number(
-                line.productId,
-              ),
-            );
-
-          if (!product) {
-            throw new Error(
-              "Product validation failed",
+          if (!booking) {
+            throw new OrderError(
+              "Your customer session is no longer active. Please ask the staff for a new session.",
+              401,
             );
           }
 
-          const quantity =
-            Number(
-              line.quantity,
-            );
+          /*
+           * ---------------------------------------------------------------
+           * LOCK CUSTOMER SESSION
+           * ---------------------------------------------------------------
+           *
+           * The same booking is also protected against simultaneous
+           * checkout/cancellation/order operations.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                29007,
+                ${booking.id}
+              )
+            `,
+          );
 
-          const itemNote =
-            typeof line.note ===
-            "string"
-              ? line.note
-                  .trim()
-                  .slice(
-                    0,
+          /*
+           * Re-check status after acquiring the lock.
+           */
+          const [
+            lockedBooking,
+          ] =
+            await tx
+              .select({
+                id:
+                  bookings.id,
+
+                customerId:
+                  bookings.customerId,
+
+                customerName:
+                  customers.name,
+
+                status:
+                  bookings.status,
+              })
+              .from(
+                bookings,
+              )
+              .innerJoin(
+                customers,
+                eq(
+                  customers.id,
+                  bookings.customerId,
+                ),
+              )
+              .where(
+                and(
+                  eq(
+                    bookings.id,
+                    booking.id,
+                  ),
+
+                  eq(
+                    bookings.accessTokenHash,
+                    tokenHash,
+                  ),
+                ),
+              )
+              .limit(1);
+
+          if (
+            !lockedBooking ||
+            lockedBooking.status !==
+              "active"
+          ) {
+            throw new OrderError(
+              "Your customer session is no longer active. Please ask the staff for a new session.",
+              401,
+            );
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * CHECK EXISTING REQUEST
+           * ---------------------------------------------------------------
+           */
+
+          const [
+            existingRequest,
+          ] =
+            await tx
+              .select({
+                requestId:
+                  orderRequests.requestId,
+
+                ticketId:
+                  orderRequests.ticketId,
+              })
+              .from(
+                orderRequests,
+              )
+              .where(
+                eq(
+                  orderRequests.requestId,
+                  requestId,
+                ),
+              )
+              .limit(1);
+
+          if (
+            existingRequest
+          ) {
+            /*
+             * Load the ticket and make sure the original request belongs
+             * to the SAME customer session.
+             *
+             * A requestId must never allow one customer session to retrieve
+             * another customer's ticket.
+             */
+            const [
+              existingTicket,
+            ] =
+              await tx
+                .select({
+                  id:
+                    orderTickets.id,
+
+                  ticketNumber:
+                    orderTickets.ticketNumber,
+
+                  bookingId:
+                    orderTickets.bookingId,
+
+                  createdAt:
+                    orderTickets.createdAt,
+                })
+                .from(
+                  orderTickets,
+                )
+                .where(
+                  eq(
+                    orderTickets.id,
+                    existingRequest.ticketId,
+                  ),
+                )
+                .limit(1);
+
+            if (
+              !existingTicket
+            ) {
+              /*
+               * Corrupted request mapping.
+               *
+               * Since this request is holding the requestId lock, it is
+               * safe to remove the orphan mapping and continue.
+               */
+              await tx
+                .delete(
+                  orderRequests,
+                )
+                .where(
+                  eq(
+                    orderRequests.requestId,
+                    requestId,
+                  ),
+                );
+            } else {
+              if (
+                existingTicket.bookingId !==
+                lockedBooking.id
+              ) {
+                throw new OrderError(
+                  "This requestId is already used by another customer session.",
+                  409,
+                );
+              }
+
+              const existingItems =
+                await tx
+                  .select({
+                    quantity:
+                      bookingItems.quantity,
+
+                    unitPrice:
+                      bookingItems.unitPrice,
+                  })
+                  .from(
+                    bookingItems,
+                  )
+                  .where(
+                    eq(
+                      bookingItems.ticketId,
+                      existingTicket.id,
+                    ),
+                  );
+
+              const existingTotal =
+                existingItems.reduce(
+                  (
+                    sum,
+                    item,
+                  ) =>
+                    sum +
+                    item.quantity *
+                      parsePrice(
+                        item.unitPrice,
+                      ),
+                  0,
+                );
+
+              const itemCount =
+                existingItems.reduce(
+                  (
+                    sum,
+                    item,
+                  ) =>
+                    sum +
+                    item.quantity,
+                  0,
+                );
+
+              return {
+                ticketId:
+                  existingTicket.id,
+
+                ticketNumber:
+                  existingTicket.ticketNumber,
+
+                total:
+                  existingTotal,
+
+                itemCount,
+
+                createdAt:
+                  existingTicket.createdAt,
+
+                duplicate:
+                  true,
+
+                bookingId:
+                  lockedBooking.id,
+              };
+            }
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * VALIDATE INPUT LINES BEFORE ANY INSERT
+           * ---------------------------------------------------------------
+           */
+
+          const normalizedItems =
+            items.map(
+              (
+                line,
+                index,
+              ) => {
+                const productId =
+                  Number(
+                    line?.productId,
+                  );
+
+                const quantity =
+                  Number(
+                    line?.quantity,
+                  );
+
+                if (
+                  !Number.isInteger(
+                    productId,
+                  ) ||
+                  productId <=
+                    0
+                ) {
+                  throw new OrderError(
+                    `Invalid product at line ${index + 1}`,
+                    400,
+                  );
+                }
+
+                if (
+                  !Number.isInteger(
+                    quantity,
+                  ) ||
+                  quantity <
+                    1 ||
+                  quantity >
+                    50
+                ) {
+                  throw new OrderError(
+                    `Invalid quantity for product ${productId}`,
+                    400,
+                  );
+                }
+
+                const note =
+                  normalizeNote(
+                    line?.note,
                     500,
-                  ) || null
-              : null;
+                  );
 
-          rowsToInsert.push({
-            bookingId:
-              booking.id,
+                return {
+                  productId,
 
-            ticketId:
-              ticket.id,
+                  quantity,
 
-            productId:
-              product.id,
+                  note,
+                };
+              },
+            );
 
-            nameSnapshot:
-              product.name,
+          /*
+           * ---------------------------------------------------------------
+           * PRODUCT IDS
+           * ---------------------------------------------------------------
+           */
 
-            unitPrice:
-              product.price,
+          const productIds =
+            [
+              ...new Set(
+                normalizedItems.map(
+                  (
+                    line,
+                  ) =>
+                    line.productId,
+                ),
+              ),
+            ];
 
-            quantity,
+          if (
+            productIds.length ===
+            0
+          ) {
+            throw new OrderError(
+              "No valid products in order",
+              400,
+            );
+          }
 
-            source: "qr",
+          /*
+           * ---------------------------------------------------------------
+           * LOAD PRODUCTS
+           * ---------------------------------------------------------------
+           */
 
-            itemNote,
-          });
+          const productRows =
+            await tx
+              .select({
+                id:
+                  products.id,
 
-          total +=
-            quantity *
-            parseFloat(
+                name:
+                  products.name,
+
+                price:
+                  products.price,
+
+                active:
+                  products.active,
+              })
+              .from(
+                products,
+              )
+              .where(
+                inArray(
+                  products.id,
+                  productIds,
+                ),
+              );
+
+          const productMap =
+            new Map(
+              productRows.map(
+                (
+                  product,
+                ) => [
+                  product.id,
+                  product,
+                ],
+              ),
+            );
+
+          /*
+           * ---------------------------------------------------------------
+           * VALIDATE PRODUCTS
+           * ---------------------------------------------------------------
+           */
+
+          for (
+            const line of normalizedItems
+          ) {
+            const product =
+              productMap.get(
+                line.productId,
+              );
+
+            if (!product) {
+              throw new OrderError(
+                `Product ${line.productId} is unavailable`,
+                400,
+              );
+            }
+
+            if (
+              !product.active
+            ) {
+              throw new OrderError(
+                `Product ${line.productId} is unavailable`,
+                400,
+              );
+            }
+
+            parsePrice(
               product.price,
             );
-        }
+          }
 
-        if (
-          rowsToInsert.length ===
-          0
-        ) {
-          throw new Error(
-            "No valid items in order",
-          );
-        }
-
-        // ---------------------------------------------------------------------
-        // INSERT ITEMS
-        // ---------------------------------------------------------------------
-
-        await tx
-          .insert(bookingItems)
-          .values(
-            rowsToInsert,
+          /*
+           * ---------------------------------------------------------------
+           * DAILY TICKET NUMBER LOCK
+           * ---------------------------------------------------------------
+           *
+           * All ticket-number generation is serialized.
+           */
+          await tx.execute(
+            sql`
+              SELECT pg_advisory_xact_lock(
+                987654321
+              )
+            `,
           );
 
-        // ---------------------------------------------------------------------
-        // SAVE REQUEST ID
-        // ---------------------------------------------------------------------
+          /*
+           * ---------------------------------------------------------------
+           * GET TODAY'S MAX TICKET
+           * ---------------------------------------------------------------
+           */
 
-        await tx
-          .insert(orderRequests)
-          .values({
-            requestId,
+          const [
+            ticketRow,
+          ] =
+            await tx
+              .select({
+                max:
+                  sql<number>`
+                    COALESCE(
+                      MAX(
+                        ${orderTickets.ticketNumber}
+                      ),
+                      0
+                    )::int
+                  `,
+              })
+              .from(
+                orderTickets,
+              )
+              .where(
+                sql`
+                  DATE_TRUNC(
+                    'day',
+                    ${orderTickets.createdAt}
+                  ) =
+                  DATE_TRUNC(
+                    'day',
+                    NOW()
+                  )
+                `,
+              );
 
+          const ticketNumber =
+            Number(
+              ticketRow?.max ??
+                0,
+            ) + 1;
+
+          /*
+           * ---------------------------------------------------------------
+           * CREATE TICKET
+           * ---------------------------------------------------------------
+           *
+           * bookingId = customer session
+           * deskId    = physical location scanned by QR
+           */
+          const [
+            ticket,
+          ] =
+            await tx
+              .insert(
+                orderTickets,
+              )
+              .values({
+                ticketNumber,
+
+                bookingId:
+                  lockedBooking.id,
+
+                deskId,
+
+                source:
+                  "qr",
+
+                status:
+                  "pending",
+
+                customerNote:
+                  normalizeNote(
+                    body.customerNote,
+                    1000,
+                  ),
+              })
+              .returning({
+                id:
+                  orderTickets.id,
+
+                ticketNumber:
+                  orderTickets.ticketNumber,
+
+                createdAt:
+                  orderTickets.createdAt,
+
+                bookingId:
+                  orderTickets.bookingId,
+              });
+
+          if (!ticket) {
+            throw new OrderError(
+              "Failed to create order ticket",
+              500,
+            );
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * BUILD ITEM SNAPSHOTS
+           * ---------------------------------------------------------------
+           */
+
+          let total = 0;
+
+          const rowsToInsert: Array<{
+            bookingId: number;
+
+            ticketId: number;
+
+            productId: number;
+
+            nameSnapshot: string;
+
+            unitPrice: string;
+
+            quantity: number;
+
+            source: "qr";
+
+            itemNote:
+              | string
+              | null;
+          }> = [];
+
+          for (
+            const line of normalizedItems
+          ) {
+            const product =
+              productMap.get(
+                line.productId,
+              );
+
+            if (!product) {
+              throw new OrderError(
+                "Product validation failed",
+                500,
+              );
+            }
+
+            const price =
+              parsePrice(
+                product.price,
+              );
+
+            rowsToInsert.push({
+              bookingId:
+                lockedBooking.id,
+
+              ticketId:
+                ticket.id,
+
+              productId:
+                product.id,
+
+              /*
+               * Snapshot name and price.
+               *
+               * Future product edits cannot change this existing order.
+               */
+              nameSnapshot:
+                product.name,
+
+              unitPrice:
+                product.price,
+
+              quantity:
+                line.quantity,
+
+              source:
+                "qr",
+
+              itemNote:
+                line.note,
+            });
+
+            total +=
+              line.quantity *
+              price;
+          }
+
+          if (
+            rowsToInsert.length ===
+            0
+          ) {
+            throw new OrderError(
+              "No valid items in order",
+              400,
+            );
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * INSERT ITEMS
+           * ---------------------------------------------------------------
+           */
+
+          await tx
+            .insert(
+              bookingItems,
+            )
+            .values(
+              rowsToInsert,
+            );
+
+          /*
+           * ---------------------------------------------------------------
+           * SAVE IDEMPOTENCY REQUEST
+           * ---------------------------------------------------------------
+           *
+           * This is in the SAME transaction as the ticket/items.
+           *
+           * Therefore:
+           * - ticket created + request saved
+           * - OR nothing is saved
+           */
+          await tx
+            .insert(
+              orderRequests,
+            )
+            .values({
+              requestId,
+
+              ticketId:
+                ticket.id,
+            });
+
+          /*
+           * ---------------------------------------------------------------
+           * RESULT
+           * ---------------------------------------------------------------
+           */
+
+          return {
             ticketId:
               ticket.id,
-          });
 
-        // ---------------------------------------------------------------------
-        // RETURN RESULT
-        // ---------------------------------------------------------------------
+            ticketNumber:
+              ticket.ticketNumber,
 
-        return {
-          ticketId:
-            ticket.id,
+            total,
 
-          ticketNumber:
-            ticket.ticketNumber,
+            itemCount:
+              rowsToInsert.reduce(
+                (
+                  sum,
+                  row,
+                ) =>
+                  sum +
+                  row.quantity,
+                0,
+              ),
 
-          total,
+            createdAt:
+              ticket.createdAt,
 
-          itemCount:
-            rowsToInsert.reduce(
-              (sum, row) =>
-                sum + row.quantity,
-              0,
-            ),
+            duplicate:
+              false,
 
-          createdAt:
-            ticket.createdAt,
-
-          duplicate: false,
-        };
-      },
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "";
-
-    // -------------------------------------------------------------------------
-    // EXPECTED VALIDATION ERRORS
-    // -------------------------------------------------------------------------
-
+            bookingId:
+              lockedBooking.id,
+          };
+        },
+      );
+  } catch (
+    error
+  ) {
     if (
-      message.startsWith(
-        "Product ",
-      ) ||
-      message.startsWith(
-        "Invalid quantity",
-      ) ||
-      message.startsWith(
-        "Note is too long",
-      ) ||
-      message ===
-        "No valid products in order" ||
-      message ===
-        "No valid items in order"
+      error instanceof
+      OrderError
     ) {
       return NextResponse.json(
         {
-          error: message,
+          error:
+            error.message,
         },
         {
-          status: 400,
+          status:
+            error.status,
         },
       );
     }
 
-    // -------------------------------------------------------------------------
-    // DATABASE / SERVER ERROR
-    // -------------------------------------------------------------------------
+    const message =
+      error instanceof
+      Error
+        ? error.message
+        : "";
+
+    /*
+     * Unique constraint protection for a requestId that may have raced
+     * with another request outside our expected lock path.
+     */
+    if (
+      message
+        .toLowerCase()
+        .includes(
+          "order_requests",
+        ) &&
+      message
+        .toLowerCase()
+        .includes(
+          "unique",
+        )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This order request was already processed. Please refresh the menu.",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
 
     console.error(
       "QR order failed:",
@@ -801,46 +1280,113 @@ export async function POST(
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // PUBLISH ONLY FOR A NEW ORDER
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * PUBLISH ONLY FOR NEW ORDER
+   * ------------------------------------------------------------------------
+   */
 
-  if (!result.duplicate) {
-    publish({
-      type: "new_order",
+  if (
+    result &&
+    !result.duplicate
+  ) {
+    /*
+     * We need the physical location and customer name for the event.
+     *
+     * Fetching after the transaction is safe here because the event is
+     * informational only. The actual order has already committed.
+     */
+    const [
+      eventContext,
+    ] =
+      await db
+        .select({
+          deskId:
+            desks.id,
 
-      ticketId:
-        result.ticketId,
+          deskName:
+            desks.name,
 
-      ticketNumber:
-        result.ticketNumber,
+          customerName:
+            customers.name,
+        })
+        .from(
+          orderTickets,
+        )
+        .innerJoin(
+          desks,
+          eq(
+            desks.id,
+            orderTickets.deskId,
+          ),
+        )
+        .innerJoin(
+          bookings,
+          eq(
+            bookings.id,
+            orderTickets.bookingId,
+          ),
+        )
+        .innerJoin(
+          customers,
+          eq(
+            customers.id,
+            bookings.customerId,
+          ),
+        )
+        .where(
+          eq(
+            orderTickets.id,
+            result.ticketId,
+          ),
+        )
+        .limit(1);
 
-      bookingId:
-        booking.id,
+    if (
+      eventContext
+    ) {
+      publish({
+        type:
+          "new_order",
 
-      // This is the physical QR location.
-      deskId,
+        ticketId:
+          result.ticketId,
 
-      deskName:
-        desk.name,
+        ticketNumber:
+          result.ticketNumber,
 
-      customerName:
-        booking.customerName,
+        bookingId:
+          result.bookingId,
 
-      itemCount:
-        result.itemCount,
+        /*
+         * Physical location.
+         */
+        deskId:
+          eventContext.deskId,
 
-      total:
-        result.total,
+        deskName:
+          eventContext.deskName,
 
-      createdAt:
-        result.createdAt.toISOString(),
-    });
+        customerName:
+          eventContext.customerName,
+
+        itemCount:
+          result.itemCount,
+
+        total:
+          result.total,
+
+        createdAt:
+          result.createdAt.toISOString(),
+      });
+    }
   }
 
-  // ---------------------------------------------------------------------------
-  // RESPONSE
-  // ---------------------------------------------------------------------------
+  /*
+   * ------------------------------------------------------------------------
+   * RESPONSE
+   * ------------------------------------------------------------------------
+   */
 
   return NextResponse.json({
     ok: true,

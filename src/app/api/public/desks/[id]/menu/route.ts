@@ -14,7 +14,8 @@ import { and, asc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-const CUSTOMER_COOKIE = "wsh_customer_session";
+const CUSTOMER_COOKIE =
+  "wsh_customer_session";
 
 function hashAccessToken(token: string) {
   return crypto
@@ -48,74 +49,159 @@ function getCookieValue(
   return null;
 }
 
+async function withTimeout<T>(
+  name: string,
+  promise: Promise<T>,
+  timeoutMs = 5000,
+): Promise<T> {
+  console.log(
+    `[PublicMenu] START ${name}`,
+  );
+
+  let timeoutId: NodeJS.Timeout | null =
+    null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              `${name} timed out after ${timeoutMs}ms`,
+            ),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    console.log(
+      `[PublicMenu] END ${name}`,
+    );
+  }
+}
+
 /**
- * Public endpoint reached by a customer scanning a desk/table/room QR.
+ * Public endpoint reached when a customer
+ * scans a desk/table/room QR.
  *
- * IMPORTANT:
  * The QR identifies the physical location only.
- * It does NOT identify the customer's booking.
- *
- * The active customer session is identified from the secure
- * HttpOnly device cookie created during the connection flow.
+ * The customer's active booking is identified
+ * using the secure customer-session cookie.
  */
 export async function GET(
   req: Request,
   {
     params,
   }: {
-    params: Promise<{ id: string }>;
+    params: Promise<{
+      id: string;
+    }>;
   },
 ) {
+  console.log(
+    "[PublicMenu] ===== REQUEST START =====",
+  );
+
   try {
     const { id } = await params;
 
+    console.log(
+      "[PublicMenu] Route id:",
+      id,
+    );
+
     const deskId = Number(id);
 
-    if (!Number.isInteger(deskId) || deskId <= 0) {
+    if (
+      !Number.isInteger(deskId) ||
+      deskId <= 0
+    ) {
+      console.log(
+        "[PublicMenu] Invalid desk id:",
+        deskId,
+      );
+
       return NextResponse.json(
         {
-          error: "Invalid location id",
+          error:
+            "Invalid location id",
         },
         { status: 400 },
       );
     }
 
+    console.log(
+      "[PublicMenu] Valid desk id:",
+      deskId,
+    );
+
     // -------------------------------------------------------------------------
     // FIND PHYSICAL LOCATION
     // -------------------------------------------------------------------------
 
-    const [desk] = await db
-      .select({
-        id: desks.id,
-        name: desks.name,
-        type: desks.type,
-        active: desks.active,
-      })
-      .from(desks)
-      .where(
-        and(
-          eq(desks.id, deskId),
-          eq(desks.active, true),
-        ),
-      )
-      .limit(1);
+    const deskRows =
+      await withTimeout(
+        "DESK QUERY",
+        db
+          .select({
+            id: desks.id,
+            name: desks.name,
+            type: desks.type,
+            active: desks.active,
+          })
+          .from(desks)
+          .where(
+            and(
+              eq(
+                desks.id,
+                deskId,
+              ),
+              eq(
+                desks.active,
+                true,
+              ),
+            ),
+          )
+          .limit(1),
+      );
+
+    const desk = deskRows[0];
+
+    console.log(
+      "[PublicMenu] Desk result:",
+      desk,
+    );
 
     if (!desk) {
       return NextResponse.json(
         {
-          error: "Location not found",
+          error:
+            "Location not found",
         },
         { status: 404 },
       );
     }
 
     // -------------------------------------------------------------------------
-    // FIND CUSTOMER SESSION FROM SECURE DEVICE COOKIE
+    // FIND CUSTOMER SESSION
     // -------------------------------------------------------------------------
 
-    const rawToken = getCookieValue(
-      req.headers.get("cookie"),
-      CUSTOMER_COOKIE,
+    const rawToken =
+      getCookieValue(
+        req.headers.get("cookie"),
+        CUSTOMER_COOKIE,
+      );
+
+    console.log(
+      "[PublicMenu] Customer cookie:",
+      rawToken
+        ? "PRESENT"
+        : "NOT PRESENT",
     );
 
     let activeBooking:
@@ -130,74 +216,118 @@ export async function GET(
       const tokenHash =
         hashAccessToken(rawToken);
 
-      const [booking] = await db
-        .select({
-          id: bookings.id,
-          customerName: customers.name,
-          checkedInAt: bookings.checkedInAt,
-        })
-        .from(bookings)
-        .innerJoin(
-          customers,
-          eq(
-            customers.id,
-            bookings.customerId,
-          ),
-        )
-        .where(
-          and(
-            eq(
-              bookings.accessTokenHash,
-              tokenHash,
-            ),
-            eq(
-              bookings.status,
-              "active",
-            ),
-          ),
-        )
-        .limit(1);
+      console.log(
+        "[PublicMenu] Session token hash generated",
+      );
 
-      activeBooking = booking;
+      const bookingRows =
+        await withTimeout(
+          "BOOKING QUERY",
+          db
+            .select({
+              id: bookings.id,
+              customerName:
+                customers.name,
+              checkedInAt:
+                bookings.checkedInAt,
+            })
+            .from(bookings)
+            .innerJoin(
+              customers,
+              eq(
+                customers.id,
+                bookings.customerId,
+              ),
+            )
+            .where(
+              and(
+                eq(
+                  bookings.accessTokenHash,
+                  tokenHash,
+                ),
+                eq(
+                  bookings.status,
+                  "active",
+                ),
+              ),
+            )
+            .limit(1),
+        );
+
+      activeBooking =
+        bookingRows[0];
+
+      console.log(
+        "[PublicMenu] Booking result:",
+        activeBooking
+          ? activeBooking.id
+          : "NONE",
+      );
     }
 
     // -------------------------------------------------------------------------
-    // MENU
+    // CATEGORIES
     // -------------------------------------------------------------------------
 
-    const cats = await db
-      .select()
-      .from(categories)
-      .orderBy(
-        asc(categories.sortOrder),
+    const cats =
+      await withTimeout(
+        "CATEGORIES QUERY",
+        db
+          .select()
+          .from(categories)
+          .orderBy(
+            asc(
+              categories.sortOrder,
+            ),
+          ),
       );
 
-    const prods = await db
-      .select()
-      .from(products)
-      .where(
-        eq(products.active, true),
-      )
-      .orderBy(
-        asc(products.name),
+    console.log(
+      "[PublicMenu] Categories count:",
+      cats.length,
+    );
+
+    // -------------------------------------------------------------------------
+    // PRODUCTS
+    // -------------------------------------------------------------------------
+
+    const prods =
+      await withTimeout(
+        "PRODUCTS QUERY",
+        db
+          .select()
+          .from(products)
+          .where(
+            eq(
+              products.active,
+              true,
+            ),
+          )
+          .orderBy(
+            asc(products.name),
+          ),
       );
+
+    console.log(
+      "[PublicMenu] Products count:",
+      prods.length,
+    );
 
     // -------------------------------------------------------------------------
     // RESPONSE
     // -------------------------------------------------------------------------
 
-    return NextResponse.json({
+    const response = {
       desk: {
         id: desk.id,
         name: desk.name,
         type: desk.type,
       },
 
-      // This is the customer's SESSION.
-      // It is intentionally independent from the scanned location.
       booking: activeBooking
         ? {
-            id: activeBooking.id,
+            id:
+              activeBooking.id,
             customerName:
               activeBooking.customerName,
             checkedInAt:
@@ -205,30 +335,49 @@ export async function GET(
           }
         : null,
 
-      categories: cats.map((c) => ({
-        id: c.id,
-        name: c.name,
-        icon: c.icon,
-      })),
+      categories:
+        cats.map((c) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon,
+        })),
 
-      products: prods.map((p) => ({
-        id: p.id,
-        categoryId: p.categoryId,
-        name: p.name,
-        price: p.price,
-        icon: p.icon,
-        imageUrl: p.imageUrl,
-      })),
-    });
+      products:
+        prods.map((p) => ({
+          id: p.id,
+          categoryId:
+            p.categoryId,
+          name: p.name,
+          price: p.price,
+          icon: p.icon,
+          imageUrl:
+            p.imageUrl,
+        })),
+    };
+
+    console.log(
+      "[PublicMenu] ===== REQUEST SUCCESS =====",
+    );
+
+    return NextResponse.json(
+      response,
+    );
   } catch (error) {
     console.error(
-      "Public menu failed:",
+      "[PublicMenu] ===== REQUEST FAILED =====",
+    );
+
+    console.error(
+      "[PublicMenu] Error:",
       error,
     );
 
     return NextResponse.json(
       {
-        error: "Could not load menu.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not load menu.",
       },
       { status: 500 },
     );

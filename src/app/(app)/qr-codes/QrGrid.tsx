@@ -322,6 +322,14 @@ export default function QrGrid({
                   className="print-card"
                   key={desk.id}
                 >
+                  <div className="print-logo">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/scope-logo.png"
+                      alt="Scope Space"
+                    />
+                  </div>
+
                   <div className="print-brand">
                     {workspaceName}
                   </div>
@@ -429,6 +437,24 @@ export default function QrGrid({
 
             page-break-inside: avoid;
             break-inside: avoid;
+          }
+
+          .print-logo {
+            width: 42mm;
+            height: 20mm;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            margin: 0 auto 2mm;
+          }
+
+          .print-logo img {
+            width: 100% !important;
+            height: 100% !important;
+            display: block !important;
+            object-fit: contain !important;
           }
 
           .print-brand {

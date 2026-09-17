@@ -3,7 +3,12 @@ import path from "node:path";
 import os from "node:os";
 import http from "node:http";
 import { exec } from "node:child_process";
+
 import { google } from "googleapis";
+
+/* -------------------------------------------------------------------------- */
+/* PATHS                                                                      */
+/* -------------------------------------------------------------------------- */
 
 const APP_DATA_DIR = path.join(
   process.env.APPDATA ||
@@ -20,9 +25,26 @@ const TOKEN_PATH = path.join(
   "google-token.json",
 );
 
-type ElectronProcess = NodeJS.Process & {
-  resourcesPath?: string;
+/* -------------------------------------------------------------------------- */
+/* TYPES                                                                      */
+/* -------------------------------------------------------------------------- */
+
+type ElectronProcess =
+  NodeJS.Process & {
+    resourcesPath?: string;
+  };
+
+type GoogleToken =
+  Record<string, unknown>;
+
+type GoogleAuthorizationResult = {
+  url: string;
+  port: number;
 };
+
+/* -------------------------------------------------------------------------- */
+/* GOOGLE CREDENTIALS                                                         */
+/* -------------------------------------------------------------------------- */
 
 function getCredentialsPath(): string {
   const electronProcess =
@@ -50,9 +72,13 @@ function getCredentialsPath(): string {
       Boolean(value),
   );
 
-  for (const candidate of candidates) {
+  for (
+    const candidate of candidates
+  ) {
     if (
-      fs.existsSync(candidate)
+      fs.existsSync(
+        candidate,
+      )
     ) {
       return candidate;
     }
@@ -72,7 +98,10 @@ function ensureAppDataDir() {
   );
 }
 
-function loadCredentials() {
+function loadCredentials(): {
+  clientId: string;
+  clientSecret: string;
+} {
   const credentialsPath =
     getCredentialsPath();
 
@@ -82,21 +111,65 @@ function loadCredentials() {
       "utf8",
     );
 
-  const json = JSON.parse(raw);
+  let json: unknown;
 
-  const config =
-    json.installed ||
-    json.web;
-
-  if (!config) {
+  try {
+    json =
+      JSON.parse(
+        raw,
+      );
+  } catch {
     throw new Error(
-      "Invalid Google OAuth credentials.json",
+      "Google credentials.json contains invalid JSON.",
     );
   }
 
   if (
-    !config.client_id ||
-    !config.client_secret
+    !json ||
+    typeof json !==
+      "object"
+  ) {
+    throw new Error(
+      "Invalid Google OAuth credentials.json.",
+    );
+  }
+
+  const root =
+    json as Record<
+      string,
+      unknown
+    >;
+
+  const config =
+    (
+      root.installed ??
+      root.web
+    ) as
+      | Record<
+          string,
+          unknown
+        >
+      | undefined;
+
+  if (!config) {
+    throw new Error(
+      "Invalid Google OAuth credentials.json.",
+    );
+  }
+
+  const clientId =
+    config.client_id;
+
+  const clientSecret =
+    config.client_secret;
+
+  if (
+    typeof clientId !==
+      "string" ||
+    !clientId ||
+    typeof clientSecret !==
+      "string" ||
+    !clientSecret
   ) {
     throw new Error(
       "Google OAuth client credentials are incomplete.",
@@ -104,18 +177,14 @@ function loadCredentials() {
   }
 
   return {
-    clientId: config.client_id as string,
-    clientSecret:
-      config.client_secret as string,
+    clientId,
+    clientSecret,
   };
 }
 
-// -----------------------------------------------------------------------------
-// CREATE OAUTH CLIENT
-//
-// We intentionally do NOT import OAuth2Client from google-auth-library.
-// This avoids the duplicate google-auth-library type conflict.
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* OAUTH CLIENT                                                               */
+/* -------------------------------------------------------------------------- */
 
 export function createOAuthClient(
   redirectUri: string,
@@ -123,7 +192,8 @@ export function createOAuthClient(
   const {
     clientId,
     clientSecret,
-  } = loadCredentials();
+  } =
+    loadCredentials();
 
   return new google.auth.OAuth2(
     clientId,
@@ -132,9 +202,9 @@ export function createOAuthClient(
   );
 }
 
-// -----------------------------------------------------------------------------
-// TOKEN
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* TOKEN STORAGE                                                              */
+/* -------------------------------------------------------------------------- */
 
 export function hasGoogleToken(): boolean {
   return fs.existsSync(
@@ -142,33 +212,43 @@ export function hasGoogleToken(): boolean {
   );
 }
 
-export function loadGoogleToken(): Record<
-  string,
-  unknown
-> | null {
+export function loadGoogleToken(): GoogleToken | null {
   if (
-    !fs.existsSync(TOKEN_PATH)
+    !fs.existsSync(
+      TOKEN_PATH,
+    )
   ) {
     return null;
   }
 
   try {
-    return JSON.parse(
+    const raw =
       fs.readFileSync(
         TOKEN_PATH,
         "utf8",
-      ),
-    ) as Record<
-      string,
-      unknown
-    >;
+      );
+
+    const parsed =
+      JSON.parse(
+        raw,
+      ) as unknown;
+
+    if (
+      !parsed ||
+      typeof parsed !==
+        "object"
+    ) {
+      return null;
+    }
+
+    return parsed as GoogleToken;
   } catch {
     return null;
   }
 }
 
 export function saveGoogleToken(
-  tokens: Record<string, unknown>,
+  tokens: GoogleToken,
 ) {
   ensureAppDataDir();
 
@@ -183,23 +263,101 @@ export function saveGoogleToken(
   );
 }
 
-export function disconnectGoogleCalendar() {
+function clearGoogleToken() {
   try {
     if (
-      fs.existsSync(TOKEN_PATH)
+      fs.existsSync(
+        TOKEN_PATH,
+      )
     ) {
       fs.unlinkSync(
         TOKEN_PATH,
       );
     }
-  } catch {
-    // Ignore cleanup errors.
+  } catch (error) {
+    console.error(
+      "Could not clear Google token:",
+      error,
+    );
   }
 }
 
-// -----------------------------------------------------------------------------
-// AUTHENTICATED CLIENT
-// -----------------------------------------------------------------------------
+export function disconnectGoogleCalendar() {
+  clearGoogleToken();
+}
+
+/* -------------------------------------------------------------------------- */
+/* TOKEN ERROR DETECTION                                                      */
+/* -------------------------------------------------------------------------- */
+
+function isInvalidGrantError(
+  error: unknown,
+): boolean {
+  if (
+    !error ||
+    typeof error !==
+      "object"
+  ) {
+    return false;
+  }
+
+  const candidate =
+    error as {
+      code?: unknown;
+      message?: unknown;
+      response?: {
+        data?: {
+          error?: unknown;
+          error_description?: unknown;
+        };
+      };
+    };
+
+  if (
+    candidate.code ===
+    400
+  ) {
+    const responseError =
+      candidate.response
+        ?.data?.error;
+
+    if (
+      responseError ===
+      "invalid_grant"
+    ) {
+      return true;
+    }
+  }
+
+  const message =
+    typeof candidate.message ===
+    "string"
+      ? candidate.message
+      : "";
+
+  if (
+    message
+      .toLowerCase()
+      .includes(
+        "invalid_grant",
+      )
+  ) {
+    return true;
+  }
+
+  const responseError =
+    candidate.response
+      ?.data?.error;
+
+  return (
+    responseError ===
+    "invalid_grant"
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* AUTHENTICATED CLIENT                                                       */
+/* -------------------------------------------------------------------------- */
 
 export function getAuthenticatedClient() {
   const token =
@@ -214,14 +372,41 @@ export function getAuthenticatedClient() {
       "http://127.0.0.1",
     );
 
-  client.setCredentials(token);
+  client.setCredentials(
+    token,
+  );
+
+  /*
+   * Google can return a new access token using the refresh token.
+   * Persist it so subsequent requests use the newest credentials.
+   */
+  client.on(
+    "tokens",
+    (newTokens) => {
+      try {
+        const currentToken =
+          loadGoogleToken() ??
+          {};
+
+        saveGoogleToken({
+          ...currentToken,
+          ...newTokens,
+        });
+      } catch (error) {
+        console.error(
+          "Could not persist refreshed Google tokens:",
+          error,
+        );
+      }
+    },
+  );
 
   return client;
 }
 
-// -----------------------------------------------------------------------------
-// STATUS
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* STATUS                                                                     */
+/* -------------------------------------------------------------------------- */
 
 export async function getGoogleCalendarStatus() {
   const client =
@@ -244,12 +429,14 @@ export async function getGoogleCalendarStatus() {
     const primary =
       await calendar.calendarList.get(
         {
-          calendarId: "primary",
+          calendarId:
+            "primary",
         },
       );
 
     return {
       connected: true,
+
       email:
         primary.data.id ??
         null,
@@ -260,6 +447,18 @@ export async function getGoogleCalendarStatus() {
       error,
     );
 
+    /*
+     * invalid_grant means the saved OAuth credentials are no longer valid.
+     * Remove them so the next connection starts a completely fresh OAuth flow.
+     */
+    if (
+      isInvalidGrantError(
+        error,
+      )
+    ) {
+      clearGoogleToken();
+    }
+
     return {
       connected: false,
       email: null,
@@ -267,27 +466,38 @@ export async function getGoogleCalendarStatus() {
   }
 }
 
-// -----------------------------------------------------------------------------
-// OPEN BROWSER
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* OPEN BROWSER                                                               */
+/* -------------------------------------------------------------------------- */
 
 function openBrowser(
   url: string,
 ) {
   const command =
-    process.platform === "win32"
+    process.platform ===
+    "win32"
       ? `start "" "${url}"`
       : process.platform ===
           "darwin"
         ? `open "${url}"`
         : `xdg-open "${url}"`;
 
-  exec(command);
+  exec(
+    command,
+    (error) => {
+      if (error) {
+        console.error(
+          "Could not open browser automatically:",
+          error,
+        );
+      }
+    },
+  );
 }
 
-// -----------------------------------------------------------------------------
-// OAUTH STATE
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* OAUTH STATE                                                                */
+/* -------------------------------------------------------------------------- */
 
 let activeOAuthServer:
   | http.Server
@@ -297,12 +507,36 @@ let activeOAuthState:
   | string
   | null = null;
 
-// -----------------------------------------------------------------------------
-// START GOOGLE AUTHORIZATION
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* CLEANUP OAUTH SERVER                                                       */
+/* -------------------------------------------------------------------------- */
 
-export async function startGoogleAuthorization() {
-  // Prevent two login windows at the same time.
+function cleanupOAuthServer(
+  server: http.Server,
+) {
+  try {
+    server.close();
+  } catch {
+    // Ignore cleanup errors.
+  }
+
+  if (
+    activeOAuthServer ===
+    server
+  ) {
+    activeOAuthServer =
+      null;
+  }
+
+  activeOAuthState =
+    null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* START GOOGLE AUTHORIZATION                                                 */
+/* -------------------------------------------------------------------------- */
+
+export async function startGoogleAuthorization(): Promise<GoogleAuthorizationResult> {
   if (activeOAuthServer) {
     throw new Error(
       "Google authorization is already in progress.",
@@ -321,23 +555,57 @@ export async function startGoogleAuthorization() {
   activeOAuthServer =
     server;
 
-  await new Promise<void>(
-    (
-      resolve,
-      reject,
-    ) => {
-      server.once(
-        "error",
+  try {
+    await new Promise<void>(
+      (
+        resolve,
         reject,
-      );
+      ) => {
+        const onError =
+          (
+            error: Error,
+          ) => {
+            server.off(
+              "listening",
+              onListening,
+            );
 
-      server.listen(
-        0,
-        "127.0.0.1",
-        () => resolve(),
-      );
-    },
-  );
+            reject(error);
+          };
+
+        const onListening =
+          () => {
+            server.off(
+              "error",
+              onError,
+            );
+
+            resolve();
+          };
+
+        server.once(
+          "error",
+          onError,
+        );
+
+        server.once(
+          "listening",
+          onListening,
+        );
+
+        server.listen(
+          0,
+          "127.0.0.1",
+        );
+      },
+    );
+  } catch (error) {
+    cleanupOAuthServer(
+      server,
+    );
+
+    throw error;
+  }
 
   const address =
     server.address();
@@ -347,13 +615,9 @@ export async function startGoogleAuthorization() {
     typeof address ===
       "string"
   ) {
-    server.close();
-
-    activeOAuthServer =
-      null;
-
-    activeOAuthState =
-      null;
+    cleanupOAuthServer(
+      server,
+    );
 
     throw new Error(
       "Could not start local OAuth server.",
@@ -366,18 +630,36 @@ export async function startGoogleAuthorization() {
   const redirectUri =
     `http://127.0.0.1:${port}`;
 
-  const client =
-    createOAuthClient(
-      redirectUri,
+  let client;
+
+  try {
+    client =
+      createOAuthClient(
+        redirectUri,
+      );
+  } catch (error) {
+    cleanupOAuthServer(
+      server,
     );
+
+    throw error;
+  }
 
   const authUrl =
     client.generateAuthUrl({
-      access_type: "offline",
-      prompt: "consent",
+      access_type:
+        "offline",
+
+      prompt:
+        "consent",
+
+      include_granted_scopes:
+        true,
+
       scope: [
         "https://www.googleapis.com/auth/calendar",
       ],
+
       state,
     });
 
@@ -390,7 +672,8 @@ export async function startGoogleAuthorization() {
       try {
         const requestUrl =
           new URL(
-            req.url || "/",
+            req.url ||
+              "/",
             `http://127.0.0.1:${port}`,
           );
 
@@ -409,9 +692,9 @@ export async function startGoogleAuthorization() {
             "error",
           );
 
-        // ---------------------------------------------------------------
-        // USER CANCELLED
-        // ---------------------------------------------------------------
+        /* -------------------------------------------------------------- */
+        /* USER CANCELLED                                                  */
+        /* -------------------------------------------------------------- */
 
         if (oauthError) {
           res.writeHead(
@@ -425,6 +708,10 @@ export async function startGoogleAuthorization() {
           res.end(`
             <!doctype html>
             <html>
+              <head>
+                <meta charset="utf-8">
+                <title>WorkSpace Hub</title>
+              </head>
               <body style="
                 font-family:Segoe UI,Arial,sans-serif;
                 text-align:center;
@@ -441,25 +728,16 @@ export async function startGoogleAuthorization() {
             </html>
           `);
 
-          setTimeout(
-            () => {
-              server.close();
-
-              activeOAuthServer =
-                null;
-
-              activeOAuthState =
-                null;
-            },
-            300,
+          cleanupOAuthServer(
+            server,
           );
 
           return;
         }
 
-        // ---------------------------------------------------------------
-        // STATE / CODE VALIDATION
-        // ---------------------------------------------------------------
+        /* -------------------------------------------------------------- */
+        /* STATE / CODE VALIDATION                                        */
+        /* -------------------------------------------------------------- */
 
         if (
           !code ||
@@ -479,25 +757,16 @@ export async function startGoogleAuthorization() {
             "Invalid Google OAuth callback.",
           );
 
-          setTimeout(
-            () => {
-              server.close();
-
-              activeOAuthServer =
-                null;
-
-              activeOAuthState =
-                null;
-            },
-            300,
+          cleanupOAuthServer(
+            server,
           );
 
           return;
         }
 
-        // ---------------------------------------------------------------
-        // EXCHANGE CODE FOR TOKENS
-        // ---------------------------------------------------------------
+        /* -------------------------------------------------------------- */
+        /* EXCHANGE CODE FOR TOKENS                                      */
+        /* -------------------------------------------------------------- */
 
         const {
           tokens,
@@ -506,20 +775,26 @@ export async function startGoogleAuthorization() {
             code,
           );
 
+        if (
+          !tokens ||
+          !tokens.access_token
+        ) {
+          throw new Error(
+            "Google OAuth did not return a valid access token.",
+          );
+        }
+
         client.setCredentials(
           tokens,
         );
 
         saveGoogleToken(
-          tokens as Record<
-            string,
-            unknown
-          >,
+          tokens as GoogleToken,
         );
 
-        // ---------------------------------------------------------------
-        // SUCCESS PAGE
-        // ---------------------------------------------------------------
+        /* -------------------------------------------------------------- */
+        /* SUCCESS PAGE                                                   */
+        /* -------------------------------------------------------------- */
 
         res.writeHead(
           200,
@@ -568,17 +843,8 @@ export async function startGoogleAuthorization() {
           </html>
         `);
 
-        setTimeout(
-          () => {
-            server.close();
-
-            activeOAuthServer =
-              null;
-
-            activeOAuthState =
-              null;
-          },
-          300,
+        cleanupOAuthServer(
+          server,
         );
       } catch (error) {
         console.error(
@@ -586,59 +852,70 @@ export async function startGoogleAuthorization() {
           error,
         );
 
-        res.writeHead(
-          500,
-          {
-            "Content-Type":
-              "text/html; charset=utf-8",
-          },
-        );
+        if (
+          isInvalidGrantError(
+            error,
+          )
+        ) {
+          clearGoogleToken();
+        }
 
-        res.end(`
-          <!doctype html>
-          <html>
-            <body style="
-              font-family:Segoe UI,Arial,sans-serif;
-              text-align:center;
-              padding:60px;
-            ">
-              <h1>
-                ❌ Google Calendar connection failed
-              </h1>
+        try {
+          res.writeHead(
+            500,
+            {
+              "Content-Type":
+                "text/html; charset=utf-8",
+            },
+          );
 
-              <p>
-                Please close this window and try again.
-              </p>
-            </body>
-          </html>
-        `);
+          res.end(`
+            <!doctype html>
+            <html>
+              <head>
+                <meta charset="utf-8">
+                <title>WorkSpace Hub</title>
+              </head>
 
-        setTimeout(
-          () => {
-            server.close();
+              <body style="
+                font-family:Segoe UI,Arial,sans-serif;
+                text-align:center;
+                padding:60px;
+              ">
+                <h1>
+                  ❌ Google Calendar connection failed
+                </h1>
 
-            activeOAuthServer =
-              null;
+                <p>
+                  Please close this window and try again.
+                </p>
+              </body>
+            </html>
+          `);
+        } catch {
+          // Ignore response errors.
+        }
 
-            activeOAuthState =
-              null;
-          },
-          300,
+        cleanupOAuthServer(
+          server,
         );
       }
     },
   );
 
-  openBrowser(authUrl);
+  openBrowser(
+    authUrl,
+  );
 
   return {
     url: authUrl,
     port,
   };
 }
-// -----------------------------------------------------------------------------
-// CALENDAR AVAILABILITY
-// -----------------------------------------------------------------------------
+
+/* -------------------------------------------------------------------------- */
+/* CALENDAR AVAILABILITY                                                       */
+/* -------------------------------------------------------------------------- */
 
 export type BusyPeriod = {
   start: string;
@@ -650,6 +927,47 @@ export async function getCalendarBusyPeriods(
   timeMin: string,
   timeMax: string,
 ): Promise<BusyPeriod[]> {
+  if (
+    !calendarId ||
+    !timeMin ||
+    !timeMax
+  ) {
+    throw new Error(
+      "calendarId, timeMin and timeMax are required.",
+    );
+  }
+
+  const start =
+    new Date(
+      timeMin,
+    );
+
+  const end =
+    new Date(
+      timeMax,
+    );
+
+  if (
+    Number.isNaN(
+      start.getTime(),
+    ) ||
+    Number.isNaN(
+      end.getTime(),
+    )
+  ) {
+    throw new Error(
+      "Invalid calendar time range.",
+    );
+  }
+
+  if (
+    start >= end
+  ) {
+    throw new Error(
+      "timeMin must be before timeMax.",
+    );
+  }
+
   const client =
     getAuthenticatedClient();
 
@@ -665,36 +983,65 @@ export async function getCalendarBusyPeriods(
       auth: client,
     });
 
-  const result =
-    await calendar.freebusy.query({
-      requestBody: {
-        timeMin,
-        timeMax,
-        items: [
-          {
-            id: calendarId,
-          },
-        ],
-      },
-    });
+  try {
+    const result =
+      await calendar.freebusy.query({
+        requestBody: {
+          timeMin:
+            start.toISOString(),
 
-  return (
-    result.data.calendars?.[
-      calendarId
-    ]?.busy?.map(
-      (period) => ({
-        start:
-          period.start!,
-        end:
-          period.end!,
-      }),
-    ) || []
-  );
+          timeMax:
+            end.toISOString(),
+
+          items: [
+            {
+              id: calendarId,
+            },
+          ],
+        },
+      });
+
+    return (
+      result.data.calendars?.[
+        calendarId
+      ]?.busy?.flatMap(
+        (
+          period,
+        ) => {
+          if (
+            !period.start ||
+            !period.end
+          ) {
+            return [];
+          }
+
+          return [
+            {
+              start:
+                period.start,
+              end:
+                period.end,
+            },
+          ];
+        },
+      ) ?? []
+    );
+  } catch (error) {
+    if (
+      isInvalidGrantError(
+        error,
+      )
+    ) {
+      clearGoogleToken();
+    }
+
+    throw error;
+  }
 }
 
-// -----------------------------------------------------------------------------
-// CREATE EVENT
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* CREATE EVENT                                                               */
+/* -------------------------------------------------------------------------- */
 
 export async function createGoogleCalendarEvent(
   calendarId: string,
@@ -707,6 +1054,70 @@ export async function createGoogleCalendarEvent(
     recurrenceCount?: number;
   },
 ) {
+  if (
+    !calendarId
+  ) {
+    throw new Error(
+      "calendarId is required.",
+    );
+  }
+
+  const summary =
+    input.summary.trim();
+
+  if (!summary) {
+    throw new Error(
+      "Calendar event summary is required.",
+    );
+  }
+
+  const start =
+    new Date(
+      input.start,
+    );
+
+  const end =
+    new Date(
+      input.end,
+    );
+
+  if (
+    Number.isNaN(
+      start.getTime(),
+    ) ||
+    Number.isNaN(
+      end.getTime(),
+    )
+  ) {
+    throw new Error(
+      "Invalid calendar event time.",
+    );
+  }
+
+  if (
+    start >= end
+  ) {
+    throw new Error(
+      "Calendar event start must be before end.",
+    );
+  }
+
+  if (
+    input.recurrenceCount !==
+      undefined &&
+    (
+      !Number.isSafeInteger(
+        input.recurrenceCount,
+      ) ||
+      input.recurrenceCount <=
+        0
+    )
+  ) {
+    throw new Error(
+      "Invalid recurrence count.",
+    );
+  }
+
   const client =
     getAuthenticatedClient();
 
@@ -724,33 +1135,39 @@ export async function createGoogleCalendarEvent(
 
   const event: {
     summary: string;
+
     description?: string;
+
     start: {
       dateTime: string;
       timeZone: string;
     };
+
     end: {
       dateTime: string;
       timeZone: string;
     };
+
     recurrence?: string[];
   } = {
-    summary:
-      input.summary,
+    summary,
 
     description:
-      input.description,
+      input.description?.trim() ||
+      undefined,
 
     start: {
       dateTime:
-        input.start,
+        start.toISOString(),
+
       timeZone:
         "Africa/Cairo",
     },
 
     end: {
       dateTime:
-        input.end,
+        end.toISOString(),
+
       timeZone:
         "Africa/Cairo",
     },
@@ -759,35 +1176,75 @@ export async function createGoogleCalendarEvent(
   if (
     input.recurrenceRule
   ) {
+    const rule =
+      input.recurrenceRule.trim();
+
+    if (!rule) {
+      throw new Error(
+        "Invalid recurrence rule.",
+      );
+    }
+
     event.recurrence = [
-      input.recurrenceRule,
+      rule,
     ];
   }
 
-  const result =
-    await calendar.events.insert({
-      calendarId,
-      requestBody: event,
-    });
+  try {
+    const result =
+      await calendar.events.insert({
+        calendarId,
 
-  return {
-    id:
-      result.data.id || null,
+        requestBody:
+          event,
+      });
 
-    htmlLink:
-      result.data.htmlLink ||
-      null,
-  };
+    return {
+      id:
+        result.data.id ??
+        null,
+
+      htmlLink:
+        result.data.htmlLink ??
+        null,
+    };
+  } catch (error) {
+    if (
+      isInvalidGrantError(
+        error,
+      )
+    ) {
+      clearGoogleToken();
+    }
+
+    throw error;
+  }
 }
 
-// -----------------------------------------------------------------------------
-// DELETE EVENT
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* DELETE EVENT                                                               */
+/* -------------------------------------------------------------------------- */
 
 export async function deleteGoogleCalendarEvent(
   calendarId: string,
   eventId: string,
 ) {
+  if (
+    !calendarId
+  ) {
+    throw new Error(
+      "calendarId is required.",
+    );
+  }
+
+  if (
+    !eventId
+  ) {
+    throw new Error(
+      "eventId is required.",
+    );
+  }
+
   const client =
     getAuthenticatedClient();
 
@@ -803,8 +1260,22 @@ export async function deleteGoogleCalendarEvent(
       auth: client,
     });
 
-  await calendar.events.delete({
-    calendarId,
-    eventId,
-  });
+  try {
+    await calendar.events.delete(
+      {
+        calendarId,
+        eventId,
+      },
+    );
+  } catch (error) {
+    if (
+      isInvalidGrantError(
+        error,
+      )
+    ) {
+      clearGoogleToken();
+    }
+
+    throw error;
+  }
 }

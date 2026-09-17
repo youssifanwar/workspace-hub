@@ -1,36 +1,153 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm";
+
 import { db } from "@/db";
 import {
-  bookings,
-  bookingItems,
-  expenses,
   bankTransactions,
-  users,
+  bookingItems,
+  bookings,
+  expenses,
   shifts,
+  users,
 } from "@/db/schema";
-import { sql, eq, and, gte, lte, desc, isNotNull } from "drizzle-orm";
-import { getCurrentUser, canManage } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { getSetting, formatMoney } from "@/lib/settings";
-import Link from "next/link";
+
+import {
+  canManage,
+  getCurrentUser,
+} from "@/lib/auth";
+
+import {
+  formatMoney,
+  getSetting,
+} from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+
+type SearchParams = {
+  range?: string;
+};
+
+function safeNumber(
+  value: string | number | null | undefined,
+): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : Number.parseFloat(value ?? "0");
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : 0;
+}
+
+function parseReportDays(value: string | undefined) {
+  const parsed = Number.parseInt(
+    value ?? "7",
+    10,
+  );
+
+  if (!Number.isFinite(parsed)) {
+    return 7;
+  }
+
+  if (parsed <= 1) {
+    return 1;
+  }
+
+  if (parsed <= 7) {
+    return 7;
+  }
+
+  if (parsed <= 30) {
+    return 30;
+  }
+
+  return 90;
+}
+
+function formatDate(
+  value: Date,
+) {
+  if (
+    !(value instanceof Date) ||
+    Number.isNaN(value.getTime())
+  ) {
+    return "-";
+  }
+
+  return value.toLocaleDateString(
+    "en-EG",
+  );
+}
+
+function formatDateTime(
+  value: Date | null,
+) {
+  if (
+    !value ||
+    !(value instanceof Date) ||
+    Number.isNaN(value.getTime())
+  ) {
+    return "-";
+  }
+
+  return value.toLocaleString(
+    "en-EG",
+  );
+}
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (!canManage(user.role)) redirect("/dashboard");
-  const currency = await getSetting("currency");
 
-  const { range = "7" } = await searchParams;
-  const days = Math.max(1, Math.min(90, parseInt(range) || 7));
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (!canManage(user.role)) {
+    redirect("/dashboard");
+  }
+
+  const currency =
+    await getSetting("currency");
+
+  const params = await searchParams;
+
+  const days = parseReportDays(
+    params.range,
+  );
+
   const from = new Date();
-  from.setDate(from.getDate() - days + 1);
-  from.setHours(0, 0, 0, 0);
+  from.setHours(
+    0,
+    0,
+    0,
+    0,
+  );
+
+  from.setDate(
+    from.getDate() - days + 1,
+  );
+
   const to = new Date();
+  to.setHours(
+    23,
+    59,
+    59,
+    999,
+  );
 
   const [
     revenueRow,
@@ -41,299 +158,777 @@ export default async function ReportsPage({
     paymentRows,
     shiftRows,
   ] = await Promise.all([
+    // -------------------------------------------------------------------------
+    // REVENUE
+    //
+    // Closed sessions are reported by checkout time because that is the point
+    // where the final amount is actually realized.
+    // -------------------------------------------------------------------------
     db
       .select({
-        revenue: sql<string>`coalesce(sum(${bookings.total}), 0)`,
-        seat: sql<string>`coalesce(sum(${bookings.seatCharge}), 0)`,
-        orders: sql<string>`coalesce(sum(${bookings.ordersTotal}), 0)`,
-        count: sql<number>`count(*)::int`,
+        revenue: sql<string>`
+          coalesce(
+            sum(${bookings.total}),
+            0
+          )
+        `,
+        seat: sql<string>`
+          coalesce(
+            sum(${bookings.seatCharge}),
+            0
+          )
+        `,
+        orders: sql<string>`
+          coalesce(
+            sum(${bookings.ordersTotal}),
+            0
+          )
+        `,
+        count: sql<number>`
+          count(*)::int
+        `,
       })
       .from(bookings)
       .where(
         and(
-          eq(bookings.status, "closed"),
-          gte(bookings.checkedInAt, from),
-          lte(bookings.checkedInAt, to),
+          eq(
+            bookings.status,
+            "closed",
+          ),
+          gte(
+            bookings.checkedOutAt,
+            from,
+          ),
+          lte(
+            bookings.checkedOutAt,
+            to,
+          ),
         ),
       ),
+
+    // -------------------------------------------------------------------------
+    // DAILY REVENUE
+    // -------------------------------------------------------------------------
     db
       .select({
-        day: sql<string>`to_char(date_trunc('day', ${bookings.checkedInAt}), 'YYYY-MM-DD')`,
-        revenue: sql<string>`coalesce(sum(${bookings.total}), 0)`,
+        day: sql<string>`
+          to_char(
+            date_trunc(
+              'day',
+              ${bookings.checkedOutAt}
+            ),
+            'YYYY-MM-DD'
+          )
+        `,
+        revenue: sql<string>`
+          coalesce(
+            sum(${bookings.total}),
+            0
+          )
+        `,
       })
       .from(bookings)
       .where(
         and(
-          eq(bookings.status, "closed"),
-          gte(bookings.checkedInAt, from),
+          eq(
+            bookings.status,
+            "closed",
+          ),
+          gte(
+            bookings.checkedOutAt,
+            from,
+          ),
+          lte(
+            bookings.checkedOutAt,
+            to,
+          ),
         ),
       )
-      .groupBy(sql`date_trunc('day', ${bookings.checkedInAt})`)
-      .orderBy(sql`date_trunc('day', ${bookings.checkedInAt})`),
+      .groupBy(
+        sql`
+          date_trunc(
+            'day',
+            ${bookings.checkedOutAt}
+          )
+        `,
+      )
+      .orderBy(
+        sql`
+          date_trunc(
+            'day',
+            ${bookings.checkedOutAt}
+          )
+        `,
+      ),
+
+    // -------------------------------------------------------------------------
+    // TOP PRODUCTS
+    // -------------------------------------------------------------------------
     db
       .select({
         name: bookingItems.nameSnapshot,
-        qty: sql<number>`sum(${bookingItems.quantity})::int`,
-        revenue: sql<string>`coalesce(sum(${bookingItems.quantity} * ${bookingItems.unitPrice}), 0)`,
+        qty: sql<number>`
+          sum(
+            ${bookingItems.quantity}
+          )::int
+        `,
+        revenue: sql<string>`
+          coalesce(
+            sum(
+              ${bookingItems.quantity} *
+              ${bookingItems.unitPrice}
+            ),
+            0
+          )
+        `,
       })
       .from(bookingItems)
-      .innerJoin(bookings, eq(bookings.id, bookingItems.bookingId))
-      .where(
-        and(
-          eq(bookings.status, "closed"),
-          gte(bookings.checkedInAt, from),
+      .innerJoin(
+        bookings,
+        eq(
+          bookings.id,
+          bookingItems.bookingId,
         ),
       )
-      .groupBy(bookingItems.nameSnapshot)
-      .orderBy(desc(sql`sum(${bookingItems.quantity})`))
+      .where(
+        and(
+          eq(
+            bookings.status,
+            "closed",
+          ),
+          gte(
+            bookings.checkedOutAt,
+            from,
+          ),
+          lte(
+            bookings.checkedOutAt,
+            to,
+          ),
+        ),
+      )
+      .groupBy(
+        bookingItems.nameSnapshot,
+      )
+      .orderBy(
+        desc(
+          sql`
+            sum(
+              ${bookingItems.quantity}
+            )
+          `,
+        ),
+      )
       .limit(10),
-    db
-      .select({ total: sql<string>`coalesce(sum(amount), 0)` })
-      .from(expenses)
-      .where(gte(expenses.createdAt, from)),
+
+    // -------------------------------------------------------------------------
+    // EXPENSES
+    // -------------------------------------------------------------------------
     db
       .select({
-        deposits: sql<string>`coalesce(sum(case when type='deposit' then amount else 0 end), 0)`,
-        withdrawals: sql<string>`coalesce(sum(case when type='withdraw' then amount else 0 end), 0)`,
+        total: sql<string>`
+          coalesce(
+            sum(${expenses.amount}),
+            0
+          )
+        `,
+      })
+      .from(expenses)
+      .where(
+        and(
+          gte(
+            expenses.createdAt,
+            from,
+          ),
+          lte(
+            expenses.createdAt,
+            to,
+          ),
+        ),
+      ),
+
+    // -------------------------------------------------------------------------
+    // BANK
+    // -------------------------------------------------------------------------
+    db
+      .select({
+        deposits: sql<string>`
+          coalesce(
+            sum(
+              case
+                when ${bankTransactions.type} = 'deposit'
+                then ${bankTransactions.amount}
+                else 0
+              end
+            ),
+            0
+          )
+        `,
+        withdrawals: sql<string>`
+          coalesce(
+            sum(
+              case
+                when ${bankTransactions.type} = 'withdraw'
+                then ${bankTransactions.amount}
+                else 0
+              end
+            ),
+            0
+          )
+        `,
       })
       .from(bankTransactions)
-      .where(gte(bankTransactions.createdAt, from)),
+      .where(
+        and(
+          gte(
+            bankTransactions.createdAt,
+            from,
+          ),
+          lte(
+            bankTransactions.createdAt,
+            to,
+          ),
+        ),
+      ),
+
+    // -------------------------------------------------------------------------
+    // PAYMENT METHODS
+    // -------------------------------------------------------------------------
     db
       .select({
-        method: bookings.paymentMethod,
-        total: sql<string>`coalesce(sum(${bookings.total}), 0)`,
+        method:
+          bookings.paymentMethod,
+        total: sql<string>`
+          coalesce(
+            sum(${bookings.total}),
+            0
+          )
+        `,
       })
       .from(bookings)
       .where(
         and(
-          eq(bookings.status, "closed"),
-          gte(bookings.checkedInAt, from),
+          eq(
+            bookings.status,
+            "closed",
+          ),
+          gte(
+            bookings.checkedOutAt,
+            from,
+          ),
+          lte(
+            bookings.checkedOutAt,
+            to,
+          ),
         ),
       )
-      .groupBy(bookings.paymentMethod),
+      .groupBy(
+        bookings.paymentMethod,
+      ),
+
+    // -------------------------------------------------------------------------
+    // RECENT CLOSED SHIFTS
+    // -------------------------------------------------------------------------
     db
       .select({
         id: shifts.id,
         userName: users.fullName,
         openedAt: shifts.openedAt,
         closedAt: shifts.closedAt,
-        openingCash: shifts.openingCash,
-        closingCash: shifts.closingCash,
+        openingCash:
+          shifts.openingCash,
+        closingCash:
+          shifts.closingCash,
       })
       .from(shifts)
-      .innerJoin(users, eq(users.id, shifts.userId))
-      .where(and(isNotNull(shifts.closedAt), gte(shifts.openedAt, from)))
-      .orderBy(desc(shifts.openedAt))
+      .innerJoin(
+        users,
+        eq(
+          users.id,
+          shifts.userId,
+        ),
+      )
+      .where(
+        and(
+          isNotNull(
+            shifts.closedAt,
+          ),
+          gte(
+            shifts.openedAt,
+            from,
+          ),
+          lte(
+            shifts.openedAt,
+            to,
+          ),
+        ),
+      )
+      .orderBy(
+        desc(
+          shifts.openedAt,
+        ),
+      )
       .limit(20),
   ]);
 
-  const revenue = parseFloat(revenueRow[0]?.revenue || "0");
-  const totalExpenses = parseFloat(expensesRow[0]?.total || "0");
-  const seatTotal = parseFloat(revenueRow[0]?.seat || "0");
-  const ordersTotal = parseFloat(revenueRow[0]?.orders || "0");
-  const bookingCount = revenueRow[0]?.count || 0;
-  const bankDeposits = parseFloat(bankRow[0]?.deposits || "0");
-  const bankWithdrawals = parseFloat(bankRow[0]?.withdrawals || "0");
+  const revenue = safeNumber(
+    revenueRow[0]?.revenue,
+  );
 
-  const maxDaily = Math.max(1, ...dailyRows.map((d) => parseFloat(d.revenue)));
+  const totalExpenses =
+    safeNumber(
+      expensesRow[0]?.total,
+    );
+
+  const seatTotal =
+    safeNumber(
+      revenueRow[0]?.seat,
+    );
+
+  const ordersTotal =
+    safeNumber(
+      revenueRow[0]?.orders,
+    );
+
+  const bookingCount =
+    Number(
+      revenueRow[0]?.count ?? 0,
+    ) || 0;
+
+  const bankDeposits =
+    safeNumber(
+      bankRow[0]?.deposits,
+    );
+
+  const bankWithdrawals =
+    safeNumber(
+      bankRow[0]?.withdrawals,
+    );
+
+  const dailyValues =
+    dailyRows.map((row) =>
+      safeNumber(row.revenue),
+    );
+
+  const maxDaily = Math.max(
+    1,
+    ...dailyValues,
+  );
+
+  const averageBooking =
+    bookingCount > 0
+      ? revenue / bookingCount
+      : 0;
+
+  const netProfit =
+    revenue - totalExpenses;
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Reports</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Reports
+          </h1>
+
           <p className="text-slate-500">
-            {from.toLocaleDateString()} → {to.toLocaleDateString()} · Last {days} days
+            {formatDate(from)} →{" "}
+            {formatDate(to)} · Last {days} days
           </p>
         </div>
+
         <div className="flex gap-1">
-          {[1, 7, 30, 90].map((d) => (
-            <Link
-              key={d}
-              href={`/reports?range=${d}`}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                days === d ? "bg-indigo-600 text-white" : "bg-white border border-slate-200"
-              }`}
-            >
-              {d === 1 ? "Today" : `${d}d`}
-            </Link>
-          ))}
+          {[1, 7, 30, 90].map(
+            (range) => (
+              <Link
+                key={range}
+                href={`/reports?range=${range}`}
+                aria-current={
+                  days === range
+                    ? "page"
+                    : undefined
+                }
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                  days === range
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white border border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {range === 1
+                  ? "Today"
+                  : `${range}d`}
+              </Link>
+            ),
+          )}
         </div>
       </div>
 
+      {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="kpi bg-gradient-to-br from-emerald-500 to-teal-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">Revenue</div>
-          <div className="text-2xl font-bold mt-2">{formatMoney(revenue, currency)}</div>
+          <div className="text-xs uppercase text-white/80 font-semibold">
+            Revenue
+          </div>
+
+          <div className="text-2xl font-bold mt-2 tabular-nums">
+            {formatMoney(
+              revenue,
+              currency,
+            )}
+          </div>
         </div>
+
         <div className="kpi bg-gradient-to-br from-indigo-500 to-purple-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">Seat charges</div>
-          <div className="text-2xl font-bold mt-2">{formatMoney(seatTotal, currency)}</div>
+          <div className="text-xs uppercase text-white/80 font-semibold">
+            Seat charges
+          </div>
+
+          <div className="text-2xl font-bold mt-2 tabular-nums">
+            {formatMoney(
+              seatTotal,
+              currency,
+            )}
+          </div>
         </div>
+
         <div className="kpi bg-gradient-to-br from-orange-500 to-pink-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">F&B</div>
-          <div className="text-2xl font-bold mt-2">{formatMoney(ordersTotal, currency)}</div>
+          <div className="text-xs uppercase text-white/80 font-semibold">
+            F&B
+          </div>
+
+          <div className="text-2xl font-bold mt-2 tabular-nums">
+            {formatMoney(
+              ordersTotal,
+              currency,
+            )}
+          </div>
         </div>
+
         <div className="kpi bg-gradient-to-br from-rose-500 to-red-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">Expenses</div>
-          <div className="text-2xl font-bold mt-2">{formatMoney(totalExpenses, currency)}</div>
+          <div className="text-xs uppercase text-white/80 font-semibold">
+            Expenses
+          </div>
+
+          <div className="text-2xl font-bold mt-2 tabular-nums">
+            {formatMoney(
+              totalExpenses,
+              currency,
+            )}
+          </div>
         </div>
       </div>
 
+      {/* DAILY REVENUE + PAYMENTS */}
       <div className="grid lg:grid-cols-3 gap-6">
+        {/* DAILY REVENUE */}
         <div className="card p-6 lg:col-span-2">
-          <h3 className="font-bold mb-4">Daily revenue</h3>
+          <h3 className="font-bold mb-4">
+            Daily revenue
+          </h3>
+
           {dailyRows.length === 0 ? (
-            <div className="text-center py-10 text-slate-400">No data</div>
+            <div className="text-center py-10 text-slate-400">
+              No data
+            </div>
           ) : (
-            <div className="flex items-end gap-2 h-48">
-              {dailyRows.map((d) => {
-                const val = parseFloat(d.revenue);
-                const h = (val / maxDaily) * 100;
-                return (
-                  <div
-                    key={d.day}
-                    className="flex-1 flex flex-col items-center gap-1 min-w-0"
-                  >
-                    <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
-                      {val.toFixed(0)}
-                    </div>
+            <div
+              className="flex items-end gap-2 h-48"
+              aria-label="Daily revenue chart"
+            >
+              {dailyRows.map(
+                (row) => {
+                  const value =
+                    safeNumber(
+                      row.revenue,
+                    );
+
+                  const height =
+                    Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        (value / maxDaily) *
+                          100,
+                      ),
+                    );
+
+                  return (
                     <div
-                      className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400 min-h-[4px]"
-                      style={{ height: `${h}%` }}
-                      title={`${d.day}: ${val.toFixed(2)} ${currency}`}
-                    />
-                    <div className="text-[10px] text-slate-500 truncate w-full text-center">
-                      {d.day.slice(5)}
+                      key={row.day}
+                      className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                    >
+                      <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
+                        {value.toFixed(0)}
+                      </div>
+
+                      <div
+                        className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400 min-h-[4px]"
+                        style={{
+                          height: `${height}%`,
+                        }}
+                        title={`${row.day}: ${value.toFixed(
+                          2,
+                        )} ${currency}`}
+                        role="img"
+                        aria-label={`${row.day}: ${value.toFixed(
+                          2,
+                        )} ${currency}`}
+                      />
+
+                      <div className="text-[10px] text-slate-500 truncate w-full text-center">
+                        {row.day.slice(5)}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           )}
+
           <div className="mt-4 text-sm text-slate-500">
             {bookingCount} bookings · Avg{" "}
-            {formatMoney(bookingCount ? revenue / bookingCount : 0, currency)}{" "}
+            {formatMoney(
+              averageBooking,
+              currency,
+            )}{" "}
             per booking
           </div>
         </div>
 
+        {/* PAYMENTS */}
         <div className="card p-6">
-          <h3 className="font-bold mb-4">Payment methods</h3>
+          <h3 className="font-bold mb-4">
+            Payment methods
+          </h3>
+
           {paymentRows.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-6">No sales</div>
+            <div className="text-sm text-slate-400 text-center py-6">
+              No sales
+            </div>
           ) : (
             <div className="space-y-2">
-              {paymentRows.map((p) => {
-                const label =
-                  p.method === "cash"
-                    ? "💵 Cash"
-                    : p.method === "visa"
-                    ? "💳 Visa"
-                    : "📱 InstaPay";
-                const val = parseFloat(p.total);
-                const pct = revenue > 0 ? (val / revenue) * 100 : 0;
-                return (
-                  <div key={p.method}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{label}</span>
-                      <span className="font-bold">
-                        {formatMoney(val, currency)}
-                      </span>
+              {paymentRows.map(
+                (payment) => {
+                  const value =
+                    safeNumber(
+                      payment.total,
+                    );
+
+                  const percentage =
+                    revenue > 0
+                      ? Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            (value /
+                              revenue) *
+                              100,
+                          ),
+                        )
+                      : 0;
+
+                  const label =
+                    payment.method ===
+                    "cash"
+                      ? "💵 Cash"
+                      : payment.method ===
+                          "visa"
+                        ? "💳 Visa"
+                        : payment.method ===
+                            "instapay"
+                          ? "📱 InstaPay"
+                          : payment.method ===
+                              "bank"
+                            ? "🏦 Bank"
+                            : payment.method ===
+                                "card"
+                              ? "💳 Card"
+                              : payment.method
+                                ? payment.method
+                                : "Unknown";
+
+                  return (
+                    <div
+                      key={
+                        payment.method ??
+                        "unknown"
+                      }
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span>
+                          {label}
+                        </span>
+
+                        <span className="font-bold tabular-nums">
+                          {formatMoney(
+                            value,
+                            currency,
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500"
+                          style={{
+                            width: `${percentage}%`,
+                          }}
+                          aria-hidden="true"
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           )}
+
           <div className="mt-4 pt-4 border-t border-slate-100 text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-slate-600">Bank deposits</span>
-              <span className="font-semibold">
-                {formatMoney(bankDeposits, currency)}
+              <span className="text-slate-600">
+                Bank deposits
+              </span>
+
+              <span className="font-semibold tabular-nums">
+                {formatMoney(
+                  bankDeposits,
+                  currency,
+                )}
               </span>
             </div>
+
             <div className="flex justify-between">
-              <span className="text-slate-600">Bank withdrawals</span>
-              <span className="font-semibold">
-                {formatMoney(bankWithdrawals, currency)}
+              <span className="text-slate-600">
+                Bank withdrawals
+              </span>
+
+              <span className="font-semibold tabular-nums">
+                {formatMoney(
+                  bankWithdrawals,
+                  currency,
+                )}
               </span>
             </div>
+
             <div className="flex justify-between text-base font-bold pt-2 border-t border-slate-100">
-              <span>Net profit</span>
-              <span className="text-emerald-600">
-                {formatMoney(revenue - totalExpenses, currency)}
+              <span>
+                Net profit
+              </span>
+
+              <span
+                className={
+                  netProfit >= 0
+                    ? "text-emerald-600"
+                    : "text-rose-600"
+                }
+              >
+                {formatMoney(
+                  netProfit,
+                  currency,
+                )}
               </span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* PRODUCTS + SHIFTS */}
       <div className="grid lg:grid-cols-2 gap-6">
+        {/* TOP PRODUCTS */}
         <div className="card p-6">
-          <h3 className="font-bold mb-4">Top selling products</h3>
+          <h3 className="font-bold mb-4">
+            Top selling products
+          </h3>
+
           {topProducts.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">
               No sales yet
             </p>
           ) : (
             <div className="space-y-2">
-              {topProducts.map((p, i) => (
-                <div
-                  key={p.name}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 grid place-items-center font-bold text-sm">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">
-                      {p.name}
+              {topProducts.map(
+                (product, index) => {
+                  const revenueValue =
+                    safeNumber(
+                      product.revenue,
+                    );
+
+                  const quantity =
+                    Number(
+                      product.qty,
+                    ) || 0;
+
+                  return (
+                    <div
+                      key={`${product.name}-${index}`}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 grid place-items-center font-bold text-sm">
+                        {index + 1}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm truncate">
+                          {product.name}
+                        </div>
+
+                        <div className="text-xs text-slate-500">
+                          {quantity} units
+                        </div>
+                      </div>
+
+                      <div className="font-bold tabular-nums">
+                        {formatMoney(
+                          revenueValue,
+                          currency,
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {p.qty} units
-                    </div>
-                  </div>
-                  <div className="font-bold tabular-nums">
-                    {formatMoney(parseFloat(p.revenue), currency)}
-                  </div>
-                </div>
-              ))}
+                  );
+                },
+              )}
             </div>
           )}
         </div>
 
+        {/* RECENT SHIFTS */}
         <div className="card p-6">
-          <h3 className="font-bold mb-4">Recent shifts</h3>
+          <h3 className="font-bold mb-4">
+            Recent shifts
+          </h3>
+
           {shiftRows.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">No shifts</p>
+            <p className="text-sm text-slate-400 text-center py-6">
+              No shifts
+            </p>
           ) : (
             <div className="divide-soft">
-              {shiftRows.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/shift/summary/${s.id}`}
-                  className="py-2 flex items-center justify-between hover:bg-slate-50 rounded-lg px-2"
-                >
-                  <div>
-                    <div className="font-semibold text-sm">
-                      Shift #{s.id} · {s.userName}
+              {shiftRows.map(
+                (shift) => (
+                  <Link
+                    key={shift.id}
+                    href={`/shift/summary/${shift.id}`}
+                    className="py-2 flex items-center justify-between hover:bg-slate-50 rounded-lg px-2"
+                  >
+                    <div>
+                      <div className="font-semibold text-sm">
+                        Shift #{shift.id} ·{" "}
+                        {shift.userName}
+                      </div>
+
+                      <div className="text-xs text-slate-500">
+                        {formatDateTime(
+                          shift.openedAt,
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {new Date(s.openedAt).toLocaleString()}
-                    </div>
-                  </div>
-                  <span className="text-sm text-indigo-600 font-semibold">
-                    View →
-                  </span>
-                </Link>
-              ))}
+
+                    <span className="text-sm text-indigo-600 font-semibold">
+                      View →
+                    </span>
+                  </Link>
+                ),
+              )}
             </div>
           )}
         </div>

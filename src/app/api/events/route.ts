@@ -1,67 +1,113 @@
 import { getCurrentUser } from "@/lib/auth";
-import { subscribe, publish } from "@/lib/events";
+import { subscribe } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const HEARTBEAT_INTERVAL_MS = 20_000;
+
 /**
- * Server-Sent Events endpoint. The cashier UI keeps this connection open and
- * receives real-time notifications for new QR orders (and any future events).
+ * Server-Sent Events endpoint.
+ *
+ * The cashier UI keeps this connection open and receives real-time
+ * notifications for new QR orders and other server events.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  if (!user) {
+    return new Response("Unauthorized", {
+      status: 401,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
+  }
 
   const encoder = new TextEncoder();
-  const stream = new ReadableStream({
+
+  let cleanup: (() => void) | null = null;
+
+  const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const send = (data: unknown) => {
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-        } catch {
-          /* client gone */
-        }
-      };
+      let closed = false;
 
-      // Say hello so the client knows the connection is live
-      send({ type: "hello" });
+      const closeConnection = () => {
+        if (closed) return;
 
-      const unsubscribe = subscribe((event) => send(event));
+        closed = true;
 
-      // Periodic keep-alive comment so proxies don't drop the connection
-      const interval = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
-        } catch {
-          /* ignore */
-        }
-      }, 20_000);
-
-      // Fire a synthetic self-ping so the pub/sub round-trip is exercised
-      publish({ type: "ping" });
-
-      const cleanup = () => {
-        clearInterval(interval);
+        clearInterval(heartbeatInterval);
         unsubscribe();
+
         try {
           controller.close();
         } catch {
-          /* ignore */
+          // Stream may already be closed.
         }
       };
 
-      // Store cleanup so cancel() can reach it
-      (controller as unknown as { __cleanup?: () => void }).__cleanup = cleanup;
+      const send = (data: unknown) => {
+        if (closed) return;
+
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify(data)}\n\n`,
+            ),
+          );
+        } catch {
+          closeConnection();
+        }
+      };
+
+      const sendHeartbeat = () => {
+        if (closed) return;
+
+        try {
+          controller.enqueue(
+            encoder.encode(": ping\n\n"),
+          );
+        } catch {
+          closeConnection();
+        }
+      };
+
+      // Initial event so the client knows the connection is alive.
+      send({
+        type: "hello",
+      });
+
+      const unsubscribe = subscribe((event) => {
+        send(event);
+      });
+
+      const heartbeatInterval = setInterval(
+        sendHeartbeat,
+        HEARTBEAT_INTERVAL_MS,
+      );
+
+      cleanup = closeConnection;
+
+      // Abort when the browser/client disconnects.
+      req.signal.addEventListener(
+        "abort",
+        closeConnection,
+        { once: true },
+      );
     },
+
     cancel() {
-      // best-effort; individual controllers are cleaned up above
+      cleanup?.();
+      cleanup = null;
     },
   });
 
   return new Response(stream, {
+    status: 200,
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },

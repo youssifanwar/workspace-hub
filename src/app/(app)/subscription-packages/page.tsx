@@ -44,6 +44,9 @@ export default function SubscriptionPackagesPage() {
   const [saving, setSaving] =
     useState(false);
 
+  const [showInactive, setShowInactive] =
+    useState(false);
+
   const [error, setError] =
     useState<string | null>(null);
 
@@ -485,15 +488,27 @@ export default function SubscriptionPackagesPage() {
         );
       }
 
-      setSuccess(
-        data?.deactivated
-          ? "Package was deactivated because it has historical purchases."
-          : "Package deleted.",
-      );
+      if (data?.deactivated) {
+        setPackages((current) =>
+          current.map((item) =>
+            item.id === pkg.id
+              ? { ...item, active: false }
+              : item,
+          ),
+        );
 
-      if (
-        editingId === pkg.id
-      ) {
+        setSuccess(
+          "Package archived because it has historical purchases. Its history is preserved.",
+        );
+      } else {
+        setPackages((current) =>
+          current.filter((item) => item.id !== pkg.id),
+        );
+
+        setSuccess("Package deleted.");
+      }
+
+      if (editingId === pkg.id) {
         resetForm();
       }
 
@@ -513,6 +528,14 @@ export default function SubscriptionPackagesPage() {
       setSaving(false);
     }
   }
+
+  const visiblePackages = showInactive
+    ? packages
+    : packages.filter((pkg) => pkg.active);
+
+  const inactiveCount = packages.filter(
+    (pkg) => !pkg.active,
+  ).length;
 
   // ===========================================================================
   // RENDER
@@ -784,6 +807,27 @@ export default function SubscriptionPackagesPage() {
 
       {/* PACKAGE LIST */}
 
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-sm text-slate-500">
+          {showInactive
+            ? "Showing active and inactive packages."
+            : "Showing active packages only."}
+        </div>
+
+        {inactiveCount > 0 && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setShowInactive((current) => !current)}
+            disabled={saving}
+          >
+            {showInactive
+              ? "Hide inactive packages"
+              : `Show inactive packages (${inactiveCount})`}
+          </button>
+        )}
+      </div>
+
       <div className="card overflow-hidden">
 
         <div className="p-5 border-b border-slate-200">
@@ -803,7 +847,7 @@ export default function SubscriptionPackagesPage() {
           <div className="p-10 text-center text-slate-500">
             Loading packages…
           </div>
-        ) : packages.length ===
+        ) : visiblePackages.length ===
           0 ? (
           <div className="p-10 text-center">
 
@@ -824,7 +868,7 @@ export default function SubscriptionPackagesPage() {
         ) : (
           <div className="divide-y divide-slate-200">
 
-            {packages.map((pkg) => (
+            {visiblePackages.map((pkg) => (
               <div
                 key={pkg.id}
                 className="p-5"

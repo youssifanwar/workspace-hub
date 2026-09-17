@@ -8,10 +8,6 @@ import {
 
 import { useRouter } from "next/navigation";
 
-/* -------------------------------------------------------------------------- */
-/* TYPES                                                                       */
-/* -------------------------------------------------------------------------- */
-
 type Booking = {
   id: number;
 
@@ -106,23 +102,26 @@ type Product = {
   icon: string;
 };
 
-/* -------------------------------------------------------------------------- */
-/* SESSION PRICING                                                             */
-/* -------------------------------------------------------------------------- */
+type CustomerSessionPricing = {
+  oneHour: number;
 
-const FIRST_HOUR_PRICE = 40;
+  twoHours: number;
 
-const EXTRA_HOUR_PRICE = 30;
+  threeHours: number;
 
-const DAY_PASS_PRICE = 150;
+  fourHours: number;
+
+  dayPass: number;
+};
 
 function calculateSessionPrice(
   billableHours: number,
+  pricing: CustomerSessionPricing,
 ) {
   if (billableHours <= 1) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE,
+        pricing.oneHour,
 
       pricingType:
         "hour" as const,
@@ -132,8 +131,7 @@ function calculateSessionPrice(
   if (billableHours === 2) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE,
+        pricing.twoHours,
 
       pricingType:
         "hour" as const,
@@ -143,8 +141,7 @@ function calculateSessionPrice(
   if (billableHours === 3) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE * 2,
+        pricing.threeHours,
 
       pricingType:
         "hour" as const,
@@ -154,8 +151,7 @@ function calculateSessionPrice(
   if (billableHours === 4) {
     return {
       seatCharge:
-        FIRST_HOUR_PRICE +
-        EXTRA_HOUR_PRICE * 3,
+        pricing.fourHours,
 
       pricingType:
         "hour" as const,
@@ -164,16 +160,12 @@ function calculateSessionPrice(
 
   return {
     seatCharge:
-      DAY_PASS_PRICE,
+      pricing.dayPass,
 
     pricingType:
       "day" as const,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* MAIN                                                                        */
-/* -------------------------------------------------------------------------- */
 
 export default function BookingView({
   booking,
@@ -187,6 +179,8 @@ export default function BookingView({
   products,
 
   currency,
+
+  sessionPricing,
 }: {
   booking: Booking;
 
@@ -201,6 +195,8 @@ export default function BookingView({
   products: Product[];
 
   currency: string;
+
+  sessionPricing: CustomerSessionPricing;
 }) {
   const router =
     useRouter();
@@ -231,10 +227,6 @@ export default function BookingView({
     useState(
       booking.discount,
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* TIMER                                                                    */
-  /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
     const timer =
@@ -274,31 +266,20 @@ export default function BookingView({
       ),
     );
 
-  /* ------------------------------------------------------------------------ */
-  /* BILLING MODE                                                             */
-  /* ------------------------------------------------------------------------ */
-
   const isPackage =
     booking.billingMode ===
     "package";
 
-  /* ------------------------------------------------------------------------ */
-  /* PRICE                                                                     */
-  /* ------------------------------------------------------------------------ */
-
   const regularPricing =
     calculateSessionPrice(
       billableHours,
+      sessionPricing,
     );
 
   const seatCharge =
     isPackage
       ? 0
       : regularPricing.seatCharge;
-
-  /* ------------------------------------------------------------------------ */
-  /* GROUP ITEMS                                                              */
-  /* ------------------------------------------------------------------------ */
 
   const groupedItems =
     useMemo<GroupedItem[]>(
@@ -356,10 +337,6 @@ export default function BookingView({
       [items],
     );
 
-  /* ------------------------------------------------------------------------ */
-  /* F&B TOTAL                                                                */
-  /* ------------------------------------------------------------------------ */
-
   const ordersTotal =
     groupedItems.reduce(
       (
@@ -375,18 +352,10 @@ export default function BookingView({
       0,
     );
 
-  /* ------------------------------------------------------------------------ */
-  /* DISCOUNT                                                                 */
-  /* ------------------------------------------------------------------------ */
-
   const discountAmt =
     parseFloat(
       discount || "0",
     ) || 0;
-
-  /* ------------------------------------------------------------------------ */
-  /* TOTAL                                                                     */
-  /* ------------------------------------------------------------------------ */
 
   const total =
     Math.max(
@@ -395,10 +364,6 @@ export default function BookingView({
         ordersTotal -
         discountAmt,
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* PACKAGE REMAINING                                                        */
-  /* ------------------------------------------------------------------------ */
 
   const packageRemaining =
     subscription?.remainingHours ??
@@ -410,10 +375,6 @@ export default function BookingView({
       null ||
     packageRemaining >=
       billableHours;
-
-  /* ------------------------------------------------------------------------ */
-  /* PRODUCTS                                                                 */
-  /* ------------------------------------------------------------------------ */
 
   const filteredProducts =
     useMemo(
@@ -431,10 +392,6 @@ export default function BookingView({
         activeCat,
       ],
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* ADD PRODUCT                                                              */
-  /* ------------------------------------------------------------------------ */
 
   async function addProduct(
     product: Product,
@@ -514,10 +471,6 @@ export default function BookingView({
       setBusy(false);
     }
   }
-
-  /* ------------------------------------------------------------------------ */
-  /* UPDATE ITEM                                                              */
-  /* ------------------------------------------------------------------------ */
 
   async function updateItem(
     id: number,
@@ -603,17 +556,9 @@ export default function BookingView({
     );
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* RENDER                                                                   */
-  /* ------------------------------------------------------------------------ */
-
   return (
     <div className="grid lg:grid-cols-[1fr_400px] gap-6">
-      {/* LEFT */}
-
       <div className="space-y-4">
-
-        {/* SESSION INFO */}
 
         <div className="card p-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
@@ -672,19 +617,17 @@ export default function BookingView({
                 <div className="text-xs font-semibold text-indigo-600 mt-1">
                   {regularPricing.pricingType ===
                   "day"
-                    ? "Day Pass · 150"
+                    ? `Day Pass · ${sessionPricing.dayPass.toFixed(2)} ${currency}`
                     : `${billableHours} ${
                         billableHours ===
                         1
                           ? "hour"
                           : "hours"
-                      } · ${seatCharge} ${currency}`}
+                      } · ${seatCharge.toFixed(2)} ${currency}`}
                 </div>
               )}
             </div>
           </div>
-
-          {/* PACKAGE INFO */}
 
           {isPackage &&
             subscription && (
@@ -751,6 +694,7 @@ export default function BookingView({
                   <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
                     ⚠️ Not enough package
                     hours for this session.
+
                     Remaining{" "}
                     {
                       packageRemaining?.toFixed(
@@ -764,8 +708,6 @@ export default function BookingView({
               </div>
             )}
         </div>
-
-        {/* CATEGORIES */}
 
         <div className="flex gap-2 overflow-x-auto scroll-fade pb-1">
           {categories.map(
@@ -799,8 +741,6 @@ export default function BookingView({
             ),
           )}
         </div>
-
-        {/* PRODUCTS */}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {filteredProducts.length ===
@@ -874,11 +814,7 @@ export default function BookingView({
         </div>
       </div>
 
-      {/* RIGHT: BILL */}
-
       <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-
-        {/* BILL */}
 
         <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
@@ -892,8 +828,6 @@ export default function BookingView({
               </span>
             )}
           </div>
-
-          {/* ITEMS */}
 
           <div className="max-h-64 overflow-y-auto scroll-fade divide-soft">
             {groupedItems.length ===
@@ -984,10 +918,7 @@ export default function BookingView({
             )}
           </div>
 
-          {/* TOTALS */}
-
           <div className="border-t border-slate-100 mt-3 pt-3 space-y-2 text-sm">
-
             {isPackage ? (
               <>
                 <Row
@@ -1024,7 +955,7 @@ export default function BookingView({
                   value={
                     regularPricing.pricingType ===
                     "day"
-                      ? "150.00"
+                      ? `${sessionPricing.dayPass.toFixed(2)} ${currency}`
                       : `${billableHours}`
                   }
                 />
@@ -1079,8 +1010,6 @@ export default function BookingView({
             </div>
           </div>
 
-          {/* PACKAGE NOTE */}
-
           {isPackage && (
             <div className="mt-3 p-3 rounded-xl bg-indigo-50 text-indigo-800 text-xs font-semibold">
               💡 Seat time is included
@@ -1089,8 +1018,6 @@ export default function BookingView({
               affect the amount due.
             </div>
           )}
-
-          {/* CHECKOUT */}
 
           <button
             onClick={() =>
@@ -1107,8 +1034,6 @@ export default function BookingView({
             💳 Checkout
           </button>
         </div>
-
-        {/* CANCEL */}
 
         <button
           onClick={async () => {
@@ -1144,8 +1069,6 @@ export default function BookingView({
           Cancel session
         </button>
       </div>
-
-      {/* CHECKOUT MODAL */}
 
       {checkoutOpen && (
         <CheckoutModal
@@ -1196,10 +1119,6 @@ export default function BookingView({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* PACKAGE INFO                                                               */
-/* -------------------------------------------------------------------------- */
-
 function PackageInfo({
   label,
   value,
@@ -1220,10 +1139,6 @@ function PackageInfo({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* CHECKOUT MODAL                                                             */
-/* -------------------------------------------------------------------------- */
 
 function CheckoutModal({
   bookingId,
@@ -1448,8 +1363,6 @@ function CheckoutModal({
           </div>
         )}
 
-        {/* PAYMENT METHOD */}
-
         <div className="grid grid-cols-3 gap-2 mb-4">
           {(
             [
@@ -1497,8 +1410,6 @@ function CheckoutModal({
           )}
         </div>
 
-        {/* PAID */}
-
         <div className="space-y-3">
           <div>
             <label className="label">
@@ -1522,8 +1433,6 @@ function CheckoutModal({
               }
             />
           </div>
-
-          {/* CHANGE */}
 
           {method ===
             "cash" && (
@@ -1551,15 +1460,11 @@ function CheckoutModal({
             </div>
           )}
 
-          {/* ERROR */}
-
           {error && (
             <div className="p-3 rounded-xl bg-red-50 text-sm text-red-700">
               {error}
             </div>
           )}
-
-          {/* CONFIRM */}
 
           <button
             onClick={
@@ -1586,10 +1491,6 @@ function CheckoutModal({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* ROW                                                                         */
-/* -------------------------------------------------------------------------- */
-
 function Row({
   label,
   value,
@@ -1610,10 +1511,6 @@ function Row({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* TIMER FORMAT                                                               */
-/* -------------------------------------------------------------------------- */
 
 function formatDur(
   milliseconds: number,

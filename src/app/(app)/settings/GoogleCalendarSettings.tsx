@@ -10,6 +10,7 @@ type StatusResponse = {
 type ApiResponse = {
   ok?: boolean;
   url?: string;
+  mode?: "local" | "web";
   error?: string;
 };
 
@@ -176,6 +177,21 @@ export default function GoogleCalendarSettings() {
         return;
       }
 
+      /*
+       * Web/Vercel flow: the authorization page must open in the user's
+       * browser because the Vercel server cannot launch a local browser.
+       * Google will return to /api/google-calendar/auth and that route will
+       * redirect back to Settings after the token is stored.
+       */
+      if (data.mode === "web") {
+        window.location.assign(data.url);
+        return;
+      }
+
+      /*
+       * Existing Electron/local flow: the backend opens the system browser.
+       * Keep this app open and poll until the local token is stored.
+       */
       setSuccess(
         "Google sign-in opened. Complete the authorization in the browser…",
       );

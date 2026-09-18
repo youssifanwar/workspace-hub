@@ -3,11 +3,16 @@ import path from "node:path";
 import os from "node:os";
 import http from "node:http";
 import { exec } from "node:child_process";
+import crypto from "node:crypto";
 
+import { eq } from "drizzle-orm";
 import { google } from "googleapis";
 
+import { db } from "@/db";
+import { settings } from "@/db/schema";
+
 /* -------------------------------------------------------------------------- */
-/* PATHS                                                                      */
+/* CONSTANTS                                                                  */
 /* -------------------------------------------------------------------------- */
 
 const APP_DATA_DIR = path.join(
@@ -25,6 +30,18 @@ const TOKEN_PATH = path.join(
   "google-token.json",
 );
 
+const WEB_TOKEN_SETTING_KEY =
+  "google_calendar_oauth_token";
+
+const WEB_STATE_COOKIE =
+  "wsh_google_calendar_oauth_state";
+
+const WEB_STATE_MAX_AGE_SECONDS =
+  10 * 60;
+
+const GOOGLE_CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar";
+
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -40,7 +57,59 @@ type GoogleToken =
 type GoogleAuthorizationResult = {
   url: string;
   port: number;
+  mode: "local" | "web";
+  state?: string;
 };
+
+type GoogleCalendarCredentials = {
+  clientId: string;
+  clientSecret: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* ENVIRONMENT DETECTION                                                      */
+/* -------------------------------------------------------------------------- */
+
+function isVercelRuntime(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.VERCEL_URL ||
+      process.env.VERCEL_ENV,
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* PUBLIC APP URL                                                             */
+/* -------------------------------------------------------------------------- */
+
+function getWebRedirectUri(): string {
+  const explicit =
+    process.env.GOOGLE_REDIRECT_URI?.trim();
+
+  if (explicit) {
+    return explicit;
+  }
+
+  const baseUrl =
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+
+  if (!baseUrl) {
+    throw new Error(
+      "Google Calendar web OAuth URL is not configured. Set GOOGLE_REDIRECT_URI or APP_URL.",
+    );
+  }
+
+  const normalizedBase =
+    baseUrl.startsWith("http://") ||
+    baseUrl.startsWith("https://")
+      ? baseUrl.replace(/\/$/, "")
+      : `https://${baseUrl}`;
+
+  return `${normalizedBase}/api/google-calendar/auth`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* GOOGLE CREDENTIALS                                                         */
@@ -76,9 +145,7 @@ function getCredentialsPath(): string {
     const candidate of candidates
   ) {
     if (
-      fs.existsSync(
-        candidate,
-      )
+      fs.existsSync(candidate)
     ) {
       return candidate;
     }
@@ -89,19 +156,33 @@ function getCredentialsPath(): string {
   );
 }
 
-function ensureAppDataDir() {
-  fs.mkdirSync(
-    APP_DATA_DIR,
-    {
-      recursive: true,
-    },
-  );
-}
+function loadCredentials(): GoogleCalendarCredentials {
+  /*
+   * Vercel/serverless: use environment variables.
+   * Local/Electron: keep the existing credentials.json flow.
+   */
+  if (isVercelRuntime()) {
+    const clientId =
+      process.env.GOOGLE_CLIENT_ID?.trim();
 
-function loadCredentials(): {
-  clientId: string;
-  clientSecret: string;
-} {
+    const clientSecret =
+      process.env.GOOGLE_CLIENT_SECRET?.trim();
+
+    if (
+      !clientId ||
+      !clientSecret
+    ) {
+      throw new Error(
+        "Google OAuth client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel Environment Variables.",
+      );
+    }
+
+    return {
+      clientId,
+      clientSecret,
+    };
+  }
+
   const credentialsPath =
     getCredentialsPath();
 
@@ -115,9 +196,7 @@ function loadCredentials(): {
 
   try {
     json =
-      JSON.parse(
-        raw,
-      );
+      JSON.parse(raw);
   } catch {
     throw new Error(
       "Google credentials.json contains invalid JSON.",
@@ -192,8 +271,7 @@ export function createOAuthClient(
   const {
     clientId,
     clientSecret,
-  } =
-    loadCredentials();
+  } = loadCredentials();
 
   return new google.auth.OAuth2(
     clientId,
@@ -203,8 +281,17 @@ export function createOAuthClient(
 }
 
 /* -------------------------------------------------------------------------- */
-/* TOKEN STORAGE                                                              */
+/* LOCAL TOKEN STORAGE                                                        */
 /* -------------------------------------------------------------------------- */
+
+function ensureAppDataDir() {
+  fs.mkdirSync(
+    APP_DATA_DIR,
+    {
+      recursive: true,
+    },
+  );
+}
 
 export function hasGoogleToken(): boolean {
   return fs.existsSync(
@@ -229,9 +316,7 @@ export function loadGoogleToken(): GoogleToken | null {
       );
 
     const parsed =
-      JSON.parse(
-        raw,
-      ) as unknown;
+      JSON.parse(raw) as unknown;
 
     if (
       !parsed ||
@@ -263,7 +348,7 @@ export function saveGoogleToken(
   );
 }
 
-function clearGoogleToken() {
+function clearLocalGoogleToken() {
   try {
     if (
       fs.existsSync(
@@ -276,18 +361,213 @@ function clearGoogleToken() {
     }
   } catch (error) {
     console.error(
-      "Could not clear Google token:",
+      "Could not clear local Google token:",
       error,
     );
   }
 }
 
-export function disconnectGoogleCalendar() {
-  clearGoogleToken();
+/* -------------------------------------------------------------------------- */
+/* WEB TOKEN ENCRYPTION                                                       */
+/* -------------------------------------------------------------------------- */
+
+function getTokenEncryptionKey(): Buffer {
+  const {
+    clientSecret,
+  } = loadCredentials();
+
+  return crypto
+    .createHash("sha256")
+    .update(clientSecret)
+    .digest();
+}
+
+function encryptWebToken(
+  tokens: GoogleToken,
+): string {
+  const key =
+    getTokenEncryptionKey();
+
+  const iv =
+    crypto.randomBytes(12);
+
+  const cipher =
+    crypto.createCipheriv(
+      "aes-256-gcm",
+      key,
+      iv,
+    );
+
+  const plaintext =
+    Buffer.from(
+      JSON.stringify(tokens),
+      "utf8",
+    );
+
+  const encrypted =
+    Buffer.concat([
+      cipher.update(
+        plaintext,
+      ),
+      cipher.final(),
+    ]);
+
+  const authTag =
+    cipher.getAuthTag();
+
+  return [
+    "v1",
+    iv.toString("base64url"),
+    authTag.toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join(".");
+}
+
+function decryptWebToken(
+  value: string,
+): GoogleToken | null {
+  try {
+    const [
+      version,
+      ivValue,
+      authTagValue,
+      encryptedValue,
+    ] = value.split(".");
+
+    if (
+      version !== "v1" ||
+      !ivValue ||
+      !authTagValue ||
+      !encryptedValue
+    ) {
+      return null;
+    }
+
+    const key =
+      getTokenEncryptionKey();
+
+    const decipher =
+      crypto.createDecipheriv(
+        "aes-256-gcm",
+        key,
+        Buffer.from(
+          ivValue,
+          "base64url",
+        ),
+      );
+
+    decipher.setAuthTag(
+      Buffer.from(
+        authTagValue,
+        "base64url",
+      ),
+    );
+
+    const plaintext =
+      Buffer.concat([
+        decipher.update(
+          Buffer.from(
+            encryptedValue,
+            "base64url",
+          ),
+        ),
+        decipher.final(),
+      ]).toString("utf8");
+
+    const parsed =
+      JSON.parse(
+        plaintext,
+      ) as unknown;
+
+    if (
+      !parsed ||
+      typeof parsed !==
+        "object"
+    ) {
+      return null;
+    }
+
+    return parsed as GoogleToken;
+  } catch (error) {
+    console.error(
+      "Could not decrypt Google web token:",
+      error,
+    );
+
+    return null;
+  }
+}
+
+async function loadWebGoogleToken(): Promise<GoogleToken | null> {
+  const [row] =
+    await db
+      .select({
+        value:
+          settings.value,
+      })
+      .from(settings)
+      .where(
+        eq(
+          settings.key,
+          WEB_TOKEN_SETTING_KEY,
+        ),
+      )
+      .limit(1);
+
+  if (!row?.value) {
+    return null;
+  }
+
+  return decryptWebToken(
+    row.value,
+  );
+}
+
+async function saveWebGoogleToken(
+  tokens: GoogleToken,
+) {
+  const encrypted =
+    encryptWebToken(
+      tokens,
+    );
+
+  await db
+    .insert(settings)
+    .values({
+      key:
+        WEB_TOKEN_SETTING_KEY,
+      value: encrypted,
+    })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: {
+        value: encrypted,
+      },
+    });
+}
+
+async function clearWebGoogleToken() {
+  await db
+    .delete(settings)
+    .where(
+      eq(
+        settings.key,
+        WEB_TOKEN_SETTING_KEY,
+      ),
+    );
+}
+
+export async function disconnectGoogleCalendar() {
+  if (isVercelRuntime()) {
+    await clearWebGoogleToken();
+    return;
+  }
+
+  clearLocalGoogleToken();
 }
 
 /* -------------------------------------------------------------------------- */
-/* TOKEN ERROR DETECTION                                                      */
+/* GOOGLE ERROR DETECTION                                                     */
 /* -------------------------------------------------------------------------- */
 
 function isInvalidGrantError(
@@ -331,7 +611,7 @@ function isInvalidGrantError(
 
   const message =
     typeof candidate.message ===
-    "string"
+      "string"
       ? candidate.message
       : "";
 
@@ -359,17 +639,24 @@ function isInvalidGrantError(
 /* AUTHENTICATED CLIENT                                                       */
 /* -------------------------------------------------------------------------- */
 
-export function getAuthenticatedClient() {
+export async function getAuthenticatedClient() {
   const token =
-    loadGoogleToken();
+    isVercelRuntime()
+      ? await loadWebGoogleToken()
+      : loadGoogleToken();
 
   if (!token) {
     return null;
   }
 
+  const redirectUri =
+    isVercelRuntime()
+      ? getWebRedirectUri()
+      : "http://127.0.0.1";
+
   const client =
     createOAuthClient(
-      "http://127.0.0.1",
+      redirectUri,
     );
 
   client.setCredentials(
@@ -377,27 +664,41 @@ export function getAuthenticatedClient() {
   );
 
   /*
-   * Google can return a new access token using the refresh token.
-   * Persist it so subsequent requests use the newest credentials.
+   * Google may refresh the access token during an API request.
+   * Persist the merged credentials so subsequent serverless invocations
+   * can reuse the refresh token and the newest access token.
    */
   client.on(
     "tokens",
     (newTokens) => {
-      try {
-        const currentToken =
-          loadGoogleToken() ??
-          {};
+      void (async () => {
+        try {
+          if (isVercelRuntime()) {
+            const currentToken =
+              await loadWebGoogleToken() ??
+              {};
 
-        saveGoogleToken({
-          ...currentToken,
-          ...newTokens,
-        });
-      } catch (error) {
-        console.error(
-          "Could not persist refreshed Google tokens:",
-          error,
-        );
-      }
+            await saveWebGoogleToken({
+              ...currentToken,
+              ...newTokens,
+            });
+          } else {
+            const currentToken =
+              loadGoogleToken() ??
+              {};
+
+            saveGoogleToken({
+              ...currentToken,
+              ...newTokens,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "Could not persist refreshed Google tokens:",
+            error,
+          );
+        }
+      })();
     },
   );
 
@@ -410,7 +711,7 @@ export function getAuthenticatedClient() {
 
 export async function getGoogleCalendarStatus() {
   const client =
-    getAuthenticatedClient();
+    await getAuthenticatedClient();
 
   if (!client) {
     return {
@@ -436,7 +737,6 @@ export async function getGoogleCalendarStatus() {
 
     return {
       connected: true,
-
       email:
         primary.data.id ??
         null,
@@ -447,16 +747,23 @@ export async function getGoogleCalendarStatus() {
       error,
     );
 
-    /*
-     * invalid_grant means the saved OAuth credentials are no longer valid.
-     * Remove them so the next connection starts a completely fresh OAuth flow.
-     */
     if (
       isInvalidGrantError(
         error,
       )
     ) {
-      clearGoogleToken();
+      try {
+        if (isVercelRuntime()) {
+          await clearWebGoogleToken();
+        } else {
+          clearLocalGoogleToken();
+        }
+      } catch (cleanupError) {
+        console.error(
+          "Could not clear invalid Google Calendar token:",
+          cleanupError,
+        );
+      }
     }
 
     return {
@@ -467,7 +774,7 @@ export async function getGoogleCalendarStatus() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* OPEN BROWSER                                                               */
+/* LOCAL BROWSER                                                               */
 /* -------------------------------------------------------------------------- */
 
 function openBrowser(
@@ -496,7 +803,7 @@ function openBrowser(
 }
 
 /* -------------------------------------------------------------------------- */
-/* OAUTH STATE                                                                */
+/* LOCAL OAUTH STATE                                                           */
 /* -------------------------------------------------------------------------- */
 
 let activeOAuthServer:
@@ -506,10 +813,6 @@ let activeOAuthServer:
 let activeOAuthState:
   | string
   | null = null;
-
-/* -------------------------------------------------------------------------- */
-/* CLEANUP OAUTH SERVER                                                       */
-/* -------------------------------------------------------------------------- */
 
 function cleanupOAuthServer(
   server: http.Server,
@@ -537,6 +840,56 @@ function cleanupOAuthServer(
 /* -------------------------------------------------------------------------- */
 
 export async function startGoogleAuthorization(): Promise<GoogleAuthorizationResult> {
+  /*
+   * Vercel/web flow:
+   * - No local server.
+   * - No openBrowser().
+   * - Google redirects to /api/google-calendar/auth.
+   * - The caller stores the state in an HttpOnly cookie.
+   */
+  if (isVercelRuntime()) {
+    const state =
+      crypto.randomBytes(32).toString(
+        "hex",
+      );
+
+    const redirectUri =
+      getWebRedirectUri();
+
+    const client =
+      createOAuthClient(
+        redirectUri,
+      );
+
+    const url =
+      client.generateAuthUrl({
+        access_type:
+          "offline",
+
+        prompt:
+          "consent",
+
+        include_granted_scopes:
+          true,
+
+        scope: [
+          GOOGLE_CALENDAR_SCOPE,
+        ],
+
+        state,
+      });
+
+    return {
+      url,
+      port: 0,
+      mode: "web",
+      state,
+    };
+  }
+
+  /*
+   * Existing Electron/local flow stays intact.
+   */
   if (activeOAuthServer) {
     throw new Error(
       "Google authorization is already in progress.",
@@ -657,7 +1010,7 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
         true,
 
       scope: [
-        "https://www.googleapis.com/auth/calendar",
+        GOOGLE_CALENDAR_SCOPE,
       ],
 
       state,
@@ -692,10 +1045,6 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
             "error",
           );
 
-        /* -------------------------------------------------------------- */
-        /* USER CANCELLED                                                  */
-        /* -------------------------------------------------------------- */
-
         if (oauthError) {
           res.writeHead(
             400,
@@ -712,18 +1061,9 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
                 <meta charset="utf-8">
                 <title>WorkSpace Hub</title>
               </head>
-              <body style="
-                font-family:Segoe UI,Arial,sans-serif;
-                text-align:center;
-                padding:60px;
-              ">
-                <h1>
-                  ❌ Google Calendar connection cancelled
-                </h1>
-
-                <p>
-                  You can close this window.
-                </p>
+              <body style="font-family:Segoe UI,Arial,sans-serif;text-align:center;padding:60px;">
+                <h1>❌ Google Calendar connection cancelled</h1>
+                <p>You can close this window.</p>
               </body>
             </html>
           `);
@@ -734,10 +1074,6 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
 
           return;
         }
-
-        /* -------------------------------------------------------------- */
-        /* STATE / CODE VALIDATION                                        */
-        /* -------------------------------------------------------------- */
 
         if (
           !code ||
@@ -764,13 +1100,7 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
           return;
         }
 
-        /* -------------------------------------------------------------- */
-        /* EXCHANGE CODE FOR TOKENS                                      */
-        /* -------------------------------------------------------------- */
-
-        const {
-          tokens,
-        } =
+        const { tokens } =
           await client.getToken(
             code,
           );
@@ -792,10 +1122,6 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
           tokens as GoogleToken,
         );
 
-        /* -------------------------------------------------------------- */
-        /* SUCCESS PAGE                                                   */
-        /* -------------------------------------------------------------- */
-
         res.writeHead(
           200,
           {
@@ -811,33 +1137,11 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
               <meta charset="utf-8">
               <title>WorkSpace Hub</title>
             </head>
-
-            <body style="
-              font-family:Segoe UI,Arial,sans-serif;
-              display:grid;
-              place-items:center;
-              min-height:100vh;
-              margin:0;
-              background:#f8fafc;
-            ">
-              <div style="
-                text-align:center;
-                padding:40px;
-              ">
-                <div style="
-                  font-size:64px;
-                  margin-bottom:15px;
-                ">
-                  ✅
-                </div>
-
-                <h1>
-                  Google Calendar connected
-                </h1>
-
-                <p>
-                  You can close this window.
-                </p>
+            <body style="font-family:Segoe UI,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f8fafc;">
+              <div style="text-align:center;padding:40px;">
+                <div style="font-size:64px;margin-bottom:15px;">✅</div>
+                <h1>Google Calendar connected</h1>
+                <p>You can close this window.</p>
               </div>
             </body>
           </html>
@@ -857,7 +1161,7 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
             error,
           )
         ) {
-          clearGoogleToken();
+          clearLocalGoogleToken();
         }
 
         try {
@@ -876,19 +1180,9 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
                 <meta charset="utf-8">
                 <title>WorkSpace Hub</title>
               </head>
-
-              <body style="
-                font-family:Segoe UI,Arial,sans-serif;
-                text-align:center;
-                padding:60px;
-              ">
-                <h1>
-                  ❌ Google Calendar connection failed
-                </h1>
-
-                <p>
-                  Please close this window and try again.
-                </p>
+              <body style="font-family:Segoe UI,Arial,sans-serif;text-align:center;padding:60px;">
+                <h1>❌ Google Calendar connection failed</h1>
+                <p>Please close this window and try again.</p>
               </body>
             </html>
           `);
@@ -910,7 +1204,66 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
   return {
     url: authUrl,
     port,
+    mode: "local",
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* WEB OAUTH CALLBACK                                                         */
+/* -------------------------------------------------------------------------- */
+
+export async function finishGoogleWebAuthorization(
+  code: string,
+): Promise<void> {
+  if (!isVercelRuntime()) {
+    throw new Error(
+      "Web Google OAuth callback is only available in the Vercel/web runtime.",
+    );
+  }
+
+  const redirectUri =
+    getWebRedirectUri();
+
+  const client =
+    createOAuthClient(
+      redirectUri,
+    );
+
+  const { tokens } =
+    await client.getToken(
+      code,
+    );
+
+  if (
+    !tokens ||
+    !tokens.access_token
+  ) {
+    throw new Error(
+      "Google OAuth did not return a valid access token.",
+    );
+  }
+
+  const existing =
+    await loadWebGoogleToken();
+
+  const merged = {
+    ...(existing ?? {}),
+    ...tokens,
+  } as GoogleToken;
+
+  if (
+    typeof merged.refresh_token !==
+      "string" ||
+    !merged.refresh_token
+  ) {
+    throw new Error(
+      "Google did not return a refresh token. Please reconnect and grant Calendar access again.",
+    );
+  }
+
+  await saveWebGoogleToken(
+    merged,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -960,16 +1313,14 @@ export async function getCalendarBusyPeriods(
     );
   }
 
-  if (
-    start >= end
-  ) {
+  if (start >= end) {
     throw new Error(
       "timeMin must be before timeMax.",
     );
   }
 
   const client =
-    getAuthenticatedClient();
+    await getAuthenticatedClient();
 
   if (!client) {
     throw new Error(
@@ -1005,9 +1356,7 @@ export async function getCalendarBusyPeriods(
       result.data.calendars?.[
         calendarId
       ]?.busy?.flatMap(
-        (
-          period,
-        ) => {
+        (period) => {
           if (
             !period.start ||
             !period.end
@@ -1032,7 +1381,11 @@ export async function getCalendarBusyPeriods(
         error,
       )
     ) {
-      clearGoogleToken();
+      if (isVercelRuntime()) {
+        await clearWebGoogleToken();
+      } else {
+        clearLocalGoogleToken();
+      }
     }
 
     throw error;
@@ -1054,9 +1407,7 @@ export async function createGoogleCalendarEvent(
     recurrenceCount?: number;
   },
 ) {
-  if (
-    !calendarId
-  ) {
+  if (!calendarId) {
     throw new Error(
       "calendarId is required.",
     );
@@ -1094,9 +1445,7 @@ export async function createGoogleCalendarEvent(
     );
   }
 
-  if (
-    start >= end
-  ) {
+  if (start >= end) {
     throw new Error(
       "Calendar event start must be before end.",
     );
@@ -1119,7 +1468,7 @@ export async function createGoogleCalendarEvent(
   }
 
   const client =
-    getAuthenticatedClient();
+    await getAuthenticatedClient();
 
   if (!client) {
     throw new Error(
@@ -1135,19 +1484,15 @@ export async function createGoogleCalendarEvent(
 
   const event: {
     summary: string;
-
     description?: string;
-
     start: {
       dateTime: string;
       timeZone: string;
     };
-
     end: {
       dateTime: string;
       timeZone: string;
     };
-
     recurrence?: string[];
   } = {
     summary,
@@ -1159,7 +1504,6 @@ export async function createGoogleCalendarEvent(
     start: {
       dateTime:
         start.toISOString(),
-
       timeZone:
         "Africa/Cairo",
     },
@@ -1167,7 +1511,6 @@ export async function createGoogleCalendarEvent(
     end: {
       dateTime:
         end.toISOString(),
-
       timeZone:
         "Africa/Cairo",
     },
@@ -1194,7 +1537,6 @@ export async function createGoogleCalendarEvent(
     const result =
       await calendar.events.insert({
         calendarId,
-
         requestBody:
           event,
       });
@@ -1214,7 +1556,11 @@ export async function createGoogleCalendarEvent(
         error,
       )
     ) {
-      clearGoogleToken();
+      if (isVercelRuntime()) {
+        await clearWebGoogleToken();
+      } else {
+        clearLocalGoogleToken();
+      }
     }
 
     throw error;
@@ -1229,24 +1575,20 @@ export async function deleteGoogleCalendarEvent(
   calendarId: string,
   eventId: string,
 ) {
-  if (
-    !calendarId
-  ) {
+  if (!calendarId) {
     throw new Error(
       "calendarId is required.",
     );
   }
 
-  if (
-    !eventId
-  ) {
+  if (!eventId) {
     throw new Error(
       "eventId is required.",
     );
   }
 
   const client =
-    getAuthenticatedClient();
+    await getAuthenticatedClient();
 
   if (!client) {
     throw new Error(
@@ -1261,19 +1603,21 @@ export async function deleteGoogleCalendarEvent(
     });
 
   try {
-    await calendar.events.delete(
-      {
-        calendarId,
-        eventId,
-      },
-    );
+    await calendar.events.delete({
+      calendarId,
+      eventId,
+    });
   } catch (error) {
     if (
       isInvalidGrantError(
         error,
       )
     ) {
-      clearGoogleToken();
+      if (isVercelRuntime()) {
+        await clearWebGoogleToken();
+      } else {
+        clearLocalGoogleToken();
+      }
     }
 
     throw error;

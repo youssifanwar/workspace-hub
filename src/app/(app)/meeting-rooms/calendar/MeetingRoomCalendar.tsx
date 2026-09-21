@@ -252,6 +252,11 @@ export default function MeetingRoomCalendar({
       null,
     );
 
+  const [checkingInId, setCheckingInId] =
+    useState<number | null>(
+      null,
+    );
+
   const [
     actionMessage,
     setActionMessage,
@@ -369,6 +374,94 @@ export default function MeetingRoomCalendar({
     setSelectedReservation(
       null,
     );
+  }
+
+  async function checkInReservation(
+    reservation: Reservation,
+  ) {
+    if (
+      checkingInId !== null ||
+      cancellingId !== null ||
+      reservation.status !== "confirmed"
+    ) {
+      return;
+    }
+
+    const start = safeDate(reservation.startAt);
+
+    if (start && start.getTime() > Date.now()) {
+      setActionMessage({
+        type: "error",
+        text: `Check-in is available from ${formatTime(reservation.startAt)}.`,
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Check in ${reservation.customerName || "this customer"} to ${reservation.roomName}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setCheckingInId(reservation.id);
+    setActionMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/meeting-rooms/reservations/${reservation.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ action: "check_in" }),
+          cache: "no-store",
+        },
+      );
+
+      let data: unknown = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        let message = `Could not check in reservation (HTTP ${response.status}).`;
+
+        if (
+          data !== null &&
+          typeof data === "object" &&
+          !Array.isArray(data)
+        ) {
+          const payload = data as Record<string, unknown>;
+          if (typeof payload.error === "string" && payload.error.trim()) {
+            message = payload.error.trim();
+          }
+        }
+
+        setActionMessage({ type: "error", text: message });
+        return;
+      }
+
+      setSelectedReservation(null);
+      setActionMessage({
+        type: "success",
+        text: `Reservation #${reservation.id} checked in successfully.`,
+      });
+      router.refresh();
+    } catch {
+      setActionMessage({
+        type: "error",
+        text: "Could not connect to the reservation service.",
+      });
+    } finally {
+      setCheckingInId(null);
+    }
   }
 
   async function cancelReservation(
@@ -856,6 +949,25 @@ export default function MeetingRoomCalendar({
                               View
                             </button>
 
+                            {reservation.status === "confirmed" &&
+                              safeDate(reservation.startAt)?.getTime() <= Date.now() && (
+                              <button
+                                type="button"
+                                className="btn btn-primary !py-1.5 !px-3 text-xs"
+                                onClick={() =>
+                                  void checkInReservation(reservation)
+                                }
+                                disabled={
+                                  checkingInId !== null ||
+                                  cancellingId !== null
+                                }
+                              >
+                                {checkingInId === reservation.id
+                                  ? "Checking in..."
+                                  : "Check In"}
+                              </button>
+                            )}
+
                             {canCancel && (
                               <button
                                 type="button"
@@ -867,7 +979,8 @@ export default function MeetingRoomCalendar({
                                 }
                                 disabled={
                                   cancellingId !==
-                                    null
+                                    null ||
+                                  checkingInId !== null
                                 }
                               >
                                 {isCancelling
@@ -923,8 +1036,8 @@ export default function MeetingRoomCalendar({
                   closeReservation
                 }
                 disabled={
-                  cancellingId !==
-                  null
+                  cancellingId !== null ||
+                  checkingInId !== null
                 }
                 aria-label="Close reservation details"
               >
@@ -1032,6 +1145,25 @@ export default function MeetingRoomCalendar({
                 Close
               </button>
 
+              {selectedReservation.status === "confirmed" &&
+                safeDate(selectedReservation.startAt)?.getTime() <= Date.now() && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() =>
+                    void checkInReservation(selectedReservation)
+                  }
+                  disabled={
+                    checkingInId !== null ||
+                    cancellingId !== null
+                  }
+                >
+                  {checkingInId === selectedReservation.id
+                    ? "Checking in..."
+                    : "Check In"}
+                </button>
+              )}
+
               {selectedReservation.status ===
                 "confirmed" && (
                 <button
@@ -1043,8 +1175,8 @@ export default function MeetingRoomCalendar({
                     )
                   }
                   disabled={
-                    cancellingId !==
-                    null
+                    cancellingId !== null ||
+                    checkingInId !== null
                   }
                 >
                   {cancellingId ===

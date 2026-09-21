@@ -1146,7 +1146,7 @@ export default function MeetingRoomCalendar({
               </button>
 
               {selectedReservation.status === "confirmed" &&
-                safeDate(selectedReservation.startAt)?.getTime() <= Date.now() && (
+                (safeDate(selectedReservation.startAt)?.getTime() ?? Infinity) <= Date.now() && (
                 <button
                   type="button"
                   className="btn btn-primary"

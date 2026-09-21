@@ -498,11 +498,14 @@ export default function MeetingRoomCalendar({
         await fetch(
           `/api/meeting-rooms/reservations/${reservation.id}`,
           {
-            method: "DELETE",
+            method: "PATCH",
             headers: {
-              Accept:
-                "application/json",
+              "Content-Type": "application/json",
+              Accept: "application/json",
             },
+            body: JSON.stringify({
+              action: "cancel",
+            }),
             cache: "no-store",
           },
         );

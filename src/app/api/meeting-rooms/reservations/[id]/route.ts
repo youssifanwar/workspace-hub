@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-const ACTIONS = ["check_in", "add_people", "add_hours"] as const;
+const ACTIONS = ["check_in", "add_people", "add_hours", "cancel"] as const;
 type Action = (typeof ACTIONS)[number];
 
 type RequestBody = {
@@ -88,7 +88,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            "Only managers/admins can adjust meeting-room sessions.",
+            "Only managers/admins can manage meeting-room reservations.",
         },
         { status: 403 },
       );
@@ -122,12 +122,19 @@ export async function PATCH(
 
     if (!action) {
       return NextResponse.json(
-        { error: "Action must be check_in, add_people or add_hours." },
+        {
+          error:
+            "Action must be check_in, add_people, add_hours or cancel.",
+        },
         { status: 400 },
       );
     }
 
-    if (action !== "check_in" && !amount) {
+    if (
+      action !== "check_in" &&
+      action !== "cancel" &&
+      !amount
+    ) {
       return NextResponse.json(
         { error: "Adjustment amount must be a positive whole number." },
         { status: 400 },
@@ -167,6 +174,68 @@ export async function PATCH(
 
       if (!reservation) {
         throw new Error("Meeting room reservation not found.");
+      }
+
+      if (action === "cancel") {
+        if (reservation.status !== "confirmed") {
+          throw new Error(
+            `Only confirmed meeting room reservations can be cancelled. Current status: "${reservation.status}".`,
+          );
+        }
+
+        const [mapping] = await tx
+          .select({
+            calendarId: meetingRoomCalendars.calendarId,
+          })
+          .from(meetingRoomCalendars)
+          .where(eq(meetingRoomCalendars.deskId, reservation.deskId))
+          .limit(1);
+
+        const [updatedReservation] = await tx
+          .update(meetingRoomReservations)
+          .set({
+            status: "cancelled",
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(meetingRoomReservations.id, reservation.id),
+              eq(meetingRoomReservations.status, "confirmed"),
+            ),
+          )
+          .returning({
+            id: meetingRoomReservations.id,
+            status: meetingRoomReservations.status,
+            startAt: meetingRoomReservations.startAt,
+            endAt: meetingRoomReservations.endAt,
+          });
+
+        if (!updatedReservation) {
+          throw new Error(
+            "The reservation changed before cancellation could be completed.",
+          );
+        }
+
+        await tx.insert(auditLogs).values({
+          userId: user.id,
+          action: "meeting_room_reservation_cancelled",
+          entityType: "meeting_room_reservation",
+          entityId: reservation.id,
+          details: {
+            roomId: reservation.deskId,
+            customerId: reservation.customerId,
+            startAt: reservation.startAt.toISOString(),
+            endAt: reservation.endAt.toISOString(),
+            googleEventId: reservation.googleEventId,
+          },
+        });
+
+        return {
+          mode: "cancel" as const,
+          reservation: updatedReservation,
+          googleEventId: reservation.googleEventId,
+          calendarId: mapping?.calendarId ?? null,
+        };
       }
 
       if (action === "check_in") {
@@ -842,6 +911,35 @@ export async function PATCH(
       });
     }
 
+    if (result.mode === "cancel") {
+      let googleCalendarEventDeleted = false;
+
+      if (result.googleEventId && result.calendarId) {
+        try {
+          await deleteGoogleCalendarEvent(
+            result.calendarId,
+            result.googleEventId,
+          );
+          googleCalendarEventDeleted = true;
+        } catch (calendarError) {
+          console.error(
+            "Meeting room reservation was cancelled, but the Google Calendar event could not be removed:",
+            calendarError,
+          );
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        mode: "cancel",
+        reservationId: result.reservation.id,
+        status: result.reservation.status,
+        startAt: result.reservation.startAt.toISOString(),
+        endAt: result.reservation.endAt.toISOString(),
+        googleCalendarEventDeleted,
+      });
+    }
+
     if (result.oldGoogleEvent && result.googleEventId) {
       try {
         await deleteGoogleCalendarEvent(
@@ -894,171 +992,6 @@ export async function PATCH(
         : "Could not adjust the meeting room session.";
 
     console.error("Meeting room session adjustment error:", error);
-
-    return NextResponse.json(
-      { error: message },
-      { status: 400 },
-    );
-  }
-}
-
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can cancel meeting-room reservations.",
-        },
-        { status: 403 },
-      );
-    }
-
-    const activeShift = await getActiveShiftForUser(user.id);
-
-    if (!activeShift) {
-      return NextResponse.json(
-        {
-          error:
-            "Open a shift before cancelling a meeting-room reservation.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const { id } = await params;
-    const reservationId = parsePositiveInteger(id);
-
-    if (!reservationId) {
-      return NextResponse.json(
-        { error: "Invalid meeting room reservation id." },
-        { status: 400 },
-      );
-    }
-
-    const result = await db.transaction(async (tx) => {
-      const [reservation] = await tx
-        .select({
-          id: meetingRoomReservations.id,
-          deskId: meetingRoomReservations.deskId,
-          customerId: meetingRoomReservations.customerId,
-          startAt: meetingRoomReservations.startAt,
-          endAt: meetingRoomReservations.endAt,
-          status: meetingRoomReservations.status,
-          googleEventId: meetingRoomReservations.googleEventId,
-        })
-        .from(meetingRoomReservations)
-        .where(eq(meetingRoomReservations.id, reservationId))
-        .limit(1);
-
-      if (!reservation) {
-        throw new Error("Meeting room reservation not found.");
-      }
-
-      if (reservation.status !== "confirmed") {
-        throw new Error(
-          `Only confirmed meeting room reservations can be cancelled. Current status: "${reservation.status}".`,
-        );
-      }
-
-      const [mapping] = await tx
-        .select({
-          calendarId: meetingRoomCalendars.calendarId,
-        })
-        .from(meetingRoomCalendars)
-        .where(eq(meetingRoomCalendars.deskId, reservation.deskId))
-        .limit(1);
-
-      const [updatedReservation] = await tx
-        .update(meetingRoomReservations)
-        .set({
-          status: "cancelled",
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(meetingRoomReservations.id, reservation.id),
-            eq(meetingRoomReservations.status, "confirmed"),
-          ),
-        )
-        .returning({
-          id: meetingRoomReservations.id,
-          status: meetingRoomReservations.status,
-          startAt: meetingRoomReservations.startAt,
-          endAt: meetingRoomReservations.endAt,
-        });
-
-      if (!updatedReservation) {
-        throw new Error(
-          "The reservation changed before cancellation could be completed.",
-        );
-      }
-
-      await tx.insert(auditLogs).values({
-        userId: user.id,
-        action: "meeting_room_reservation_cancelled",
-        entityType: "meeting_room_reservation",
-        entityId: reservation.id,
-        details: {
-          roomId: reservation.deskId,
-          customerId: reservation.customerId,
-          startAt: reservation.startAt.toISOString(),
-          endAt: reservation.endAt.toISOString(),
-          googleEventId: reservation.googleEventId,
-        },
-      });
-
-      return {
-        reservation: updatedReservation,
-        googleEventId: reservation.googleEventId,
-        calendarId: mapping?.calendarId ?? null,
-      };
-    });
-
-    let googleCalendarEventDeleted = false;
-
-    if (result.googleEventId && result.calendarId) {
-      try {
-        await deleteGoogleCalendarEvent(
-          result.calendarId,
-          result.googleEventId,
-        );
-        googleCalendarEventDeleted = true;
-      } catch (calendarError) {
-        console.error(
-          "Meeting room reservation was cancelled, but the Google Calendar event could not be removed:",
-          calendarError,
-        );
-      }
-    }
-
-    return NextResponse.json({
-      ok: true,
-      reservationId: result.reservation.id,
-      status: result.reservation.status,
-      startAt: result.reservation.startAt.toISOString(),
-      endAt: result.reservation.endAt.toISOString(),
-      googleCalendarEventDeleted,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not cancel the meeting room reservation.";
-
-    console.error("Meeting room reservation cancellation error:", error);
 
     return NextResponse.json(
       { error: message },

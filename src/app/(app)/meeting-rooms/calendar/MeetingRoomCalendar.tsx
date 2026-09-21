@@ -950,7 +950,7 @@ export default function MeetingRoomCalendar({
                             </button>
 
                             {reservation.status === "confirmed" &&
-                              safeDate(reservation.startAt)?.getTime() <= Date.now() && (
+                              (safeDate(reservation.startAt)?.getTime() ?? Number.POSITIVE_INFINITY) <= Date.now() && (
                               <button
                                 type="button"
                                 className="btn btn-primary !py-1.5 !px-3 text-xs"
@@ -1146,7 +1146,7 @@ export default function MeetingRoomCalendar({
               </button>
 
               {selectedReservation.status === "confirmed" &&
-                safeDate(selectedReservation.startAt)?.getTime() <= Date.now() && (
+                (safeDate(selectedReservation.startAt)?.getTime() ?? Infinity) <= Date.now() && (
                 <button
                   type="button"
                   className="btn btn-primary"

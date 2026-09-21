@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { and, eq, gt, lt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -34,7 +35,7 @@ export const dynamic = "force-dynamic";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-const ACTIONS = ["add_people", "add_hours"] as const;
+const ACTIONS = ["check_in", "add_people", "add_hours"] as const;
 type Action = (typeof ACTIONS)[number];
 
 type RequestBody = {
@@ -121,12 +122,12 @@ export async function PATCH(
 
     if (!action) {
       return NextResponse.json(
-        { error: "Adjustment action must be add_people or add_hours." },
+        { error: "Action must be check_in, add_people or add_hours." },
         { status: 400 },
       );
     }
 
-    if (!amount) {
+    if (action !== "check_in" && !amount) {
       return NextResponse.json(
         { error: "Adjustment amount must be a positive whole number." },
         { status: 400 },
@@ -166,6 +167,194 @@ export async function PATCH(
 
       if (!reservation) {
         throw new Error("Meeting room reservation not found.");
+      }
+
+      if (action === "check_in") {
+        if (reservation.status !== "confirmed") {
+          throw new Error(
+            `Only confirmed meeting room reservations can be checked in. Current status: "${reservation.status}".`,
+          );
+        }
+
+        if (reservation.startAt.getTime() > Date.now()) {
+          throw new Error(
+            "This reservation has not started yet. Check-in is available when the reservation start time is reached.",
+          );
+        }
+
+        if (reservation.bookingId) {
+          throw new Error(
+            "This reservation is already linked to a customer session.",
+          );
+        }
+
+        if (!reservation.customerId) {
+          throw new Error(
+            "This reservation has no customer linked to it.",
+          );
+        }
+
+        const [customer] = await tx
+          .select({
+            id: customers.id,
+            name: customers.name,
+            phone: customers.phone,
+          })
+          .from(customers)
+          .where(eq(customers.id, reservation.customerId))
+          .limit(1);
+
+        if (!customer) {
+          throw new Error("The customer linked to this reservation no longer exists.");
+        }
+
+        const [room] = await tx
+          .select({
+            id: desks.id,
+            name: desks.name,
+            capacity: desks.capacity,
+          })
+          .from(desks)
+          .where(
+            and(
+              eq(desks.id, reservation.deskId),
+              eq(desks.active, true),
+              eq(desks.type, "meeting_room"),
+            ),
+          )
+          .limit(1);
+
+        if (!room) {
+          throw new Error("Meeting room not found or inactive.");
+        }
+
+        const [activeConflict] = await tx
+          .select({
+            id: meetingRoomReservations.id,
+          })
+          .from(meetingRoomReservations)
+          .where(
+            and(
+              eq(meetingRoomReservations.deskId, reservation.deskId),
+              eq(meetingRoomReservations.status, "active"),
+              lt(meetingRoomReservations.startAt, reservation.endAt),
+              gt(meetingRoomReservations.endAt, reservation.startAt),
+              ne(meetingRoomReservations.id, reservation.id),
+            ),
+          )
+          .limit(1);
+
+        if (activeConflict) {
+          throw new Error(
+            "This meeting room is already active in an overlapping session.",
+          );
+        }
+
+        let accessCode: string | null = null;
+
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          const candidate = String(crypto.randomInt(0, 10000)).padStart(4, "0");
+
+          const [existingCode] = await tx
+            .select({ id: bookings.id })
+            .from(bookings)
+            .where(eq(bookings.accessCode, candidate))
+            .limit(1);
+
+          if (!existingCode) {
+            accessCode = candidate;
+            break;
+          }
+        }
+
+        if (!accessCode) {
+          throw new Error("Could not generate a unique customer access code.");
+        }
+
+        const [booking] = await tx
+          .insert(bookings)
+          .values({
+            customerId: customer.id,
+            deskId: room.id,
+            shiftId: activeShift.id,
+            userId: user.id,
+            accessCode,
+            accessTokenHash: null,
+            accessTokenCreatedAt: null,
+            checkedInAt: new Date(),
+            hourlyRateSnapshot: reservation.hourlyRateSnapshot,
+            seatCharge: null,
+            ordersTotal: "0.00",
+            discount: reservation.discountAmount,
+            total: null,
+            paidAmount: null,
+            changeAmount: null,
+            paymentMethod: null,
+            billingMode: reservation.packagePurchaseId ? "package" : "regular",
+            subscriptionId: null,
+            subscriptionHoursUsed: null,
+            billingNote: reservation.packagePurchaseId
+              ? `meeting_room_package:${reservation.packagePurchaseId}`
+              : `meeting_room_reservation:${reservation.id}`,
+            status: "active",
+          })
+          .returning({
+            id: bookings.id,
+            accessCode: bookings.accessCode,
+          });
+
+        if (!booking) {
+          throw new Error("Could not create the customer session for this reservation.");
+        }
+
+        const checkedInAt = new Date();
+
+        const [updatedReservation] = await tx
+          .update(meetingRoomReservations)
+          .set({
+            bookingId: booking.id,
+            status: "active",
+            updatedAt: checkedInAt,
+          })
+          .where(
+            and(
+              eq(meetingRoomReservations.id, reservation.id),
+              eq(meetingRoomReservations.status, "confirmed"),
+            ),
+          )
+          .returning({
+            id: meetingRoomReservations.id,
+            bookingId: meetingRoomReservations.bookingId,
+            status: meetingRoomReservations.status,
+            startAt: meetingRoomReservations.startAt,
+            endAt: meetingRoomReservations.endAt,
+          });
+
+        if (!updatedReservation) {
+          throw new Error("The reservation changed before check-in could be completed.");
+        }
+
+        await tx.insert(auditLogs).values({
+          userId: user.id,
+          action: "meeting_room_reservation_checked_in",
+          entityType: "meeting_room_reservation",
+          entityId: reservation.id,
+          details: {
+            bookingId: booking.id,
+            roomId: reservation.deskId,
+            customerId: customer.id,
+            accessCode,
+            startAt: reservation.startAt.toISOString(),
+            endAt: reservation.endAt.toISOString(),
+          },
+        });
+
+        return {
+          mode: "check_in" as const,
+          reservation: updatedReservation,
+          booking,
+          customer,
+        };
       }
 
       if (reservation.status !== "active") {
@@ -605,6 +794,7 @@ export async function PATCH(
       });
 
       return {
+        mode: "adjustment" as const,
         reservationId: reservation.id,
         bookingId: booking.id,
         action,
@@ -637,6 +827,20 @@ export async function PATCH(
             : null,
       };
     });
+
+    if (result.mode === "check_in") {
+      return NextResponse.json({
+        ok: true,
+        mode: "check_in",
+        reservationId: result.reservation.id,
+        bookingId: result.booking.id,
+        status: result.reservation.status,
+        accessCode: result.booking.accessCode,
+        startAt: result.reservation.startAt.toISOString(),
+        endAt: result.reservation.endAt.toISOString(),
+        customer: result.customer,
+      });
+    }
 
     if (result.oldGoogleEvent && result.googleEventId) {
       try {

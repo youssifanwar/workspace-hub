@@ -404,12 +404,12 @@ export async function PATCH(
 
       const newAttendeeCount =
         action === "add_people"
-          ? currentAttendees + amount
+          ? currentAttendees + (amount ?? 0)
           : currentAttendees;
 
       const newDurationHours =
         action === "add_hours"
-          ? currentDuration + amount
+          ? currentDuration + (amount ?? 0)
           : currentDuration;
 
       if (

@@ -303,14 +303,15 @@ export default function OrdersBoard({
     }
   }
 
-  function toggleSound() {
-    const next = !soundOnRef.current;
-    soundOnRef.current = next;
-    setSoundOn(next);
-
-    if (next) {
-      void enableAlerts();
+  async function handleAlertsClick() {
+    // The alerts button must always run from the user's click.
+    // Do not toggle sound off before trying to unlock audio/notifications.
+    if (!soundOnRef.current) {
+      soundOnRef.current = true;
+      setSoundOn(true);
     }
+
+    await enableAlerts();
   }
 
   async function playBeep() {
@@ -517,9 +518,8 @@ export default function OrdersBoard({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={toggleSound}
-            onPointerDown={() => {
-              void unlockAudio();
+            onClick={() => {
+              void handleAlertsClick();
             }}
             title={
               notificationPermission === "denied"

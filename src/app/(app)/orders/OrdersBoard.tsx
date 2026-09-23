@@ -67,6 +67,13 @@ export default function OrdersBoard({
   const [soundOn, setSoundOn] =
     useState(true);
 
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>(
+      typeof window !== "undefined" && "Notification" in window
+        ? Notification.permission
+        : "default",
+    );
+
   const audioCtxRef =
     useRef<AudioContext | null>(null);
 
@@ -272,24 +279,46 @@ export default function OrdersBoard({
     }
   }
 
+  async function enableAlerts() {
+    await unlockAudio();
+
+    // Play a real test beep from the user's click so the browser
+    // treats this page as having an allowed audio interaction.
+    await playBeep();
+
+    if (
+      "Notification" in window
+    ) {
+      try {
+        let permission = Notification.permission;
+
+        if (permission === "default") {
+          permission = await Notification.requestPermission();
+        }
+
+        setNotificationPermission(permission);
+      } catch {
+        setNotificationPermission(Notification.permission);
+      }
+    }
+  }
+
   function toggleSound() {
     const next = !soundOnRef.current;
     soundOnRef.current = next;
     setSoundOn(next);
 
     if (next) {
-      void unlockAudio();
+      void enableAlerts();
     }
   }
 
   async function playBeep() {
     try {
-      await unlockAudio();
-
       const context =
         audioCtxRef.current;
 
-      if (!context) {
+      if (!context || context.state !== "running") {
         return;
       }
 
@@ -321,7 +350,7 @@ export default function OrdersBoard({
           );
 
           gain.gain.linearRampToValueAtTime(
-            0.3,
+            0.4,
             start + 0.02,
           );
 
@@ -354,36 +383,29 @@ export default function OrdersBoard({
   ) {
     try {
       if (
-        "Notification" in
-          window &&
-        Notification.permission ===
-          "granted"
+        "Notification" in window &&
+        Notification.permission === "granted"
       ) {
-        new Notification(
+        const notification = new Notification(
           `New order · Ticket #${String(
             ticketNumber,
           ).padStart(3, "0")}`,
           {
             body: `${desk} · ${count} item(s)`,
             silent: false,
+            requireInteraction: true,
           },
         );
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
       }
     } catch {
       /* ignore */
     }
   }
-
-  useEffect(() => {
-    if (
-      "Notification" in
-        window &&
-      Notification.permission ===
-        "default"
-    ) {
-      Notification.requestPermission();
-    }
-  }, []);
 
   useEffect(() => {
     soundOnRef.current = soundOn;
@@ -499,6 +521,11 @@ export default function OrdersBoard({
             onPointerDown={() => {
               void unlockAudio();
             }}
+            title={
+              notificationPermission === "denied"
+                ? "Browser notifications are blocked for this site"
+                : "Click to test sound and enable notifications"
+            }
             className={`btn ${
               soundOn
                 ? "btn-primary"
@@ -506,7 +533,9 @@ export default function OrdersBoard({
             }`}
           >
             {soundOn
-              ? "🔊 Sound on"
+              ? notificationPermission === "granted"
+                ? "🔊 Sound on"
+                : "🔊 Enable alerts"
               : "🔇 Sound off"}
           </button>
 

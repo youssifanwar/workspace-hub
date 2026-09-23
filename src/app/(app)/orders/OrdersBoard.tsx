@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type OrderAlert = {
+  id: number;
+  desk: string;
+  ticketNumber: number;
+  count: number;
+};
+
 type Ticket = {
   id: number;
   ticketNumber: number;
@@ -66,6 +73,9 @@ export default function OrdersBoard({
 
   const [soundOn, setSoundOn] =
     useState(true);
+
+  const [alerts, setAlerts] =
+    useState<OrderAlert[]>([]);
 
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>(
@@ -155,6 +165,7 @@ export default function OrdersBoard({
           }
 
           notify(
+            ticket.id,
             ticket.deskName,
             ticket.ticketNumber,
             ticket.items.reduce(
@@ -182,6 +193,36 @@ export default function OrdersBoard({
 
     return () => {
       window.clearInterval(timer);
+    };
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* FAST LIVE EVENT FALLBACK                                                */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    let source: EventSource | null = null;
+
+    try {
+      if ("EventSource" in window) {
+        source = new EventSource("/api/events");
+
+        source.onmessage = () => {
+          // The event stream wakes the board immediately; polling remains
+          // as a safety net in case the stream disconnects.
+          void syncTickets();
+        };
+      }
+    } catch {
+      /* polling still keeps the board live */
+    }
+
+    return () => {
+      try {
+        source?.close();
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
@@ -316,6 +357,8 @@ export default function OrdersBoard({
 
   async function playBeep() {
     try {
+      await unlockAudio();
+
       const context =
         audioCtxRef.current;
 
@@ -323,51 +366,51 @@ export default function OrdersBoard({
         return;
       }
 
-      const now =
-        context.currentTime;
+      const now = context.currentTime;
+      const notes = [
+        { frequency: 880, offset: 0 },
+        { frequency: 1320, offset: 0.18 },
+        { frequency: 880, offset: 0.36 },
+        { frequency: 1175, offset: 0.82 },
+        { frequency: 1568, offset: 1.0 },
+        { frequency: 1175, offset: 1.18 },
+      ];
 
-      [
-        880,
-        1320,
-        880,
-      ].forEach(
-        (frequency, index) => {
-          const oscillator =
-            context.createOscillator();
+      for (const note of notes) {
+        const oscillator =
+          context.createOscillator();
+        const gain =
+          context.createGain();
 
-          const gain =
-            context.createGain();
+        const start =
+          now + note.offset;
+        const end =
+          start + 0.14;
 
-          const start =
-            now + index * 0.18;
+        oscillator.type = "sine";
+        oscillator.frequency.value =
+          note.frequency;
 
-          oscillator.type = "sine";
-          oscillator.frequency.value =
-            frequency;
+        gain.gain.setValueAtTime(
+          0,
+          start,
+        );
+        gain.gain.linearRampToValueAtTime(
+          0.55,
+          start + 0.02,
+        );
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          end,
+        );
 
-          gain.gain.setValueAtTime(
-            0,
-            start,
-          );
+        oscillator
+          .connect(gain)
+          .connect(context.destination);
 
-          gain.gain.linearRampToValueAtTime(
-            0.4,
-            start + 0.02,
-          );
-
-          gain.gain.linearRampToValueAtTime(
-            0,
-            start + 0.15,
-          );
-
-          oscillator
-            .connect(gain)
-            .connect(context.destination);
-
-          oscillator.start(start);
-          oscillator.stop(start + 0.16);
-        },
-      );
+        oscillator.start(start);
+        oscillator.stop(end + 0.02);
+      }
     } catch {
       /* ignore */
     }
@@ -377,24 +420,61 @@ export default function OrdersBoard({
   /* NOTIFICATION                                                           */
   /* ---------------------------------------------------------------------- */
 
-  function notify(
+  function showTopAlert(
+    ticketId: number,
     desk: string,
     ticketNumber: number,
     count: number,
   ) {
+    setAlerts((current) => [
+      ...current,
+      {
+        id: ticketId,
+        desk,
+        ticketNumber,
+        count,
+      },
+    ].slice(-3));
+
+    window.setTimeout(() => {
+      setAlerts((current) =>
+        current.filter((item) => item.id !== ticketId),
+      );
+    }, 6000);
+  }
+
+  function notify(
+    ticketId: number,
+    desk: string,
+    ticketNumber: number,
+    count: number,
+  ) {
+    // Always show an in-app top notification. This works even when
+    // browser notifications are blocked.
+    showTopAlert(
+      ticketId,
+      desk,
+      ticketNumber,
+      count,
+    );
+
+    // Also show the operating-system/browser notification when this
+    // current origin has permission.
     try {
       if (
         "Notification" in window &&
         Notification.permission === "granted"
       ) {
         const notification = new Notification(
-          `New order · Ticket #${String(
+          `🔔 New order · Ticket #${String(
             ticketNumber,
           ).padStart(3, "0")}`,
           {
             body: `${desk} · ${count} item(s)`,
+            tag: `wsh-order-${ticketId}`,
             silent: false,
             requireInteraction: true,
+            
           },
         );
 
@@ -501,6 +581,31 @@ export default function OrdersBoard({
 
   return (
     <div className="space-y-6">
+      {/* TOP ORDER ALERTS */}
+      <div className="fixed top-4 right-4 z-[9999] w-[min(380px,calc(100vw-2rem))] space-y-3 pointer-events-none">
+        {alerts.map((alert) => (
+          <div
+            key={alert.id}
+            className="pointer-events-auto rounded-2xl border border-emerald-200 bg-white shadow-2xl ring-2 ring-emerald-100 px-4 py-3 animate-in slide-in-from-top-4 fade-in duration-200"
+          >
+            <div className="flex items-start gap-3">
+              <div className="text-2xl leading-none">🔔</div>
+              <div className="min-w-0 flex-1">
+                <div className="font-extrabold text-emerald-700">
+                  New order received
+                </div>
+                <div className="text-sm font-bold text-slate-900 mt-0.5">
+                  Ticket #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {alert.count} item(s) · Live Orders
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* HEADER */}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -523,20 +628,14 @@ export default function OrdersBoard({
             }}
             title={
               notificationPermission === "denied"
-                ? "Browser notifications are blocked for this site"
-                : "Click to test sound and enable notifications"
+                ? "Browser notifications are blocked for this site. Allow notifications for this domain from the browser address-bar site settings."
+                : "Click once to unlock the order sound and allow desktop notifications on this domain."
             }
-            className={`btn ${
-              soundOn
-                ? "btn-primary"
-                : "btn-ghost"
-            }`}
+            className="btn btn-primary"
           >
-            {soundOn
-              ? notificationPermission === "granted"
-                ? "🔊 Sound on"
-                : "🔊 Enable alerts"
-              : "🔇 Sound off"}
+            {notificationPermission === "granted"
+              ? "🔊 Alerts on"
+              : "🔔 Enable alerts"}
           </button>
 
           <div

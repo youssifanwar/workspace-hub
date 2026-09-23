@@ -1,88 +1,112 @@
 import { db } from "@/db";
-import {
-  bookings,
-  customers,
-  meetingRoomReservations,
-} from "@/db/schema";
-import {
-  and,
-  eq,
-  notExists,
-} from "drizzle-orm";
+import { bookingItems, bookings, customers } from "@/db/schema";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveShiftForUser } from "@/lib/shift";
-import { getSetting } from "@/lib/settings";
+import {
+  getCustomerSessionPricing,
+  getSetting,
+} from "@/lib/settings";
 import OpenSessionButton from "./OpenSessionButton";
 import Link from "next/link";
+import BookingsLiveRefresh from "./BookingsLiveRefresh";
 
 export const dynamic = "force-dynamic";
+
+/* -------------------------------------------------------------------------- */
+/* TYPES                                                                      */
+/* -------------------------------------------------------------------------- */
+
+type CustomerSessionPricing = {
+  oneHour: number;
+  twoHours: number;
+  threeHours: number;
+  fourHours: number;
+  dayPass: number;
+};
+
+type BillingMode =
+  | "regular"
+  | "package";
 
 /* -------------------------------------------------------------------------- */
 /* SESSION PRICING                                                            */
 /* -------------------------------------------------------------------------- */
 
-const FIRST_HOUR_PRICE = 40;
-const EXTRA_HOUR_PRICE = 30;
-const DAY_PASS_PRICE = 150;
-
 function calculateRegularSeatCharge(
   billableHours: number,
+  pricing: CustomerSessionPricing,
 ) {
   if (billableHours <= 1) {
-    return FIRST_HOUR_PRICE;
+    return pricing.oneHour;
   }
 
   if (billableHours === 2) {
-    return FIRST_HOUR_PRICE + EXTRA_HOUR_PRICE;
+    return pricing.twoHours;
   }
 
   if (billableHours === 3) {
-    return (
-      FIRST_HOUR_PRICE +
-      EXTRA_HOUR_PRICE * 2
-    );
+    return pricing.threeHours;
   }
 
   if (billableHours === 4) {
-    return (
-      FIRST_HOUR_PRICE +
-      EXTRA_HOUR_PRICE * 3
-    );
+    return pricing.fourHours;
   }
 
-  return DAY_PASS_PRICE;
+  return pricing.dayPass;
 }
 
+/* -------------------------------------------------------------------------- */
+/* PAGE                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export default async function BookingsPage() {
-  const user = await getCurrentUser();
+  const user =
+    await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
   const activeShift =
-    await getActiveShiftForUser(user.id);
+    await getActiveShiftForUser(
+      user.id,
+    );
 
   if (!activeShift) {
     redirect("/shift");
   }
 
-  const currency =
-    await getSetting("currency");
+  const [
+    currency,
+    pricing,
+  ] = await Promise.all([
+    getSetting("currency"),
+    getCustomerSessionPricing(),
+  ]);
 
   const activeSessionsRaw =
     await db
       .select({
         id: bookings.id,
-        customerName: customers.name,
-        customerPhone: customers.phone,
-        accessCode: bookings.accessCode,
-        checkedInAt: bookings.checkedInAt,
+
+        customerName:
+          customers.name,
+
+        customerPhone:
+          customers.phone,
+
+        accessCode:
+          bookings.accessCode,
+
+        checkedInAt:
+          bookings.checkedInAt,
 
         /*
-         * Kept because older bookings may still have this value.
-         * The UI pricing below does NOT depend on it for regular sessions.
+         * Legacy field.
+         *
+         * Customer Session billing does NOT use this field.
          */
         hourlyRate:
           bookings.hourlyRateSnapshot,
@@ -111,43 +135,106 @@ export default async function BookingsPage() {
         ),
       )
       .where(
-        and(
-          eq(
-            bookings.status,
-            "active",
-          ),
-          notExists(
-            db
-              .select({
-                id:
-                  meetingRoomReservations.id,
-              })
-              .from(
-                meetingRoomReservations,
-              )
-              .where(
-                eq(
-                  meetingRoomReservations.bookingId,
-                  bookings.id,
-                ),
-              ),
-          ),
+        eq(
+          bookings.status,
+          "active",
         ),
       )
       .orderBy(
         bookings.checkedInAt,
       );
 
-  const activeSessions = activeSessionsRaw.map((session) => ({
-    ...session,
-    billingMode:
-      session.billingMode === "package"
-        ? ("package" as const)
-        : ("regular" as const),
-  }));
+  /*
+   * Read F&B totals from booking_items, not bookings.ordersTotal.
+   * QR orders are stored as booking_items, while ordersTotal can remain a
+   * historical snapshot until checkout.
+   */
+  const activeBookingIds = activeSessionsRaw.map(
+    (session) => session.id,
+  );
+
+  const fnbTotalsRows =
+    activeBookingIds.length > 0
+      ? await db
+          .select({
+            bookingId: bookingItems.bookingId,
+            total: sql<string>`
+              COALESCE(
+                SUM(
+                  CAST(${bookingItems.unitPrice} AS numeric) *
+                  ${bookingItems.quantity}
+                ),
+                0
+              )
+            `,
+          })
+          .from(bookingItems)
+          .where(
+            inArray(
+              bookingItems.bookingId,
+              activeBookingIds,
+            ),
+          )
+          .groupBy(bookingItems.bookingId)
+      : [];
+
+  const fnbTotals = new Map(
+    fnbTotalsRows.map((row) => [
+      row.bookingId,
+      Number(row.total ?? 0),
+    ]),
+  );
+
+  /*
+   * Normalize billingMode here.
+   *
+   * Drizzle can infer the database column as string in this query.
+   * SessionCard intentionally accepts only the two valid application modes.
+   */
+  const activeSessions =
+    activeSessionsRaw.map(
+      (session) => ({
+        id: session.id,
+
+        customerName:
+          session.customerName,
+
+        customerPhone:
+          session.customerPhone,
+
+        accessCode:
+          session.accessCode,
+
+        checkedInAt:
+          session.checkedInAt,
+
+        hourlyRate:
+          session.hourlyRate,
+
+        ordersTotal:
+          (fnbTotals.get(session.id) ??
+            Number(session.ordersTotal ?? 0)).toFixed(2),
+
+        discount:
+          session.discount,
+
+        status:
+          session.status,
+
+        billingMode:
+          session.billingMode ===
+          "package"
+            ? ("package" as const)
+            : ("regular" as const),
+
+        subscriptionId:
+          session.subscriptionId,
+      }),
+    );
 
   return (
     <div className="space-y-6">
+      <BookingsLiveRefresh />
       {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -162,7 +249,8 @@ export default async function BookingsPage() {
 
         <div className="flex items-center gap-3">
           <div className="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 font-semibold text-sm">
-            Active {activeSessions.length}
+            Active{" "}
+            {activeSessions.length}
           </div>
 
           <OpenSessionButton
@@ -172,7 +260,8 @@ export default async function BookingsPage() {
       </div>
 
       {/* EMPTY STATE */}
-      {activeSessions.length === 0 ? (
+      {activeSessions.length ===
+      0 ? (
         <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
           <div className="text-5xl mb-4">
             👤
@@ -197,9 +286,18 @@ export default async function BookingsPage() {
           {activeSessions.map(
             (session) => (
               <SessionCard
-                key={session.id}
-                session={session}
-                currency={currency}
+                key={
+                  session.id
+                }
+                session={
+                  session
+                }
+                currency={
+                  currency
+                }
+                pricing={
+                  pricing
+                }
               />
             ),
           )}
@@ -216,26 +314,47 @@ export default async function BookingsPage() {
 function SessionCard({
   session,
   currency,
+  pricing,
 }: {
   session: {
     id: number;
+
     customerName: string;
-    customerPhone: string | null;
-    accessCode: string | null;
+
+    customerPhone:
+      | string
+      | null;
+
+    accessCode:
+      | string
+      | null;
+
     checkedInAt: Date;
+
     hourlyRate: string;
+
     ordersTotal: string;
+
     discount: string;
-    status: string;
-    billingMode: "regular" | "package";
-    subscriptionId: number | null;
+
+    status: "active" | "closed" | string;
+
+    billingMode: BillingMode;
+
+    subscriptionId:
+      | number
+      | null;
   };
+
   currency: string;
+
+  pricing: CustomerSessionPricing;
 }) {
   const startedAt =
     session.checkedInAt.getTime();
 
-  const now = Date.now();
+  const now =
+    Date.now();
 
   const durationMs =
     Math.max(
@@ -244,7 +363,8 @@ function SessionCard({
     );
 
   const durationHours =
-    durationMs / 3_600_000;
+    durationMs /
+    3_600_000;
 
   /*
    * Every started hour counts as one billable hour.
@@ -265,17 +385,19 @@ function SessionCard({
 
   const ordersTotal =
     parseFloat(
-      session.ordersTotal || "0",
+      session.ordersTotal ||
+        "0",
     );
 
   const discount =
     parseFloat(
-      session.discount || "0",
+      session.discount ||
+        "0",
     );
 
   /*
    * Package sessions do not charge seat time.
-   * Regular sessions use the real workspace pricing rules.
+   * Regular sessions use the configurable Customer Session pricing.
    */
   const seatCharge =
     session.billingMode ===
@@ -283,6 +405,7 @@ function SessionCard({
       ? 0
       : calculateRegularSeatCharge(
           billableHours,
+          pricing,
         );
 
   const currentTotal =
@@ -299,37 +422,34 @@ function SessionCard({
       className="group block"
     >
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-indigo-300 transition overflow-hidden">
-
         <div className="p-5">
-
           {/* CUSTOMER */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-
               <div className="flex items-center gap-2">
-
                 <div className="w-11 h-11 rounded-2xl bg-indigo-100 grid place-items-center text-xl">
                   👤
                 </div>
 
                 <div className="min-w-0">
                   <h2 className="font-bold text-slate-900 truncate">
-                    {session.customerName}
+                    {
+                      session.customerName
+                    }
                   </h2>
 
                   {session.customerPhone && (
                     <p className="text-xs text-slate-500 truncate">
-                      {session.customerPhone}
+                      {
+                        session.customerPhone
+                      }
                     </p>
                   )}
                 </div>
-
               </div>
-
             </div>
 
             <div className="flex flex-col items-end gap-1">
-
               <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">
                 Active
               </span>
@@ -340,13 +460,11 @@ function SessionCard({
                   PACKAGE
                 </span>
               )}
-
             </div>
           </div>
 
           {/* SESSION INFO */}
           <div className="grid grid-cols-2 gap-3 mt-5">
-
             <InfoBox
               label="Session"
               value={`#${session.id}`}
@@ -375,15 +493,12 @@ function SessionCard({
               )}
               mono
             />
-
           </div>
 
           {/* BILLING */}
           <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-200 p-4">
-
             {/* BILLING TYPE */}
             <div className="flex items-center justify-between">
-
               <span className="text-sm text-slate-500">
                 Billing
               </span>
@@ -401,26 +516,24 @@ function SessionCard({
                   ? "Package"
                   : "Regular"}
               </span>
-
             </div>
 
             {/* SEAT */}
             <div className="flex items-center justify-between mt-2">
-
               <span className="text-sm text-slate-500">
                 Seat
               </span>
 
               <span className="font-semibold text-slate-800">
-                {seatCharge.toFixed(2)}{" "}
+                {seatCharge.toFixed(
+                  2,
+                )}{" "}
                 {currency}
               </span>
-
             </div>
 
             {/* HOURS / PACKAGE */}
             <div className="flex items-center justify-between mt-2">
-
               <span className="text-sm text-slate-500">
                 {session.billingMode ===
                 "package"
@@ -432,28 +545,33 @@ function SessionCard({
 
               <span className="font-semibold text-slate-800">
                 {session.billingMode ===
-                "package"
-                  ? `${billableHours} ${
-                      billableHours ===
-                      1
-                        ? "hour"
-                        : "hours"
-                    }`
-                  : billableHours > 4
-                  ? "150.00"
-                  : `${billableHours} ${
-                      billableHours ===
-                      1
-                        ? "hour"
-                        : "hours"
-                    }`}
+                "package" ? (
+                  <>
+                    {billableHours}{" "}
+                    {billableHours ===
+                    1
+                      ? "hour"
+                      : "hours"}
+                  </>
+                ) : billableHours >
+                  4 ? (
+                  `${pricing.dayPass.toFixed(
+                    2,
+                  )} ${currency}`
+                ) : (
+                  <>
+                    {billableHours}{" "}
+                    {billableHours ===
+                    1
+                      ? "hour"
+                      : "hours"}
+                  </>
+                )}
               </span>
-
             </div>
 
             {/* F&B */}
             <div className="flex items-center justify-between mt-2">
-
               <span className="text-sm text-slate-500">
                 F&amp;B
               </span>
@@ -464,13 +582,11 @@ function SessionCard({
                 )}{" "}
                 {currency}
               </span>
-
             </div>
 
             {/* DISCOUNT */}
             {discount > 0 && (
               <div className="flex items-center justify-between mt-2">
-
                 <span className="text-sm text-slate-500">
                   Discount
                 </span>
@@ -482,13 +598,11 @@ function SessionCard({
                   )}{" "}
                   {currency}
                 </span>
-
               </div>
             )}
 
             {/* TOTAL */}
             <div className="border-t border-slate-200 mt-3 pt-3 flex items-center justify-between">
-
               <span className="font-bold text-slate-900">
                 Current Total
               </span>
@@ -499,22 +613,16 @@ function SessionCard({
                 )}{" "}
                 {currency}
               </span>
-
             </div>
-
           </div>
-
         </div>
 
         {/* FOOTER */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
-
           <div className="text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
             Open session →
           </div>
-
         </div>
-
       </div>
     </Link>
   );
@@ -530,12 +638,13 @@ function InfoBox({
   mono = false,
 }: {
   label: string;
+
   value: string;
+
   mono?: boolean;
 }) {
   return (
     <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-
       <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
         {label}
       </div>
@@ -549,7 +658,6 @@ function InfoBox({
       >
         {value}
       </div>
-
     </div>
   );
 }
@@ -585,7 +693,8 @@ function formatDuration(
 
   const minutes =
     Math.floor(
-      (totalSeconds % 3600) /
+      (totalSeconds %
+        3600) /
         60,
     );
 

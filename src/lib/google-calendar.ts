@@ -1567,6 +1567,179 @@ export async function createGoogleCalendarEvent(
   }
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* UPDATE EVENT                                                               */
+/* -------------------------------------------------------------------------- */
+
+export type GoogleCalendarEventSnapshot = {
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+};
+
+export async function updateGoogleCalendarEvent(
+  calendarId: string,
+  eventId: string,
+  input: {
+    summary: string;
+    description?: string;
+    start: string;
+    end: string;
+  },
+): Promise<{
+  id: string | null;
+  htmlLink: string | null;
+  previous: GoogleCalendarEventSnapshot;
+}> {
+  if (!calendarId) {
+    throw new Error(
+      "calendarId is required.",
+    );
+  }
+
+  if (!eventId) {
+    throw new Error(
+      "eventId is required.",
+    );
+  }
+
+  const summary =
+    input.summary.trim();
+
+  if (!summary) {
+    throw new Error(
+      "Calendar event summary is required.",
+    );
+  }
+
+  const start =
+    new Date(
+      input.start,
+    );
+
+  const end =
+    new Date(
+      input.end,
+    );
+
+  if (
+    Number.isNaN(
+      start.getTime(),
+    ) ||
+    Number.isNaN(
+      end.getTime(),
+    )
+  ) {
+    throw new Error(
+      "Invalid calendar event time.",
+    );
+  }
+
+  if (start >= end) {
+    throw new Error(
+      "Calendar event start must be before end.",
+    );
+  }
+
+  const client =
+    await getAuthenticatedClient();
+
+  if (!client) {
+    throw new Error(
+      "Google Calendar is not connected.",
+    );
+  }
+
+  const calendar =
+    google.calendar({
+      version: "v3",
+      auth: client,
+    });
+
+  try {
+    const existing =
+      await calendar.events.get({
+        calendarId,
+        eventId,
+      });
+
+    const previousStart =
+      existing.data.start?.dateTime ||
+      existing.data.start?.date;
+
+    const previousEnd =
+      existing.data.end?.dateTime ||
+      existing.data.end?.date;
+
+    if (!previousStart || !previousEnd) {
+      throw new Error(
+        "Existing Google Calendar event has no usable start/end time.",
+      );
+    }
+
+    const previous: GoogleCalendarEventSnapshot = {
+      summary:
+        existing.data.summary ||
+        "Meeting Room — Active Session",
+      description:
+        existing.data.description ||
+        undefined,
+      start: previousStart,
+      end: previousEnd,
+    };
+
+    const result =
+      await calendar.events.patch({
+        calendarId,
+        eventId,
+        requestBody: {
+          summary,
+          description:
+            input.description?.trim() ||
+            undefined,
+          start: {
+            dateTime:
+              start.toISOString(),
+            timeZone:
+              "Africa/Cairo",
+          },
+          end: {
+            dateTime:
+              end.toISOString(),
+            timeZone:
+              "Africa/Cairo",
+          },
+        },
+      });
+
+    return {
+      id:
+        result.data.id ??
+        eventId,
+      htmlLink:
+        result.data.htmlLink ??
+        null,
+      previous,
+    };
+  } catch (error) {
+    if (
+      isInvalidGrantError(
+        error,
+      )
+    ) {
+      if (isVercelRuntime()) {
+        await clearWebGoogleToken();
+      } else {
+        clearLocalGoogleToken();
+      }
+    }
+
+    throw error;
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* DELETE EVENT                                                               */
 /* -------------------------------------------------------------------------- */

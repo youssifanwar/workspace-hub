@@ -36,9 +36,13 @@ type ActiveSessionRow = {
   billingMode: string | null;
 };
 
-function safeNumber(value: string | number | null | undefined): number {
+function safeNumber(value: unknown): number {
   const parsed =
-    typeof value === "number" ? value : Number.parseFloat(value ?? "0");
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : 0;
 
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -69,6 +73,8 @@ export default async function DashboardPage() {
     todaySeatRow,
     todayExpensesRow,
     todayBankRow,
+    directFnbRevenueRow,
+    directFnbPaymentRows,
     customersCount,
     activeSessionsRows,
     recentSessions,
@@ -160,6 +166,20 @@ export default async function DashboardPage() {
       .from(bankTransactions)
       .where(gte(bankTransactions.createdAt, startOfDay)),
 
+    // DIRECT F&B SALES (walk-in / POS, not attached to a booking)
+    db.execute(sql`
+      select coalesce(sum(total), 0) as total
+      from fnb_sales
+      where created_at >= ${startOfDay}
+    `),
+
+    db.execute(sql`
+      select payment_method as method, coalesce(sum(total), 0) as total
+      from fnb_sales
+      where created_at >= ${startOfDay}
+      group by payment_method
+    `),
+
     // TOTAL CUSTOMERS
     db
       .select({
@@ -224,13 +244,42 @@ export default async function DashboardPage() {
       .groupBy(bookings.paymentMethod),
   ]);
 
-  const todayRevenue = safeNumber(todayRevenueRow[0]?.total);
-  const todayOrders = safeNumber(todayOrdersRow[0]?.total);
+  const directFnbRevenue = safeNumber(
+    (directFnbRevenueRow.rows?.[0] as { total?: unknown } | undefined)?.total,
+  );
+
+  const todayRevenue =
+    safeNumber(todayRevenueRow[0]?.total) + directFnbRevenue;
+  const todayOrders =
+    safeNumber(todayOrdersRow[0]?.total) + directFnbRevenue;
   const todaySeat = safeNumber(todaySeatRow[0]?.total);
   const todayExpenses = safeNumber(todayExpensesRow[0]?.total);
 
   const bankDeposits = safeNumber(todayBankRow[0]?.deposits);
   const bankWithdrawals = safeNumber(todayBankRow[0]?.withdrawals);
+
+  const directFnbPayments = new Map<string, number>();
+  for (const row of directFnbPaymentRows.rows ?? []) {
+    const method = String((row as { method?: unknown }).method ?? "unknown");
+    const total = safeNumber((row as { total?: unknown }).total);
+    directFnbPayments.set(method, (directFnbPayments.get(method) ?? 0) + total);
+  }
+
+  const mergedPayments = new Map<string, number>();
+  for (const row of paymentBreakdown) {
+    const method = String(row.method ?? "unknown");
+    mergedPayments.set(method, (mergedPayments.get(method) ?? 0) + safeNumber(row.total));
+  }
+  for (const [method, total] of directFnbPayments) {
+    mergedPayments.set(method, (mergedPayments.get(method) ?? 0) + total);
+  }
+
+  const paymentBreakdownCombined: PaymentBreakdownRow[] = Array.from(
+    mergedPayments.entries(),
+  ).map(([method, total]) => ({
+    method: method === "unknown" ? null : method,
+    total: total.toFixed(2),
+  }));
 
   const netRevenue = todayRevenue - todayExpenses;
   const activeCount = activeSessionsRows.length;
@@ -482,13 +531,13 @@ export default async function DashboardPage() {
             Payments Today
           </h2>
 
-          {paymentBreakdown.length === 0 ? (
+          {paymentBreakdownCombined.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">
               No payments yet
             </div>
           ) : (
             <div className="space-y-3">
-              {(paymentBreakdown as PaymentBreakdownRow[]).map(
+              {paymentBreakdownCombined.map(
                 (payment) => {
                   const label =
                     payment.method === "cash"

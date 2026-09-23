@@ -22,23 +22,33 @@ export async function ensureSeeded(): Promise<void> {
     const demoUsers = [
       {
         username: "admin",
-        password: "admin123",
+        password: process.env.SEED_ADMIN_PASSWORD,
         fullName: "System Administrator",
         role: "admin" as const,
       },
       {
         username: "manager",
-        password: "manager123",
+        password: process.env.SEED_MANAGER_PASSWORD,
         fullName: "Floor Manager",
         role: "manager" as const,
       },
       {
         username: "employee",
-        password: "employee123",
+        password: process.env.SEED_EMPLOYEE_PASSWORD,
         fullName: "Front Desk Employee",
         role: "employee" as const,
       },
-    ];
+    ].filter(
+      (user): user is {
+        username: string;
+        password: string;
+        fullName: string;
+        role: "admin" | "manager" | "employee";
+      } =>
+        typeof user.password === "string" &&
+        user.password.length >= 12 &&
+        user.password.length <= 128,
+    );
 
     for (const demoUser of demoUsers) {
       const [existingUser] = await db
@@ -54,6 +64,8 @@ export async function ensureSeeded(): Promise<void> {
         )
         .limit(1);
 
+      // Seed demo users only when the account does not exist.
+      // Never overwrite an existing user's password, role, name, or active flag.
       if (!existingUser) {
         await db.insert(users).values({
           username: demoUser.username,
@@ -64,23 +76,6 @@ export async function ensureSeeded(): Promise<void> {
           role: demoUser.role,
           active: true,
         });
-      } else {
-        await db
-          .update(users)
-          .set({
-            passwordHash: hashPassword(
-              demoUser.password,
-            ),
-            fullName: demoUser.fullName,
-            role: demoUser.role,
-            active: true,
-          })
-          .where(
-            eq(
-              users.id,
-              existingUser.id,
-            ),
-          );
       }
     }
 

@@ -13,6 +13,7 @@ import {
 import { canManage, getCurrentUser } from "@/lib/auth";
 
 import { deleteGoogleCalendarEvent } from "@/lib/google-calendar";
+import { getActiveShiftForUser } from "@/lib/shift";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 type RequestBody = {
   paidAmount?: number | string;
   paymentMethod?: string;
+  discountAmount?: number | string;
 };
 
 type CalendarEventToDelete = {
@@ -95,6 +97,17 @@ export async function POST(
       );
     }
 
+    const activeShift = await getActiveShiftForUser(user.id);
+
+    if (!activeShift) {
+      return NextResponse.json(
+        {
+          error: "Open a shift before checking out a meeting-room session.",
+        },
+        { status: 400 },
+      );
+    }
+
     const { id } = await params;
     const reservationId = parsePositiveInteger(id);
 
@@ -127,6 +140,18 @@ export async function POST(
     if (body.paidAmount !== undefined && requestedPaidAmount === null) {
       return NextResponse.json(
         { error: "Paid amount must be a valid non-negative number." },
+        { status: 400 },
+      );
+    }
+
+    const requestedDiscountAmount =
+      body.discountAmount === undefined
+        ? 0
+        : parseMoney(body.discountAmount);
+
+    if (requestedDiscountAmount === null) {
+      return NextResponse.json(
+        { error: "Discount amount must be a valid non-negative number." },
         { status: 400 },
       );
     }
@@ -237,6 +262,7 @@ export async function POST(
         .select({
           id: bookings.id,
           customerId: bookings.customerId,
+          shiftId: bookings.shiftId,
           status: bookings.status,
         })
         .from(bookings)
@@ -252,6 +278,12 @@ export async function POST(
       if (booking.status !== "active") {
         throw new Error(
           `The linked customer session is already ${booking.status}.`,
+        );
+      }
+
+      if (booking.shiftId !== activeShift.id) {
+        throw new Error(
+          "This meeting room session does not belong to your active shift.",
         );
       }
 
@@ -273,8 +305,28 @@ export async function POST(
       );
 
       const roomAmount = roundMoney(Number(reservation.totalAmount));
-      const discountAmount = roundMoney(Number(reservation.discountAmount ?? 0));
-      const grandTotal = roundMoney(roomAmount + fnbAmount);
+      const packageDiscountAmount = roundMoney(
+        Number(reservation.discountAmount ?? 0),
+      );
+      const subtotalGrandTotal = roundMoney(
+        roomAmount + fnbAmount,
+      );
+      const manualDiscountAmount = roundMoney(
+        Number(requestedDiscountAmount),
+      );
+
+      if (manualDiscountAmount > subtotalGrandTotal) {
+        throw new Error(
+          `Discount cannot exceed the session total of ${subtotalGrandTotal.toFixed(2)}.`,
+        );
+      }
+
+      const totalDiscountAmount = roundMoney(
+        packageDiscountAmount + manualDiscountAmount,
+      );
+      const grandTotal = roundMoney(
+        subtotalGrandTotal - manualDiscountAmount,
+      );
 
       const paidAmount = roundMoney(requestedPaidAmount ?? grandTotal);
 
@@ -294,7 +346,7 @@ export async function POST(
           hourlyRateSnapshot: reservation.hourlyRateSnapshot,
           seatCharge: reservation.subtotalAmount,
           ordersTotal: fnbAmount.toFixed(2),
-          discount: discountAmount.toFixed(2),
+          discount: totalDiscountAmount.toFixed(2),
           total: grandTotal.toFixed(2),
           paidAmount: paidAmount.toFixed(2),
           changeAmount: changeAmount.toFixed(2),
@@ -323,7 +375,9 @@ export async function POST(
           customerId: booking.customerId,
           roomAmount: roomAmount.toFixed(2),
           fnbAmount: fnbAmount.toFixed(2),
-          discountAmount: discountAmount.toFixed(2),
+          packageDiscountAmount: packageDiscountAmount.toFixed(2),
+          manualDiscountAmount: manualDiscountAmount.toFixed(2),
+          totalDiscountAmount: totalDiscountAmount.toFixed(2),
           grandTotal: grandTotal.toFixed(2),
           paidAmount: paidAmount.toFixed(2),
           changeAmount: changeAmount.toFixed(2),
@@ -390,6 +444,7 @@ export async function POST(
       roomAmount: result.roomAmount.toFixed(2),
       fnbAmount: result.fnbAmount.toFixed(2),
       grandTotal: result.grandTotal.toFixed(2),
+      discountAmount: Number(requestedDiscountAmount).toFixed(2),
       paidAmount: result.paidAmount.toFixed(2),
       changeAmount: result.changeAmount.toFixed(2),
       paymentMethod,
@@ -407,7 +462,11 @@ export async function POST(
     return NextResponse.json(
       { error: message },
       {
-        status: message.includes("Insufficient payment") ? 400 : 500,
+        status:
+          message.includes("Insufficient payment") ||
+          message.includes("Discount cannot exceed")
+            ? 400
+            : 500,
       },
     );
   }

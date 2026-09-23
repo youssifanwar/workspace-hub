@@ -16,8 +16,8 @@ import {
 } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-
 import { getActiveShiftForUser } from "@/lib/shift";
+
 
 import {
   getCustomerSessionPricing,
@@ -144,6 +144,23 @@ export async function POST(
       );
 
     if (!shift) {
+      return NextResponse.json(
+        {
+          error:
+            "No active shift",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const activeShift =
+      await getActiveShiftForUser(
+        user.id,
+      );
+
+    if (!activeShift) {
       return NextResponse.json(
         {
           error:
@@ -373,6 +390,13 @@ export async function POST(
             throw new CheckoutError(
               "Session is not active",
               400,
+            );
+          }
+
+          if (booking.shiftId !== activeShift.id) {
+            throw new CheckoutError(
+              "This session does not belong to your active shift",
+              403,
             );
           }
 

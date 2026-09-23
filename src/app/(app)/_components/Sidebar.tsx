@@ -47,6 +47,18 @@ const NAV: NavItem[] = [
     icon: "🍔",
   },
   {
+    href: "/fnb",
+    label: "Direct F&B Sale",
+    icon: "🧾",
+    needsShift: true,
+  },
+  {
+    href: "/inventory",
+    label: "Inventory",
+    icon: "📦",
+    roles: ["admin", "manager"],
+  },
+  {
     href: "/qr-codes",
     label: "QR Codes",
     icon: "🔳",

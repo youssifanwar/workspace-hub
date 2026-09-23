@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
+import { getActiveShiftForUser } from "@/lib/shift";
 
 export async function DELETE(
   _req: Request,
@@ -40,6 +41,23 @@ export async function DELETE(
         },
         {
           status: 401,
+        },
+      );
+    }
+
+    const activeShift =
+      await getActiveShiftForUser(
+        user.id,
+      );
+
+    if (!activeShift) {
+      return NextResponse.json(
+        {
+          error:
+            "No active shift",
+        },
+        {
+          status: 400,
         },
       );
     }
@@ -103,6 +121,9 @@ export async function DELETE(
 
                 subscriptionHoursUsed:
                   bookings.subscriptionHoursUsed,
+
+                shiftId:
+                  bookings.shiftId,
               })
               .from(
                 bookings,
@@ -143,6 +164,13 @@ export async function DELETE(
               error:
                 "Session already closed",
             };
+          }
+
+          if (booking.shiftId !== activeShift.id) {
+            throw new CancellationError(
+              "This session does not belong to your active shift",
+              403,
+            );
           }
 
           /*

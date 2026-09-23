@@ -11,6 +11,9 @@ import { db } from "@/db";
 import {
   shifts,
   bookings,
+  expenses,
+  bankTransactions,
+  auditLogs,
 } from "@/db/schema";
 
 import {
@@ -299,6 +302,181 @@ export async function POST(
           }
 
           /* ---------------------------------------------------------------- */
+          /* CASH RECONCILIATION                                               */
+          /* ---------------------------------------------------------------- */
+
+          /*
+           * Expected cash must be calculated from the same sources used by
+           * Shift Summary:
+           *
+           * opening cash
+           * + closed customer-session cash sales
+           * + direct F&B cash sales
+           * - shift expenses
+           * - bank deposits
+           * + bank withdrawals
+           *
+           * The calculation happens inside the same transaction and while
+           * the shift row is locked, so the number being reconciled is the
+           * number that is actually used to close this shift.
+           */
+
+          const [bookingCashRow] =
+            await tx
+              .select({
+                total: sql<string>`
+                  coalesce(
+                    sum(${bookings.total}),
+                    0
+                  )
+                `,
+              })
+              .from(bookings)
+              .where(
+                and(
+                  eq(
+                    bookings.shiftId,
+                    active.id,
+                  ),
+                  eq(
+                    bookings.status,
+                    "closed",
+                  ),
+                  eq(
+                    bookings.paymentMethod,
+                    "cash",
+                  ),
+                ),
+              );
+
+          const directFnbCashResult =
+            await tx.execute(
+              sql`
+                SELECT
+                  COALESCE(SUM(total), 0) AS total
+                FROM fnb_sales
+                WHERE
+                  shift_id = ${active.id}
+                  AND payment_method = 'cash'
+              `,
+            );
+
+          const directFnbCashRow =
+            (
+              directFnbCashResult as {
+                rows?: Array<
+                  Record<string, unknown>
+                >;
+              }
+            ).rows?.[0];
+
+          const expensesResult =
+            await tx
+              .select({
+                total: sql<string>`
+                  coalesce(
+                    sum(${expenses.amount}),
+                    0
+                  )
+                `,
+              })
+              .from(expenses)
+              .where(
+                eq(
+                  expenses.shiftId,
+                  active.id,
+                ),
+              );
+
+          const bankResult =
+            await tx
+              .select({
+                deposits: sql<string>`
+                  coalesce(
+                    sum(
+                      case
+                        when ${bankTransactions.type} = 'deposit'
+                        then ${bankTransactions.amount}
+                        else 0
+                      end
+                    ),
+                    0
+                  )
+                `,
+                withdrawals: sql<string>`
+                  coalesce(
+                    sum(
+                      case
+                        when ${bankTransactions.type} = 'withdraw'
+                        then ${bankTransactions.amount}
+                        else 0
+                      end
+                    ),
+                    0
+                  )
+                `,
+              })
+              .from(bankTransactions)
+              .where(
+                eq(
+                  bankTransactions.shiftId,
+                  active.id,
+                ),
+              );
+
+          const openingCash =
+            Number(
+              active.openingCash ?? 0,
+            );
+
+          const cashSales =
+            Number(
+              bookingCashRow?.total ?? 0,
+            ) +
+            Number(
+              directFnbCashRow?.total ?? 0,
+            );
+
+          const expenseTotal =
+            Number(
+              expensesResult[0]?.total ??
+                0,
+            );
+
+          const bankDeposits =
+            Number(
+              bankResult[0]?.deposits ?? 0,
+            );
+
+          const bankWithdrawals =
+            Number(
+              bankResult[0]?.withdrawals ?? 0,
+            );
+
+          const expectedCash =
+            Math.round(
+              (
+                openingCash +
+                cashSales -
+                expenseTotal -
+                bankDeposits +
+                bankWithdrawals
+              ) *
+                100,
+            ) /
+            100;
+
+          const difference =
+            Math.round(
+              (
+                closingCash -
+                expectedCash
+              ) *
+                100,
+            ) /
+            100;
+
+          /* ---------------------------------------------------------------- */
           /* CLOSE SHIFT                                                       */
           /* ---------------------------------------------------------------- */
 
@@ -375,6 +553,52 @@ export async function POST(
           }
 
           /* ---------------------------------------------------------------- */
+          /* AUDIT                                                             */
+          /* ---------------------------------------------------------------- */
+
+          await tx.insert(
+            auditLogs,
+          ).values({
+            userId:
+              user.id,
+
+            action:
+              "shift_closed",
+
+            entityType:
+              "shift",
+
+            entityId:
+              row.id,
+
+            details: {
+              openingCash,
+              cashSales:
+                Math.round(
+                  cashSales * 100,
+                ) / 100,
+              expenses:
+                Math.round(
+                  expenseTotal * 100,
+                ) / 100,
+              bankDeposits:
+                Math.round(
+                  bankDeposits * 100,
+                ) / 100,
+              bankWithdrawals:
+                Math.round(
+                  bankWithdrawals * 100,
+                ) / 100,
+              expectedCash,
+              closingCash:
+                Math.round(
+                  closingCash * 100,
+                ) / 100,
+              difference,
+            },
+          });
+
+          /* ---------------------------------------------------------------- */
           /* RESULT                                                            */
           /* ---------------------------------------------------------------- */
 
@@ -389,6 +613,10 @@ export async function POST(
               Number(
                 row.closingCash,
               ),
+
+            expectedCash,
+
+            difference,
           };
         },
       );
@@ -411,6 +639,12 @@ export async function POST(
 
         closingCash:
           result.closingCash,
+
+        expectedCash:
+          result.expectedCash,
+
+        difference:
+          result.difference,
       },
       {
         status: 200,

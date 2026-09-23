@@ -35,6 +35,7 @@ export async function createSession(userId: number): Promise<string> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),

@@ -352,6 +352,8 @@ export async function GET(
           icon: p.icon,
           imageUrl:
             p.imageUrl,
+          stockQuantity:
+            p.stockQuantity,
         })),
     };
 

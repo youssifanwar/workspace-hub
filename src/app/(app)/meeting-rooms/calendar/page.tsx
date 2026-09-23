@@ -120,22 +120,22 @@ export default async function MeetingRoomCalendarPage() {
         ),
       )
       .where(
-        and(
-          or(
+        or(
+          eq(
+            meetingRoomReservations.status,
+            "active",
+          ),
+
+          and(
             eq(
               meetingRoomReservations.status,
               "confirmed",
             ),
 
-            eq(
-              meetingRoomReservations.status,
-              "active",
+            gte(
+              meetingRoomReservations.endAt,
+              now,
             ),
-          ),
-
-          gte(
-            meetingRoomReservations.endAt,
-            now,
           ),
         ),
       )

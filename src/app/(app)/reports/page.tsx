@@ -36,13 +36,13 @@ type SearchParams = {
   range?: string;
 };
 
-function safeNumber(
-  value: string | number | null | undefined,
-): number {
+function safeNumber(value: unknown): number {
   const parsed =
     typeof value === "number"
       ? value
-      : Number.parseFloat(value ?? "0");
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : 0;
 
   return Number.isFinite(parsed)
     ? parsed
@@ -153,6 +153,10 @@ export default async function ReportsPage({
     revenueRow,
     dailyRows,
     topProducts,
+    directFnbRevenueRow,
+    directFnbDailyRows,
+    directFnbTopProductsRows,
+    directFnbPaymentRows,
     expensesRow,
     bankRow,
     paymentRows,
@@ -321,6 +325,52 @@ export default async function ReportsPage({
       .limit(10),
 
     // -------------------------------------------------------------------------
+    // DIRECT F&B SALES (walk-in / POS, not attached to a booking)
+    // -------------------------------------------------------------------------
+    db.execute(sql`
+      SELECT COALESCE(SUM(total), 0) AS total
+      FROM fnb_sales
+      WHERE created_at >= ${from}
+        AND created_at <= ${to}
+    `),
+
+    db.execute(sql`
+      SELECT
+        to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+        COALESCE(SUM(total), 0) AS revenue
+      FROM fnb_sales
+      WHERE created_at >= ${from}
+        AND created_at <= ${to}
+      GROUP BY date_trunc('day', created_at)
+      ORDER BY date_trunc('day', created_at)
+    `),
+
+    db.execute(sql`
+      SELECT
+        name,
+        SUM(quantity)::int AS qty,
+        COALESCE(SUM(quantity * unit_price), 0) AS revenue
+      FROM fnb_sale_items
+      INNER JOIN fnb_sales
+        ON fnb_sales.id = fnb_sale_items.sale_id
+      WHERE fnb_sales.created_at >= ${from}
+        AND fnb_sales.created_at <= ${to}
+      GROUP BY name
+      ORDER BY SUM(quantity) DESC, COALESCE(SUM(quantity * unit_price), 0) DESC
+      LIMIT 20
+    `),
+
+    db.execute(sql`
+      SELECT
+        payment_method,
+        COALESCE(SUM(total), 0) AS total
+      FROM fnb_sales
+      WHERE created_at >= ${from}
+        AND created_at <= ${to}
+      GROUP BY payment_method
+    `),
+
+    // -------------------------------------------------------------------------
     // EXPENSES
     // -------------------------------------------------------------------------
     db
@@ -470,9 +520,15 @@ export default async function ReportsPage({
       .limit(20),
   ]);
 
-  const revenue = safeNumber(
+  const directFnbRevenue = safeNumber(
+    (directFnbRevenueRow as { rows?: Array<Record<string, unknown>> }).rows?.[0]?.total,
+  );
+
+  const bookingRevenue = safeNumber(
     revenueRow[0]?.revenue,
   );
+
+  const revenue = bookingRevenue + directFnbRevenue;
 
   const totalExpenses =
     safeNumber(
@@ -487,7 +543,7 @@ export default async function ReportsPage({
   const ordersTotal =
     safeNumber(
       revenueRow[0]?.orders,
-    );
+    ) + directFnbRevenue;
 
   const bookingCount =
     Number(
@@ -504,19 +560,77 @@ export default async function ReportsPage({
       bankRow[0]?.withdrawals,
     );
 
-  const dailyValues =
-    dailyRows.map((row) =>
+  const directFnbDailyMap = new Map(
+    ((directFnbDailyRows as { rows?: Array<Record<string, unknown>> }).rows ?? []).map((row) => [
+      String(row.day ?? ''),
       safeNumber(row.revenue),
-    );
+    ]),
+  );
+
+  const dailyRowsMerged = dailyRows.map((row) => ({
+    day: row.day,
+    revenue: safeNumber(row.revenue) + (directFnbDailyMap.get(row.day) ?? 0),
+  }));
+
+  const seenDays = new Set(dailyRowsMerged.map((row) => row.day));
+  for (const [day, value] of directFnbDailyMap) {
+    if (!seenDays.has(day)) {
+      dailyRowsMerged.push({ day, revenue: value });
+    }
+  }
+  dailyRowsMerged.sort((a, b) => a.day.localeCompare(b.day));
+
+  const dailyValues =
+    dailyRowsMerged.map((row) => row.revenue);
 
   const maxDaily = Math.max(
     1,
     ...dailyValues,
   );
 
+  const directTopProducts =
+    ((directFnbTopProductsRows as { rows?: Array<Record<string, unknown>> }).rows ?? []).map((row) => ({
+      name: String(row.name ?? ''),
+      qty: safeNumber(row.qty),
+      revenue: safeNumber(row.revenue),
+    }));
+
+  const mergedTopProducts = Array.from(
+    [...topProducts.map((row) => ({
+      name: row.name,
+      qty: safeNumber(row.qty),
+      revenue: safeNumber(row.revenue),
+    })), ...directTopProducts]
+      .reduce((map, item) => {
+        const existing = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0 };
+        existing.qty += item.qty;
+        existing.revenue += item.revenue;
+        map.set(item.name, existing);
+        return map;
+      }, new Map<string, { name: string; qty: number; revenue: number }>())
+      .values(),
+  ).sort((a, b) => b.qty - a.qty || b.revenue - a.revenue).slice(0, 10);
+
+  const directPaymentMap = new Map(
+    ((directFnbPaymentRows as { rows?: Array<Record<string, unknown>> }).rows ?? []).map((row) => [
+      String(row.payment_method ?? ''),
+      safeNumber(row.total),
+    ]),
+  );
+
+  const combinedPaymentMap = new Map<string, number>();
+  for (const row of paymentRows) {
+    const key = String(row.method ?? 'unknown');
+    combinedPaymentMap.set(key, safeNumber(row.total));
+  }
+  for (const [method, value] of directPaymentMap) {
+    combinedPaymentMap.set(method, (combinedPaymentMap.get(method) ?? 0) + value);
+  }
+  const combinedPaymentRows = Array.from(combinedPaymentMap, ([method, total]) => ({ method, total }));
+
   const averageBooking =
     bookingCount > 0
-      ? revenue / bookingCount
+      ? bookingRevenue / bookingCount
       : 0;
 
   const netProfit =
@@ -626,7 +740,7 @@ export default async function ReportsPage({
             Daily revenue
           </h3>
 
-          {dailyRows.length === 0 ? (
+          {dailyRowsMerged.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
               No data
             </div>
@@ -635,7 +749,7 @@ export default async function ReportsPage({
               className="flex items-end gap-2 h-48"
               aria-label="Daily revenue chart"
             >
-              {dailyRows.map(
+              {dailyRowsMerged.map(
                 (row) => {
                   const value =
                     safeNumber(
@@ -701,13 +815,13 @@ export default async function ReportsPage({
             Payment methods
           </h3>
 
-          {paymentRows.length === 0 ? (
+          {combinedPaymentRows.length === 0 ? (
             <div className="text-sm text-slate-400 text-center py-6">
               No sales
             </div>
           ) : (
             <div className="space-y-2">
-              {paymentRows.map(
+              {combinedPaymentRows.map(
                 (payment) => {
                   const value =
                     safeNumber(
@@ -840,13 +954,13 @@ export default async function ReportsPage({
             Top selling products
           </h3>
 
-          {topProducts.length === 0 ? (
+          {mergedTopProducts.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">
               No sales yet
             </p>
           ) : (
             <div className="space-y-2">
-              {topProducts.map(
+              {mergedTopProducts.map(
                 (product, index) => {
                   const revenueValue =
                     safeNumber(

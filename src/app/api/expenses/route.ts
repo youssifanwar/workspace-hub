@@ -325,7 +325,7 @@ export async function POST(
                 SELECT
                   id,
                   user_id,
-                  status
+                  closed_at
                 FROM shifts
                 WHERE
                   id = ${shift.id}
@@ -339,7 +339,7 @@ export async function POST(
               | {
                   id?: unknown;
                   user_id?: unknown;
-                  status?: unknown;
+                  closed_at?: unknown;
                 }
               | undefined;
 
@@ -359,8 +359,8 @@ export async function POST(
           }
 
           if (
-            lockedShift.status !==
-            "open"
+            lockedShift.closed_at !==
+            null
           ) {
             throw new Error(
               "SHIFT_NOT_ACTIVE",

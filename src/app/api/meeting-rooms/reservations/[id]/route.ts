@@ -26,16 +26,16 @@ import {
 } from "@/lib/meeting-room-billing";
 
 import {
-  createGoogleCalendarEvent,
   deleteGoogleCalendarEvent,
   getCalendarBusyPeriods,
+  updateGoogleCalendarEvent,
 } from "@/lib/google-calendar";
 
 export const dynamic = "force-dynamic";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-const ACTIONS = ["check_in", "add_people", "add_hours", "cancel"] as const;
+const ACTIONS = ["check_in", "add_people", "add_hours"] as const;
 type Action = (typeof ACTIONS)[number];
 
 type RequestBody = {
@@ -43,9 +43,15 @@ type RequestBody = {
   amount?: unknown;
 };
 
-type CalendarEventRef = {
+type UpdatedGoogleEvent = {
   calendarId: string;
   eventId: string;
+  previous: {
+    summary: string;
+    description?: string;
+    start: string;
+    end: string;
+  };
 };
 
 function parsePositiveInteger(value: unknown): number | null {
@@ -72,7 +78,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const createdGoogleEvents: CalendarEventRef[] = [];
+  const updatedGoogleEvents: UpdatedGoogleEvent[] = [];
 
   try {
     const user = await getCurrentUser();
@@ -88,7 +94,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            "Only managers/admins can manage meeting-room reservations.",
+            "Only managers/admins can adjust meeting-room sessions.",
         },
         { status: 403 },
       );
@@ -122,19 +128,12 @@ export async function PATCH(
 
     if (!action) {
       return NextResponse.json(
-        {
-          error:
-            "Action must be check_in, add_people, add_hours or cancel.",
-        },
+        { error: "Action must be check_in, add_people or add_hours." },
         { status: 400 },
       );
     }
 
-    if (
-      action !== "check_in" &&
-      action !== "cancel" &&
-      !amount
-    ) {
+    if (action !== "check_in" && !amount) {
       return NextResponse.json(
         { error: "Adjustment amount must be a positive whole number." },
         { status: 400 },
@@ -174,68 +173,6 @@ export async function PATCH(
 
       if (!reservation) {
         throw new Error("Meeting room reservation not found.");
-      }
-
-      if (action === "cancel") {
-        if (reservation.status !== "confirmed") {
-          throw new Error(
-            `Only confirmed meeting room reservations can be cancelled. Current status: "${reservation.status}".`,
-          );
-        }
-
-        const [mapping] = await tx
-          .select({
-            calendarId: meetingRoomCalendars.calendarId,
-          })
-          .from(meetingRoomCalendars)
-          .where(eq(meetingRoomCalendars.deskId, reservation.deskId))
-          .limit(1);
-
-        const [updatedReservation] = await tx
-          .update(meetingRoomReservations)
-          .set({
-            status: "cancelled",
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(meetingRoomReservations.id, reservation.id),
-              eq(meetingRoomReservations.status, "confirmed"),
-            ),
-          )
-          .returning({
-            id: meetingRoomReservations.id,
-            status: meetingRoomReservations.status,
-            startAt: meetingRoomReservations.startAt,
-            endAt: meetingRoomReservations.endAt,
-          });
-
-        if (!updatedReservation) {
-          throw new Error(
-            "The reservation changed before cancellation could be completed.",
-          );
-        }
-
-        await tx.insert(auditLogs).values({
-          userId: user.id,
-          action: "meeting_room_reservation_cancelled",
-          entityType: "meeting_room_reservation",
-          entityId: reservation.id,
-          details: {
-            roomId: reservation.deskId,
-            customerId: reservation.customerId,
-            startAt: reservation.startAt.toISOString(),
-            endAt: reservation.endAt.toISOString(),
-            googleEventId: reservation.googleEventId,
-          },
-        });
-
-        return {
-          mode: "cancel" as const,
-          reservation: updatedReservation,
-          googleEventId: reservation.googleEventId,
-          calendarId: mapping?.calendarId ?? null,
-        };
       }
 
       if (action === "check_in") {
@@ -595,6 +532,7 @@ export async function PATCH(
 
         if (mapping?.calendarId && reservation.googleEventId) {
           mappingCalendarId = mapping.calendarId;
+
           const busy = await getCalendarBusyPeriods(
             mapping.calendarId,
             reservation.endAt.toISOString(),
@@ -615,8 +553,9 @@ export async function PATCH(
 
           const customerName = customer?.name || "Meeting room customer";
 
-          const googleResult = await createGoogleCalendarEvent(
+          const googleResult = await updateGoogleCalendarEvent(
             mapping.calendarId,
+            reservation.googleEventId,
             {
               summary: "Meeting Room — Active Session",
               description: [
@@ -630,15 +569,10 @@ export async function PATCH(
             },
           );
 
-          if (!googleResult.id) {
-            throw new Error(
-              "Google Calendar did not return an event ID for the extended session.",
-            );
-          }
-
-          createdGoogleEvents.push({
+          updatedGoogleEvents.push({
             calendarId: mapping.calendarId,
-            eventId: googleResult.id,
+            eventId: reservation.googleEventId,
+            previous: googleResult.previous,
           });
         }
       }
@@ -783,9 +717,6 @@ export async function PATCH(
           packageHoursUsed: packagePurchaseId
             ? newDurationHours.toFixed(2)
             : null,
-          ...(createdGoogleEvents.length > 0
-            ? { googleEventId: createdGoogleEvents[createdGoogleEvents.length - 1].eventId }
-            : {}),
           updatedAt: new Date(),
         })
         .where(eq(meetingRoomReservations.id, reservation.id));
@@ -857,8 +788,8 @@ export async function PATCH(
           grandTotal: grandTotal.toFixed(2),
           packagePurchaseId: packagePurchaseId ?? null,
           packageRemainingHours,
-          newGoogleEventId:
-            createdGoogleEvents[createdGoogleEvents.length - 1]?.eventId ?? null,
+          googleEventId:
+            reservation.googleEventId ?? null,
         },
       });
 
@@ -882,18 +813,8 @@ export async function PATCH(
         packagePurchaseId,
         packageRemainingHours,
         googleEventId:
-          createdGoogleEvents[createdGoogleEvents.length - 1]?.eventId ??
           reservation.googleEventId ??
           null,
-        oldGoogleEvent:
-          action === "add_hours" &&
-          reservation.googleEventId &&
-          mappingCalendarId
-            ? {
-                calendarId: mappingCalendarId,
-                eventId: reservation.googleEventId,
-              }
-            : null,
       };
     });
 
@@ -909,49 +830,6 @@ export async function PATCH(
         endAt: result.reservation.endAt.toISOString(),
         customer: result.customer,
       });
-    }
-
-    if (result.mode === "cancel") {
-      let googleCalendarEventDeleted = false;
-
-      if (result.googleEventId && result.calendarId) {
-        try {
-          await deleteGoogleCalendarEvent(
-            result.calendarId,
-            result.googleEventId,
-          );
-          googleCalendarEventDeleted = true;
-        } catch (calendarError) {
-          console.error(
-            "Meeting room reservation was cancelled, but the Google Calendar event could not be removed:",
-            calendarError,
-          );
-        }
-      }
-
-      return NextResponse.json({
-        ok: true,
-        mode: "cancel",
-        reservationId: result.reservation.id,
-        status: result.reservation.status,
-        startAt: result.reservation.startAt.toISOString(),
-        endAt: result.reservation.endAt.toISOString(),
-        googleCalendarEventDeleted,
-      });
-    }
-
-    if (result.oldGoogleEvent && result.googleEventId) {
-      try {
-        await deleteGoogleCalendarEvent(
-          result.oldGoogleEvent.calendarId,
-          result.oldGoogleEvent.eventId,
-        );
-      } catch (calendarError) {
-        console.error(
-          "Meeting room adjustment succeeded, but old Google Calendar event could not be removed:",
-          calendarError,
-        );
-      }
     }
 
     return NextResponse.json({
@@ -972,15 +850,16 @@ export async function PATCH(
           : result.packageRemainingHours.toFixed(2),
     });
   } catch (error) {
-    for (const created of createdGoogleEvents) {
+    for (const updated of updatedGoogleEvents) {
       try {
-        await deleteGoogleCalendarEvent(
-          created.calendarId,
-          created.eventId,
+        await updateGoogleCalendarEvent(
+          updated.calendarId,
+          updated.eventId,
+          updated.previous,
         );
       } catch (cleanupError) {
         console.error(
-          "Failed to rollback new Google Calendar event after meeting room adjustment failure:",
+          "Failed to restore Google Calendar event after meeting room adjustment failure:",
           cleanupError,
         );
       }
@@ -992,6 +871,171 @@ export async function PATCH(
         : "Could not adjust the meeting room session.";
 
     console.error("Meeting room session adjustment error:", error);
+
+    return NextResponse.json(
+      { error: message },
+      { status: 400 },
+    );
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    if (!canManage(user.role)) {
+      return NextResponse.json(
+        {
+          error:
+            "Only managers/admins can cancel meeting-room reservations.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const activeShift = await getActiveShiftForUser(user.id);
+
+    if (!activeShift) {
+      return NextResponse.json(
+        {
+          error:
+            "Open a shift before cancelling a meeting-room reservation.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const { id } = await params;
+    const reservationId = parsePositiveInteger(id);
+
+    if (!reservationId) {
+      return NextResponse.json(
+        { error: "Invalid meeting room reservation id." },
+        { status: 400 },
+      );
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const [reservation] = await tx
+        .select({
+          id: meetingRoomReservations.id,
+          deskId: meetingRoomReservations.deskId,
+          customerId: meetingRoomReservations.customerId,
+          startAt: meetingRoomReservations.startAt,
+          endAt: meetingRoomReservations.endAt,
+          status: meetingRoomReservations.status,
+          googleEventId: meetingRoomReservations.googleEventId,
+        })
+        .from(meetingRoomReservations)
+        .where(eq(meetingRoomReservations.id, reservationId))
+        .limit(1);
+
+      if (!reservation) {
+        throw new Error("Meeting room reservation not found.");
+      }
+
+      if (reservation.status !== "confirmed") {
+        throw new Error(
+          `Only confirmed meeting room reservations can be cancelled. Current status: "${reservation.status}".`,
+        );
+      }
+
+      const [mapping] = await tx
+        .select({
+          calendarId: meetingRoomCalendars.calendarId,
+        })
+        .from(meetingRoomCalendars)
+        .where(eq(meetingRoomCalendars.deskId, reservation.deskId))
+        .limit(1);
+
+      const [updatedReservation] = await tx
+        .update(meetingRoomReservations)
+        .set({
+          status: "cancelled",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(meetingRoomReservations.id, reservation.id),
+            eq(meetingRoomReservations.status, "confirmed"),
+          ),
+        )
+        .returning({
+          id: meetingRoomReservations.id,
+          status: meetingRoomReservations.status,
+          startAt: meetingRoomReservations.startAt,
+          endAt: meetingRoomReservations.endAt,
+        });
+
+      if (!updatedReservation) {
+        throw new Error(
+          "The reservation changed before cancellation could be completed.",
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        userId: user.id,
+        action: "meeting_room_reservation_cancelled",
+        entityType: "meeting_room_reservation",
+        entityId: reservation.id,
+        details: {
+          roomId: reservation.deskId,
+          customerId: reservation.customerId,
+          startAt: reservation.startAt.toISOString(),
+          endAt: reservation.endAt.toISOString(),
+          googleEventId: reservation.googleEventId,
+        },
+      });
+
+      return {
+        reservation: updatedReservation,
+        googleEventId: reservation.googleEventId,
+        calendarId: mapping?.calendarId ?? null,
+      };
+    });
+
+    let googleCalendarEventDeleted = false;
+
+    if (result.googleEventId && result.calendarId) {
+      try {
+        await deleteGoogleCalendarEvent(
+          result.calendarId,
+          result.googleEventId,
+        );
+        googleCalendarEventDeleted = true;
+      } catch (calendarError) {
+        console.error(
+          "Meeting room reservation was cancelled, but the Google Calendar event could not be removed:",
+          calendarError,
+        );
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      reservationId: result.reservation.id,
+      status: result.reservation.status,
+      startAt: result.reservation.startAt.toISOString(),
+      endAt: result.reservation.endAt.toISOString(),
+      googleCalendarEventDeleted,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not cancel the meeting room reservation.";
+
+    console.error("Meeting room reservation cancellation error:", error);
 
     return NextResponse.json(
       { error: message },

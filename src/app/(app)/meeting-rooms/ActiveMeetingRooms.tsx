@@ -46,6 +46,7 @@ type ActiveSession = {
 type CheckoutState = {
   session: ActiveSession;
   paymentMethod: "cash" | "visa" | "instapay";
+  discountAmount: string;
   paidAmount: string;
 };
 
@@ -211,16 +212,26 @@ export default function ActiveMeetingRooms({
       return;
     }
 
-    const total = Number(
+    const baseTotal = Number(
       checkout.session.grandTotal,
     );
+    const discountAmount = Number(
+      checkout.discountAmount,
+    );
+    const total = baseTotal - discountAmount;
     const paid = Number(
       checkout.paidAmount,
     );
 
-    if (!Number.isFinite(total) || total < 0) {
+    if (
+      !Number.isFinite(baseTotal) ||
+      baseTotal < 0 ||
+      !Number.isFinite(discountAmount) ||
+      discountAmount < 0 ||
+      discountAmount > baseTotal
+    ) {
       setActionError(
-        "Invalid session total.",
+        "Invalid discount or session total.",
       );
       return;
     }
@@ -250,6 +261,7 @@ export default function ActiveMeetingRooms({
           body: JSON.stringify({
             paymentMethod:
               checkout.paymentMethod,
+            discountAmount,
             paidAmount: paid,
           }),
         },
@@ -621,6 +633,7 @@ export default function ActiveMeetingRooms({
                       setCheckout({
                         session,
                         paymentMethod: "cash",
+                        discountAmount: "0.00",
                         paidAmount: money(
                           session.grandTotal,
                         ),
@@ -797,10 +810,24 @@ export default function ActiveMeetingRooms({
                   label="F&B"
                   value={`${money(checkout.session.fnbTotal)} ${currency}`}
                 />
+                <Row
+                  label="Subtotal"
+                  value={`${money(checkout.session.grandTotal)} ${currency}`}
+                />
+                <Row
+                  label="Discount"
+                  value={`${money(checkout.discountAmount)} ${currency}`}
+                />
                 <div className="border-t border-slate-200 pt-2">
                   <Row
                     label="Total"
-                    value={`${money(checkout.session.grandTotal)} ${currency}`}
+                    value={`${money(
+                      Math.max(
+                        0,
+                        Number(checkout.session.grandTotal) -
+                          Number(checkout.discountAmount || 0),
+                      ),
+                    )} ${currency}`}
                     strong
                   />
                 </div>
@@ -848,6 +875,46 @@ export default function ActiveMeetingRooms({
 
               <div>
                 <label
+                  htmlFor="meeting-room-discount"
+                  className="block text-sm font-semibold text-slate-700 mb-2"
+                >
+                  Discount
+                </label>
+                <input
+                  id="meeting-room-discount"
+                  className="input w-full text-lg font-bold"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  max={Number(checkout.session.grandTotal).toFixed(2)}
+                  value={checkout.discountAmount}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setCheckout((current) =>
+                      current
+                        ? {
+                            ...current,
+                            discountAmount: value,
+                            paidAmount: money(
+                              Math.max(
+                                0,
+                                Number(current.session.grandTotal) -
+                                  Math.max(0, Number(value) || 0),
+                              ),
+                            ),
+                          }
+                        : null,
+                    );
+                  }}
+                  disabled={checkingOut}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Additional manual discount for this checkout.
+                </p>
+              </div>
+
+              <div>
+                <label
                   htmlFor="meeting-room-paid"
                   className="block text-sm font-semibold text-slate-700 mb-2"
                 >
@@ -878,8 +945,18 @@ export default function ActiveMeetingRooms({
                   const paidAmount = Number(
                     checkout.paidAmount,
                   );
-                  const totalAmount = Number(
+                  const subtotalAmount = Number(
                     checkout.session.grandTotal,
+                  );
+                  const discountAmount = Number(
+                    checkout.discountAmount,
+                  );
+                  const totalAmount = Math.max(
+                    0,
+                    subtotalAmount -
+                      (Number.isFinite(discountAmount)
+                        ? Math.max(0, discountAmount)
+                        : 0),
                   );
                   const validPaid = Number.isFinite(
                     paidAmount,

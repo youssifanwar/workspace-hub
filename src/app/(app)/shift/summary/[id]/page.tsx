@@ -132,10 +132,13 @@ export default async function ShiftSummary({
   const [
     totalsRow,
     methodRows,
+    fnbTotalsRows,
+    fnbMethodRows,
     expensesRows,
     bankRows,
     allBookings,
     topProducts,
+    fnbTopProducts,
   ] = await Promise.all([
     db
       .select({
@@ -172,6 +175,24 @@ export default async function ShiftSummary({
         ),
       )
       .groupBy(bookings.paymentMethod),
+
+    db.execute(sql`
+      SELECT
+        COALESCE(SUM(total), 0) AS total,
+        COALESCE(SUM(subtotal), 0) AS subtotal,
+        COALESCE(SUM(discount), 0) AS discount
+      FROM fnb_sales
+      WHERE shift_id = ${shiftId}
+    `),
+
+    db.execute(sql`
+      SELECT
+        payment_method,
+        COALESCE(SUM(total), 0) AS total
+      FROM fnb_sales
+      WHERE shift_id = ${shiftId}
+      GROUP BY payment_method
+    `),
 
     db
       .select({
@@ -246,9 +267,25 @@ export default async function ShiftSummary({
         desc(sql`sum(${bookingItems.quantity})`),
       )
       .limit(6),
+
+    db.execute(sql`
+      SELECT
+        name_snapshot AS name,
+        COALESCE(SUM(quantity), 0)::int AS qty,
+        COALESCE(SUM(quantity * unit_price), 0) AS revenue
+      FROM fnb_sale_items
+      WHERE sale_id IN (
+        SELECT id
+        FROM fnb_sales
+        WHERE shift_id = ${shiftId}
+      )
+      GROUP BY name_snapshot
+      ORDER BY SUM(quantity) DESC, name_snapshot ASC
+      LIMIT 6
+    `),
   ]);
 
-  const revenue = safeMoney(
+  const bookingRevenue = safeMoney(
     totalsRow[0]?.revenue,
   );
 
@@ -256,9 +293,24 @@ export default async function ShiftSummary({
     totalsRow[0]?.seat,
   );
 
-  const ordersTotal = safeMoney(
+  const bookingOrdersTotal = safeMoney(
     totalsRow[0]?.orders,
   );
+
+  const directFnbTotalsRow =
+    (fnbTotalsRows as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+
+  const directFnbTotal = safeMoney(
+    directFnbTotalsRow?.total,
+  );
+
+  const revenue = Math.round(
+    (bookingRevenue + directFnbTotal) * 100,
+  ) / 100;
+
+  const ordersTotal = Math.round(
+    (bookingOrdersTotal + directFnbTotal) * 100,
+  ) / 100;
 
   const expensesTotal = expensesRows.reduce(
     (sum, expense) =>
@@ -288,23 +340,39 @@ export default async function ShiftSummary({
       0,
     );
 
-  const cashTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "cash",
-    )?.total,
-  );
+  const directFnbMethodRows =
+    ((fnbMethodRows as { rows?: Array<Record<string, unknown>> }).rows ?? []);
 
-  const visaTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "visa",
-    )?.total,
-  );
+  const directFnbPaymentTotal = (method: string) =>
+    safeMoney(
+      directFnbMethodRows.find(
+        (row) => String(row.payment_method ?? "") === method,
+      )?.total,
+    );
 
-  const instapayTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "instapay",
-    )?.total,
-  );
+  const cashTotal = Math.round(
+    (safeMoney(
+      methodRows.find(
+        (method) => method.method === "cash",
+      )?.total,
+    ) + directFnbPaymentTotal("cash")) * 100,
+  ) / 100;
+
+  const visaTotal = Math.round(
+    (safeMoney(
+      methodRows.find(
+        (method) => method.method === "visa",
+      )?.total,
+    ) + directFnbPaymentTotal("visa")) * 100,
+  ) / 100;
+
+  const instapayTotal = Math.round(
+    (safeMoney(
+      methodRows.find(
+        (method) => method.method === "instapay",
+      )?.total,
+    ) + directFnbPaymentTotal("instapay")) * 100,
+  ) / 100;
 
   const openingCash = safeMoney(
     shiftRow.openingCash,
@@ -331,6 +399,32 @@ export default async function ShiftSummary({
           (closingCash - expectedCash) * 100,
         ) / 100
       : 0;
+
+  const directFnbTopProducts =
+    ((fnbTopProducts as { rows?: Array<Record<string, unknown>> }).rows ?? [])
+      .map((row) => ({
+        name: String(row.name ?? ""),
+        qty: safeNumber(row.qty, 0),
+        revenue: safeMoney(row.revenue),
+      }));
+
+  const combinedTopProducts = [...topProducts.map((row) => ({
+    name: row.name,
+    qty: safeNumber(row.qty, 0),
+    revenue: safeMoney(row.revenue),
+  })), ...directFnbTopProducts];
+
+  const mergedTopProducts = Array.from(
+    combinedTopProducts.reduce((map, item) => {
+      const existing = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0 };
+      existing.qty += item.qty;
+      existing.revenue += item.revenue;
+      map.set(item.name, existing);
+      return map;
+    }, new Map<string, { name: string; qty: number; revenue: number }>() ).values(),
+  )
+    .sort((a, b) => b.qty - a.qty || b.revenue - a.revenue)
+    .slice(0, 6);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -558,7 +652,7 @@ export default async function ShiftSummary({
           Top selling items
         </h3>
 
-        {topProducts.length === 0 ? (
+        {mergedTopProducts.length === 0 ? (
           <p className="text-sm text-slate-400">
             No items sold in this shift
           </p>

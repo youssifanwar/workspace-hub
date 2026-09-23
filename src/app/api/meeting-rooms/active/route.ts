@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  and,
   asc,
   eq,
-  gt,
   inArray,
   sql,
 } from "drizzle-orm";
@@ -50,7 +48,6 @@ export async function GET() {
       );
     }
 
-    const now = new Date();
 
     const rows = await db
       .select({
@@ -128,15 +125,9 @@ export async function GET() {
         ),
       )
       .where(
-        and(
-          eq(
-            meetingRoomReservations.status,
-            "active",
-          ),
-          gt(
-            meetingRoomReservations.endAt,
-            now,
-          ),
+        eq(
+          meetingRoomReservations.status,
+          "active",
         ),
       )
       .groupBy(

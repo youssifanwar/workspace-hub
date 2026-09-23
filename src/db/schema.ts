@@ -1035,6 +1035,14 @@ export const products = pgTable(
     )
       .notNull()
       .default(true),
+
+    // Current physical stock available for sale.
+    // 0 means the product is out of stock.
+    stockQuantity: integer(
+      "stock_quantity",
+    )
+      .notNull()
+      .default(0),
   },
 );
 

@@ -873,6 +873,9 @@ export async function POST(
 
                 active:
                   products.active,
+
+                stockQuantity:
+                  products.stockQuantity,
               })
               .from(
                 products,
@@ -898,7 +901,31 @@ export async function POST(
 
           /*
            * ---------------------------------------------------------------
-           * VALIDATE PRODUCTS
+           * AGGREGATE REQUESTED STOCK
+           * ---------------------------------------------------------------
+           *
+           * A client could technically send the same product more than once
+           * in the same request. Stock validation must use the combined
+           * quantity so one order cannot bypass the limit by splitting lines.
+           */
+
+          const requestedQuantityByProductId =
+            new Map<number, number>();
+
+          for (
+            const line of normalizedItems
+          ) {
+            requestedQuantityByProductId.set(
+              line.productId,
+              (requestedQuantityByProductId.get(
+                line.productId,
+              ) ?? 0) + line.quantity,
+            );
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * VALIDATE PRODUCTS + STOCK
            * ---------------------------------------------------------------
            */
 
@@ -929,6 +956,113 @@ export async function POST(
             parsePrice(
               product.price,
             );
+
+            const requestedQuantity =
+              requestedQuantityByProductId.get(
+                line.productId,
+              ) ?? 0;
+
+            if (
+              requestedQuantity >
+              product.stockQuantity
+            ) {
+              throw new OrderError(
+                `${product.name} is out of stock or does not have enough stock. Available: ${product.stockQuantity}.`,
+                409,
+              );
+            }
+          }
+
+          /*
+           * ---------------------------------------------------------------
+           * ATOMIC STOCK DECREMENT
+           * ---------------------------------------------------------------
+           *
+           * The WHERE clause is the concurrency guard. If two customers order
+           * at the same time, PostgreSQL will only let the update succeed while
+           * enough stock remains. No order can push stock below zero.
+           */
+
+          for (
+            const productId of productIds
+          ) {
+            const product =
+              productMap.get(
+                productId,
+              );
+
+            if (!product) {
+              throw new OrderError(
+                `Product ${productId} is unavailable`,
+                400,
+              );
+            }
+
+            const requestedQuantity =
+              requestedQuantityByProductId.get(
+                productId,
+              ) ?? 0;
+
+            const [updatedProduct] =
+              await tx
+                .update(products)
+                .set({
+                  stockQuantity:
+                    sql`${products.stockQuantity} - ${requestedQuantity}`,
+                })
+                .where(
+                  and(
+                    eq(
+                      products.id,
+                      productId,
+                    ),
+                    eq(
+                      products.active,
+                      true,
+                    ),
+                    sql`${products.stockQuantity} >= ${requestedQuantity}`,
+                  ),
+                )
+                .returning({
+                  id: products.id,
+                  stockQuantity:
+                    products.stockQuantity,
+                });
+
+            if (!updatedProduct) {
+              const [currentProduct] =
+                await tx
+                  .select({
+                    name: products.name,
+                    stockQuantity:
+                      products.stockQuantity,
+                    active:
+                      products.active,
+                  })
+                  .from(products)
+                  .where(
+                    eq(
+                      products.id,
+                      productId,
+                    ),
+                  )
+                  .limit(1);
+
+              if (
+                !currentProduct ||
+                !currentProduct.active
+              ) {
+                throw new OrderError(
+                  `Product ${productId} is unavailable`,
+                  400,
+                );
+              }
+
+              throw new OrderError(
+                `${currentProduct.name} is out of stock or does not have enough stock. Available: ${currentProduct.stockQuantity}.`,
+                409,
+              );
+            }
           }
 
           /*

@@ -81,16 +81,6 @@ export default async function LoginPage() {
           </div>
 
           <LoginForm />
-
-          <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
-            <div className="font-semibold text-slate-700 mb-1">
-              Demo accounts:
-            </div>
-
-            <div>👑 admin / admin123</div>
-            <div>💼 manager / manager123</div>
-            <div>🧑‍💻 employee / employee123</div>
-          </div>
         </div>
       </section>
     </main>

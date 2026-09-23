@@ -26,6 +26,7 @@ type Product = {
   price: string;
   icon: string;
   imageUrl: string | null;
+  stockQuantity: number;
 };
 
 type Booking = {
@@ -346,6 +347,27 @@ export default function PublicMenu({
   function addToCart(
     product: Product,
   ) {
+    if (!booking) {
+      setError("Connect the phone to the active session first.");
+      return;
+    }
+
+    if (product.stockQuantity <= 0) {
+      setError(`${product.name} is currently out of stock.`);
+      return;
+    }
+
+    const currentQuantity =
+      cart[product.id]?.quantity || 0;
+
+    if (currentQuantity >= product.stockQuantity) {
+      setError(
+        `Only ${product.stockQuantity} of ${product.name} are available.`,
+      );
+      return;
+    }
+
+    setError(null);
     invalidatePendingRequest();
 
     setCart((prev) => ({
@@ -387,6 +409,13 @@ export default function PublicMenu({
 
       const quantity =
         current.quantity + delta;
+
+      if (quantity > current.product.stockQuantity) {
+        setError(
+          `Only ${current.product.stockQuantity} of ${current.product.name} are available.`,
+        );
+        return prev;
+      }
 
       if (quantity <= 0) {
         const next = {
@@ -522,6 +551,12 @@ export default function PublicMenu({
           data.error ||
             "Could not place order",
         );
+
+        // Stock may have changed while the cart was open. Refresh the menu
+        // so the customer sees the latest stock immediately.
+        if (res.status === 409) {
+          setReloadKey((key) => key + 1);
+        }
 
         setPlacing(false);
 
@@ -786,7 +821,9 @@ export default function PublicMenu({
                 }
                 disabled={
                   placing ||
-                  !booking
+                  !booking ||
+                  product.stockQuantity <= 0 ||
+                  inCart >= product.stockQuantity
                 }
                 className="text-left bg-white rounded-2xl overflow-hidden border border-slate-200 active:scale-[.98] transition disabled:opacity-60"
               >
@@ -811,13 +848,24 @@ export default function PublicMenu({
                     </div>
                   )}
 
-                  {inCart >
-                    0 && (
-                    <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center shadow">
-                      {
-                        inCart
-                      }
+                  {product.stockQuantity <= 0 ? (
+                    <div className="absolute inset-0 bg-black/45 grid place-items-center">
+                      <span className="px-3 py-1.5 rounded-full bg-red-600 text-white text-sm font-bold shadow">
+                        Out of Stock
+                      </span>
                     </div>
+                  ) : (
+                    <>
+                      {inCart > 0 && (
+                        <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center shadow">
+                          {inCart}
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold">
+                        {product.stockQuantity} left
+                      </div>
+                    </>
                   )}
 
                 </div>
@@ -832,16 +880,24 @@ export default function PublicMenu({
 
                   <div className="flex items-center justify-between mt-1">
 
-                    <div className="text-indigo-600 font-bold text-sm">
-                      {parseFloat(
-                        product.price,
-                      ).toFixed(
-                        2,
-                      )}
+                    <div className={
+                      product.stockQuantity <= 0
+                        ? "text-slate-400 font-bold text-sm"
+                        : "text-indigo-600 font-bold text-sm"
+                    }>
+                      {product.stockQuantity <= 0
+                        ? "Out of Stock"
+                        : parseFloat(product.price).toFixed(2)}
                     </div>
 
-                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white grid place-items-center text-sm font-bold">
-                      +
+                    <div className={
+                      `w-7 h-7 rounded-full grid place-items-center text-sm font-bold ${
+                        product.stockQuantity <= 0
+                          ? "bg-slate-300 text-slate-500"
+                          : "bg-indigo-600 text-white"
+                      }`
+                    }>
+                      {product.stockQuantity <= 0 ? "×" : "+"}
                     </div>
 
                   </div>
@@ -1073,7 +1129,9 @@ export default function PublicMenu({
                           )
                         }
                         disabled={
-                          placing
+                          placing ||
+                          item.quantity >=
+                            item.product.stockQuantity
                         }
                         className="w-8 h-8 rounded-lg bg-slate-100 font-bold disabled:opacity-50"
                       >

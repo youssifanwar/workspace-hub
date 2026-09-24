@@ -345,9 +345,9 @@ export default async function ReportsPage({
       ORDER BY date_trunc('day', created_at)
     `),
 
-    db.execute(sql`
+        db.execute(sql`
       SELECT
-        name,
+        name_snapshot AS name,
         SUM(quantity)::int AS qty,
         COALESCE(SUM(quantity * unit_price), 0) AS revenue
       FROM fnb_sale_items
@@ -355,11 +355,10 @@ export default async function ReportsPage({
         ON fnb_sales.id = fnb_sale_items.sale_id
       WHERE fnb_sales.created_at >= ${from}
         AND fnb_sales.created_at <= ${to}
-      GROUP BY name
+      GROUP BY name_snapshot
       ORDER BY SUM(quantity) DESC, COALESCE(SUM(quantity * unit_price), 0) DESC
       LIMIT 20
     `),
-
     db.execute(sql`
       SELECT
         payment_method,

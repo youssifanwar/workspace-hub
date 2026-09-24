@@ -8,7 +8,7 @@ import { getSetting } from "@/lib/settings";
 
 import Sidebar from "./_components/Sidebar";
 import Topbar from "./_components/Topbar";
-import NotificationListener from "./_components/NotificationListener";
+import GlobalOrderAlerts from "./GlobalOrderAlerts";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,10 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const [activeShift, workspaceName] =
-    await Promise.all([
-      getActiveShiftForUser(user.id),
-      getSetting("workspace_name"),
-    ]);
+  const [activeShift, workspaceName] = await Promise.all([
+    getActiveShiftForUser(user.id),
+    getSetting("workspace_name"),
+  ]);
 
   return (
     <div className="min-h-screen flex">
@@ -44,8 +43,7 @@ export default async function AppLayout({
             activeShift
               ? {
                   id: activeShift.id,
-                  openedAt:
-                    activeShift.openedAt.toISOString(),
+                  openedAt: activeShift.openedAt.toISOString(),
                 }
               : null
           }
@@ -56,7 +54,7 @@ export default async function AppLayout({
         </main>
       </div>
 
-      <NotificationListener />
+      <GlobalOrderAlerts />
     </div>
   );
 }
@@ -71,26 +69,17 @@ export function NoShiftGuard({
   if (!hasShift) {
     return (
       <div className="max-w-lg mx-auto card p-8 text-center mt-16">
-        <div
-          className="text-5xl mb-3"
-          aria-hidden="true"
-        >
+        <div className="text-5xl mb-3" aria-hidden="true">
           🔒
         </div>
 
-        <h2 className="text-xl font-bold mb-2">
-          No active shift
-        </h2>
+        <h2 className="text-xl font-bold mb-2">No active shift</h2>
 
         <p className="text-slate-500 mb-5">
-          You need to open a shift before you can access this
-          section.
+          You need to open a shift before you can access this section.
         </p>
 
-        <Link
-          href="/shift"
-          className="btn btn-primary"
-        >
+        <Link href="/shift" className="btn btn-primary">
           Open a shift →
         </Link>
       </div>

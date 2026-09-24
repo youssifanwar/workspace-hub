@@ -51,7 +51,16 @@ function formatDate(value: Date | string | null): string {
     return "-";
   }
 
-  return date.toLocaleString();
+  return date.toLocaleString("en-EG", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 }
 
 export default async function ShiftPage() {

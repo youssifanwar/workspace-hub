@@ -672,8 +672,11 @@ function formatTime(
   return date.toLocaleTimeString(
     "en-EG",
     {
+      timeZone: "Africa/Cairo",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
     },
   );
 }

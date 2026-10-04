@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -205,7 +205,11 @@ export default async function DashboardPage() {
         customers,
         eq(customers.id, bookings.customerId),
       )
-      .where(eq(bookings.status, "active"))
+      // Meeting-room check-ins also create a row in `bookings` (deskId set
+      // to the room) so F&B orders can attach to them. Exclude those here:
+      // this widget is for open-seating ("shared") customer sessions only,
+      // which always have deskId = null.
+      .where(and(eq(bookings.status, "active"), isNull(bookings.deskId)))
       .orderBy(bookings.checkedInAt),
 
     // RECENT CLOSED SESSIONS

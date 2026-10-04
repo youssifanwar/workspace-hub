@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 
 import {
+  auditLogs,
   bookings,
   subscriptionUsageLedger,
 } from "@/db/schema";
@@ -124,6 +125,9 @@ export async function DELETE(
 
                 shiftId:
                   bookings.shiftId,
+
+                deskId:
+                  bookings.deskId,
               })
               .from(
                 bookings,
@@ -135,6 +139,20 @@ export async function DELETE(
                 ),
               )
               .limit(1);
+
+          /*
+           * A meeting-room check-in also creates a row here (deskId set to
+           * the room's id) so F&B orders have somewhere to attach. It must
+           * be cancelled through the meeting room reservation endpoint,
+           * which keeps the reservation row and the room's availability in
+           * sync — not through this endpoint.
+           */
+          if (booking && booking.deskId !== null) {
+            throw new CancellationError(
+              "This is a meeting room session. Cancel it from the Meeting Rooms page.",
+              409,
+            );
+          }
 
           /*
            * DELETE is intentionally idempotent.
@@ -424,5 +442,124 @@ class CancellationError extends Error {
 
     this.status =
       status;
+  }
+}
+
+/**
+ * Correct the arrival (check-in) time of an ACTIVE session.
+ *
+ * Use case: the customer arrived earlier/later than the moment the
+ * receptionist opened the session. The final charge is calculated at
+ * checkout from checkedInAt, so correcting it here fixes the bill.
+ */
+const MAX_BACKDATE_MS = 48 * 60 * 60 * 1000;
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const activeShift = await getActiveShiftForUser(user.id);
+    if (!activeShift) {
+      return NextResponse.json({ error: "No active shift" }, { status: 400 });
+    }
+
+    const bookingId = Number(id);
+    if (!Number.isInteger(bookingId) || bookingId <= 0) {
+      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
+    }
+
+    const body = (await req.json().catch(() => null)) as {
+      checkedInAt?: unknown;
+    } | null;
+    const parsed = new Date(String(body?.checkedInAt ?? ""));
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json(
+        { error: "A valid check-in time is required." },
+        { status: 400 },
+      );
+    }
+
+    const now = Date.now();
+    if (parsed.getTime() > now + 60 * 1000) {
+      return NextResponse.json(
+        { error: "Check-in time cannot be in the future." },
+        { status: 400 },
+      );
+    }
+    if (parsed.getTime() < now - MAX_BACKDATE_MS) {
+      return NextResponse.json(
+        { error: "Check-in time cannot be more than 48 hours ago." },
+        { status: 400 },
+      );
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const [booking] = await tx
+        .select({
+          id: bookings.id,
+          status: bookings.status,
+          checkedInAt: bookings.checkedInAt,
+          deskId: bookings.deskId,
+        })
+        .from(bookings)
+        .where(eq(bookings.id, bookingId))
+        .for("update")
+        .limit(1);
+
+      if (!booking) return { error: "Booking not found.", status: 404 } as const;
+      if (booking.deskId !== null) {
+        return {
+          error:
+            "This is a meeting room session. Edit it from the Meeting Rooms page.",
+          status: 409,
+        } as const;
+      }
+      if (booking.status !== "active") {
+        return {
+          error: "Only an open session can have its check-in time edited.",
+          status: 409,
+        } as const;
+      }
+
+      await tx
+        .update(bookings)
+        .set({ checkedInAt: parsed })
+        .where(and(eq(bookings.id, bookingId), eq(bookings.status, "active")));
+
+      await tx.insert(auditLogs).values({
+        userId: user.id,
+        action: "booking_checkin_time_edited",
+        entityType: "booking",
+        entityId: bookingId,
+        details: {
+          previous: booking.checkedInAt.toISOString(),
+          next: parsed.toISOString(),
+          shiftId: activeShift.id,
+        },
+      });
+
+      return { ok: true, checkedInAt: parsed.toISOString() } as const;
+    });
+
+    if ("error" in result) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status },
+      );
+    }
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Edit check-in time error:", error);
+    return NextResponse.json(
+      { error: "Could not update check-in time." },
+      { status: 500 },
+    );
   }
 }

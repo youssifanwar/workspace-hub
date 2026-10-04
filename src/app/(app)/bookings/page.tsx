@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { bookingItems, bookings, customers } from "@/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveShiftForUser } from "@/lib/shift";
@@ -9,6 +9,7 @@ import {
   getSetting,
 } from "@/lib/settings";
 import OpenSessionButton from "./OpenSessionButton";
+import QuickCancelButton from "./QuickCancelButton";
 import Link from "next/link";
 import BookingsLiveRefresh from "./BookingsLiveRefresh";
 
@@ -135,9 +136,21 @@ export default async function BookingsPage() {
         ),
       )
       .where(
-        eq(
-          bookings.status,
-          "active",
+        and(
+          eq(
+            bookings.status,
+            "active",
+          ),
+          /*
+           * A meeting-room check-in also creates a row in this same
+           * `bookings` table (so F&B orders have somewhere to attach),
+           * with deskId pointing at the meeting room. Without this
+           * filter, meeting room sessions showed up here too and were
+           * billed using the regular open-seating (customer session)
+           * hourly tiers instead of their own per-room/per-person rate.
+           * Open ("shared") sessions always have deskId = null.
+           */
+          isNull(bookings.deskId),
         ),
       )
       .orderBy(
@@ -232,9 +245,41 @@ export default async function BookingsPage() {
       }),
     );
 
+  const staleRaw = Number(await getSetting("stale_session_hours"));
+  const staleHours =
+    Number.isFinite(staleRaw) && staleRaw > 0 ? staleRaw : 10;
+  const staleSessions = activeSessions.filter(
+    (session) =>
+      Date.now() - session.checkedInAt.getTime() >
+      staleHours * 3_600_000,
+  );
+
   return (
     <div className="space-y-6">
       <BookingsLiveRefresh />
+
+      {staleSessions.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <div className="font-bold text-amber-900">
+            ⚠️ {staleSessions.length} session
+            {staleSessions.length === 1 ? "" : "s"} open for more than{" "}
+            {staleHours} hours — possibly forgotten
+          </div>
+          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            {staleSessions.map((session) => (
+              <li key={session.id}>
+                <Link
+                  href={`/bookings/${session.id}`}
+                  className="underline"
+                >
+                  #{session.id} — {session.customerName ?? "Customer"}
+                </Link>{" "}
+                since {session.checkedInAt.toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -285,20 +330,25 @@ export default async function BookingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
           {activeSessions.map(
             (session) => (
-              <SessionCard
-                key={
-                  session.id
-                }
-                session={
-                  session
-                }
-                currency={
-                  currency
-                }
-                pricing={
-                  pricing
-                }
-              />
+              <div
+                key={session.id}
+                className="space-y-2"
+              >
+                <SessionCard
+                  session={
+                    session
+                  }
+                  currency={
+                    currency
+                  }
+                  pricing={
+                    pricing
+                  }
+                />
+                <QuickCancelButton
+                  bookingId={session.id}
+                />
+              </div>
             ),
           )}
         </div>

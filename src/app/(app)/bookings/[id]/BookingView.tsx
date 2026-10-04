@@ -8,6 +8,8 @@ import {
 
 import { useRouter } from "next/navigation";
 
+import EditArrivalTime from "./EditArrivalTime";
+
 type Booking = {
   id: number;
 
@@ -1035,6 +1037,11 @@ export default function BookingView({
           </button>
         </div>
 
+        <EditArrivalTime
+          bookingId={booking.id}
+          checkedInAt={booking.checkedInAt}
+        />
+
         <button
           onClick={async () => {
             if (
@@ -1062,7 +1069,18 @@ export default function BookingView({
               );
 
               router.refresh();
+              return;
             }
+
+            const failure =
+              await response
+                .json()
+                .catch(() => ({}));
+
+            alert(
+              failure?.error ||
+                "Could not cancel this session.",
+            );
           }}
           className="btn btn-ghost w-full text-red-600"
         >

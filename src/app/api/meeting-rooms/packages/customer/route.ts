@@ -4,16 +4,21 @@ import {
   and,
   eq,
   inArray,
+  sql,
   sum,
 } from "drizzle-orm";
 
 import { db } from "@/db";
 
 import {
+  auditLogs,
   customers,
   customerMeetingRoomPackages,
+  meetingRoomPackages,
   meetingRoomPackageUsageLedger,
 } from "@/db/schema";
+
+import { getActiveShiftForUser } from "@/lib/shift";
 
 import {
   getCurrentUser,
@@ -470,6 +475,191 @@ export async function GET(
       {
         status: 500,
       },
+    );
+  }
+}
+
+/* ============================================================================
+ * SELL A MEETING ROOM PACKAGE TO A CUSTOMER
+ * ========================================================================== */
+
+class SaleError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const shift = await getActiveShiftForUser(user.id);
+    if (!shift) {
+      throw new SaleError(
+        "No active shift. Open a shift before selling a package.",
+      );
+    }
+
+    const body = (await req.json().catch(() => null)) as {
+      customerId?: unknown;
+      packageId?: unknown;
+      purchasedAt?: unknown;
+      note?: unknown;
+    } | null;
+    if (!body) throw new SaleError("Invalid request.");
+
+    const customerId = Number(body.customerId);
+    const packageId = Number(body.packageId);
+    if (!Number.isSafeInteger(customerId) || customerId <= 0) {
+      throw new SaleError("A valid customer is required.");
+    }
+    if (!Number.isSafeInteger(packageId) || packageId <= 0) {
+      throw new SaleError("A valid package is required.");
+    }
+
+    // Payment date: defaults to now, cannot be in the future.
+    const now = new Date();
+    let paymentDate = now;
+    if (
+      body.purchasedAt !== undefined &&
+      body.purchasedAt !== null &&
+      body.purchasedAt !== ""
+    ) {
+      const parsed = new Date(String(body.purchasedAt));
+      if (Number.isNaN(parsed.getTime())) {
+        throw new SaleError("Invalid payment date.");
+      }
+      if (parsed.getTime() > now.getTime() + 5 * 60 * 1000) {
+        throw new SaleError("Payment date cannot be in the future.");
+      }
+      if (parsed.getTime() < now.getTime() - 366 * 24 * 60 * 60 * 1000) {
+        throw new SaleError("Payment date is more than a year ago.");
+      }
+      paymentDate = parsed;
+    }
+
+    const note =
+      typeof body.note === "string" && body.note.trim()
+        ? body.note.trim().slice(0, 1000)
+        : null;
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${`mr-package-customer-${customerId}`}))`,
+      );
+
+      const [customer] = await tx
+        .select({
+          id: customers.id,
+          name: customers.name,
+          phone: customers.phone,
+        })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      if (!customer) throw new SaleError("Customer not found.", 404);
+
+      const [pkg] = await tx
+        .select()
+        .from(meetingRoomPackages)
+        .where(eq(meetingRoomPackages.id, packageId))
+        .limit(1);
+      if (!pkg) throw new SaleError("Package not found.", 404);
+      if (pkg.status !== "active") {
+        throw new SaleError("This package is not available for sale.");
+      }
+
+      const totalHours = Number(pkg.totalHours);
+      const price = Number(pkg.price);
+      if (!Number.isFinite(totalHours) || totalHours <= 0) {
+        throw new SaleError("Package has an invalid number of hours.", 500);
+      }
+      if (!Number.isFinite(price) || price < 0) {
+        throw new SaleError("Package has an invalid price.", 500);
+      }
+
+      const expiresAt =
+        pkg.validityDays && pkg.validityDays > 0
+          ? new Date(
+              paymentDate.getTime() +
+                pkg.validityDays * 24 * 60 * 60 * 1000,
+            )
+          : null;
+
+      const [purchase] = await tx
+        .insert(customerMeetingRoomPackages)
+        .values({
+          customerId: customer.id,
+          packageId: pkg.id,
+          packageNameSnapshot: pkg.name,
+          totalHoursSnapshot: totalHours.toFixed(2),
+          discountPercentSnapshot: Number(pkg.discountPercent).toFixed(2),
+          priceSnapshot: price.toFixed(2),
+          validityDaysSnapshot: pkg.validityDays,
+          purchasedAt: paymentDate,
+          startsAt: paymentDate,
+          expiresAt,
+          status: "active",
+          note,
+          createdByUserId: user.id,
+        })
+        .returning({ id: customerMeetingRoomPackages.id });
+      if (!purchase) throw new SaleError("Could not create purchase.", 500);
+
+      await tx.insert(meetingRoomPackageUsageLedger).values({
+        packagePurchaseId: purchase.id,
+        reservationId: null,
+        userId: user.id,
+        entryType: "purchase",
+        hoursDelta: totalHours.toFixed(2),
+        reason: `Purchased package "${pkg.name}"`,
+        idempotencyKey: `meeting_room_package_purchase_${purchase.id}`,
+      });
+
+      await tx.insert(auditLogs).values({
+        userId: user.id,
+        action: "meeting_room_package_sold",
+        entityType: "customer",
+        entityId: customer.id,
+        details: {
+          purchaseId: purchase.id,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          totalHours,
+          price,
+          paymentDate: paymentDate.toISOString(),
+          shiftId: shift.id,
+        },
+      });
+
+      return {
+        id: purchase.id,
+        customer,
+        packageName: pkg.name,
+        totalHours,
+        price,
+        purchasedAt: paymentDate.toISOString(),
+        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      };
+    });
+
+    return NextResponse.json({ ok: true, purchase: result }, { status: 201 });
+  } catch (error) {
+    if (error instanceof SaleError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("Sell meeting room package error:", error);
+    return NextResponse.json(
+      { error: "Could not sell the package." },
+      { status: 500 },
     );
   }
 }

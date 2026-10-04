@@ -32,9 +32,18 @@ function isValidAmount(value: string) {
 
 export default function ExpenseForm({
   currency,
+  kind = "expense",
+  categories = [],
 }: {
   currency: string;
+  kind?: "expense" | "income";
+  categories?: string[];
 }) {
+  const isIncome = kind === "income";
+  const categoryOptions = Array.from(
+    new Set([...(categories ?? []), ...CATEGORIES]),
+  );
+
   const router = useRouter();
 
   const [amount, setAmount] = useState("");
@@ -85,13 +94,9 @@ export default function ExpenseForm({
       return;
     }
 
-    if (
-      !CATEGORIES.includes(
-        category as (typeof CATEGORIES)[number],
-      )
-    ) {
+    if (!category.trim() || category.trim().length > 100) {
       setError(
-        "Please select a valid category.",
+        "Enter a category (up to 100 characters).",
       );
       return;
     }
@@ -107,7 +112,7 @@ export default function ExpenseForm({
 
     try {
       const res = await fetch(
-        "/api/expenses",
+        isIncome ? "/api/incomes" : "/api/expenses",
         {
           method: "POST",
           headers: {
@@ -119,7 +124,7 @@ export default function ExpenseForm({
           cache: "no-store",
           body: JSON.stringify({
             amount: numericAmount,
-            category,
+            category: category.trim(),
             note: trimmedNote,
           }),
         },
@@ -137,7 +142,7 @@ export default function ExpenseForm({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to record the expense.",
+            isIncome ? "Failed to record the income." : "Failed to record the expense.",
         );
         return;
       }
@@ -209,11 +214,14 @@ export default function ExpenseForm({
           Category
         </label>
 
-        <select
+        <input
           id="expense-category"
           name="category"
-          className="select"
+          className="input"
+          list="expense-category-options"
           value={category}
+          maxLength={100}
+          placeholder="Choose or type a new category"
           onChange={(e) => {
             setCategory(
               e.target.value,
@@ -221,18 +229,17 @@ export default function ExpenseForm({
             setError(null);
           }}
           disabled={loading}
-        >
-          {CATEGORIES.map(
+        />
+        <datalist id="expense-category-options">
+          {categoryOptions.map(
             (item) => (
               <option
                 key={item}
                 value={item}
-              >
-                {item}
-              </option>
+              />
             ),
           )}
-        </select>
+        </datalist>
       </div>
 
       {/* NOTE */}
@@ -282,7 +289,7 @@ export default function ExpenseForm({
       >
         {loading
           ? "Saving…"
-          : "💸 Record expense"}
+          : isIncome ? "💰 Record income" : "💸 Record expense"}
       </button>
     </form>
   );

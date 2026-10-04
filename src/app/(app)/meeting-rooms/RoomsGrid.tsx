@@ -8,6 +8,7 @@ import {
 
 import { useRouter } from "next/navigation";
 
+import CustomerSearchField from "./CustomerSearchField";
 import WalkInRoomModal from "./WalkInRoomModal";
 
 type PricingTier = {
@@ -565,7 +566,7 @@ function ReservationModal({
 
   const [recurrence, setRecurrence] =
     useState<
-      "none" | "weekly"
+      "none" | "daily" | "weekly"
     >("none");
 
   const [
@@ -742,7 +743,7 @@ function ReservationModal({
     room.pricingTiers,
   ]);
 
-  async function loadCustomerPackages() {
+  async function loadCustomerPackages(phoneOverride?: string) {
     setPackageLoadError(null);
     setCustomerPackages([]);
     setSelectedPackageId(null);
@@ -750,7 +751,7 @@ function ReservationModal({
     resetPrice();
 
     const phone =
-      customerPhone.trim();
+      (phoneOverride ?? customerPhone).trim();
 
     if (!phone) {
       setPackageLoadError(
@@ -868,7 +869,7 @@ function ReservationModal({
     }
 
     if (
-      recurrence === "weekly"
+      recurrence !== "none"
     ) {
       const count = Number(
         recurrenceCount,
@@ -948,7 +949,7 @@ function ReservationModal({
       }
 
       const occurrenceCount =
-        recurrence === "weekly"
+        recurrence !== "none"
           ? Number(
               recurrenceCount,
             )
@@ -1096,7 +1097,7 @@ function ReservationModal({
     let count = 1;
 
     if (
-      recurrence === "weekly"
+      recurrence !== "none"
     ) {
       count = Number(
         recurrenceCount,
@@ -1288,7 +1289,7 @@ function ReservationModal({
     }
 
     if (
-      recurrence === "weekly"
+      recurrence !== "none"
     ) {
       const count = Number(
         recurrenceCount,
@@ -1324,7 +1325,7 @@ function ReservationModal({
         );
 
       const occurrences =
-        recurrence === "weekly"
+        recurrence !== "none"
           ? Number(
               recurrenceCount,
             )
@@ -1380,7 +1381,7 @@ function ReservationModal({
         getDates();
 
       const occurrenceCount =
-        recurrence === "weekly"
+        recurrence !== "none"
           ? Number(
               recurrenceCount,
             )
@@ -1496,7 +1497,7 @@ function ReservationModal({
         );
 
       setSuccess(
-        recurrence === "weekly"
+        recurrence !== "none"
           ? `${room.name} was reserved successfully for ${reservedCount} occurrence(s). Total: ${total} ${currency}${
               discountValue > 0
                 ? ` — package discount: ${discount} ${currency}`
@@ -1704,6 +1705,35 @@ function ReservationModal({
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
               Customer
+            </div>
+
+            <div className="mb-4">
+              <CustomerSearchField
+                name={customerName}
+                phone={customerPhone}
+                disabled={isBusy}
+                onNameChange={(value) => {
+                  setCustomerName(value);
+                  setCustomerPackages([]);
+                  setSelectedPackageId(null);
+                  resetMessages();
+                  resetPrice();
+                }}
+                onPhoneChange={(value) => {
+                  setCustomerPhone(value);
+                  resetMessages();
+                  resetPrice();
+                }}
+                onPick={(c) => {
+                  setCustomerName(c.name);
+                  setCustomerPhone(c.phone);
+                  setCustomerPackages([]);
+                  setSelectedPackageId(null);
+                  resetMessages();
+                  resetPrice();
+                  void loadCustomerPackages(c.phone);
+                }}
+              />
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -1957,8 +1987,8 @@ function ReservationModal({
                     event.target.value;
 
                   setRecurrence(
-                    value === "weekly"
-                      ? "weekly"
+                    value === "weekly" || value === "daily"
+                      ? value
                       : "none",
                   );
 
@@ -1971,20 +2001,24 @@ function ReservationModal({
                   One time
                 </option>
 
+                <option value="daily">
+                  Every day
+                </option>
+
                 <option value="weekly">
                   Every week
                 </option>
               </select>
             </div>
 
-            {recurrence ===
-              "weekly" && (
+            {recurrence !==
+              "none" && (
               <div>
                 <label
                   htmlFor="meeting-room-weeks"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Number of weeks
+                  Number of {recurrence === "weekly" ? "weeks" : "days"}
                 </label>
 
                 <input

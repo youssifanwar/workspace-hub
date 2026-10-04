@@ -456,6 +456,12 @@ export default function ActiveMeetingRooms({
                           ? ` · ${session.customerPhone}`
                           : ""}
                       </p>
+                      {new Date(session.endAt).getTime() < now && (
+                        <span className="inline-block mt-2 text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                          ⚠️ Overdue — past the booked end time, check out
+                          when the room is free
+                        </span>
+                      )}
                     </div>
 
                     <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-right">

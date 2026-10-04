@@ -18,6 +18,7 @@ import {
 import { canManage, getCurrentUser } from "@/lib/auth";
 
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getSetting } from "@/lib/settings";
 
 import {
   calculateMeetingRoomBooking,
@@ -182,9 +183,19 @@ export async function PATCH(
           );
         }
 
-        if (reservation.startAt.getTime() > Date.now()) {
+        const earlyRaw = Number(
+          await getSetting("meeting_room_early_checkin_minutes"),
+        );
+        const earlyMinutes =
+          Number.isFinite(earlyRaw) && earlyRaw >= 0
+            ? Math.min(earlyRaw, 24 * 60)
+            : 30;
+        if (
+          reservation.startAt.getTime() - earlyMinutes * 60 * 1000 >
+          Date.now()
+        ) {
           throw new Error(
-            "This reservation has not started yet. Check-in is available when the reservation start time is reached.",
+            `Too early to check in. Check-in opens ${earlyMinutes} minute(s) before the reservation start time.`,
           );
         }
 

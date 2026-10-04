@@ -25,6 +25,7 @@ export const dynamic =
   "force-dynamic";
 
 type PurchaseBody = {
+  purchasedAt?: unknown;
   packageId?: number | string;
   note?: string | null;
 };
@@ -385,6 +386,23 @@ export async function GET(
 /* PURCHASE SUBSCRIPTION                                                       */
 /* -------------------------------------------------------------------------- */
 
+function parsePaymentDate(value: unknown, now: Date): Date {
+  if (value === undefined || value === null || value === "") return now;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new ApiError("Invalid payment date.", 400);
+  }
+  // A payment date cannot be in the future (small clock tolerance) and
+  // cannot be unreasonably old.
+  if (d.getTime() > now.getTime() + 5 * 60 * 1000) {
+    throw new ApiError("Payment date cannot be in the future.", 400);
+  }
+  if (d.getTime() < now.getTime() - 366 * 24 * 60 * 60 * 1000) {
+    throw new ApiError("Payment date is more than a year ago.", 400);
+  }
+  return d;
+}
+
 export async function POST(
   req: Request,
   {
@@ -702,13 +720,14 @@ export async function POST(
           /* EXPIRATION                                                        */
           /* ---------------------------------------------------------------- */
 
+          const paymentDate = parsePaymentDate(body.purchasedAt, now);
           const expiresAt =
             pkg.validityDays !==
               null &&
             pkg.validityDays !==
               undefined
               ? new Date(
-                  now.getTime() +
+                  paymentDate.getTime() +
                     pkg.validityDays *
                       24 *
                       60 *
@@ -749,11 +768,8 @@ export async function POST(
                 validityDaysSnapshot:
                   pkg.validityDays,
 
-                purchasedAt:
-                  now,
-
-                startsAt:
-                  now,
+                purchasedAt: paymentDate,
+                startsAt: paymentDate,
 
                 expiresAt,
 

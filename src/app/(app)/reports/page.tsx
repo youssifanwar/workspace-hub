@@ -15,7 +15,10 @@ import {
   bankTransactions,
   bookingItems,
   bookings,
+  customerMeetingRoomPackages,
+  customerSubscriptions,
   expenses,
+  manualIncomes,
   shifts,
   users,
 } from "@/db/schema";
@@ -519,6 +522,51 @@ export default async function ReportsPage({
       .limit(20),
   ]);
 
+  // Package sales (desk + meeting room) counted by PAYMENT date, and manual
+  // income entered on the Expenses & Income page.
+  const [deskPackageRow, meetingPackageRow, manualIncomeRow] =
+    await Promise.all([
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${customerSubscriptions.priceSnapshot}), 0)`,
+        })
+        .from(customerSubscriptions)
+        .where(
+          and(
+            sql`${customerSubscriptions.status} <> 'cancelled'`,
+            gte(customerSubscriptions.purchasedAt, from),
+            lte(customerSubscriptions.purchasedAt, to),
+          ),
+        ),
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${customerMeetingRoomPackages.priceSnapshot}), 0)`,
+        })
+        .from(customerMeetingRoomPackages)
+        .where(
+          and(
+            sql`${customerMeetingRoomPackages.status} <> 'cancelled'`,
+            gte(customerMeetingRoomPackages.purchasedAt, from),
+            lte(customerMeetingRoomPackages.purchasedAt, to),
+          ),
+        ),
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${manualIncomes.amount}), 0)`,
+        })
+        .from(manualIncomes)
+        .where(
+          and(
+            gte(manualIncomes.createdAt, from),
+            lte(manualIncomes.createdAt, to),
+          ),
+        ),
+    ]);
+  const packageSales =
+    safeNumber(deskPackageRow[0]?.total) +
+    safeNumber(meetingPackageRow[0]?.total);
+  const manualIncomeTotal = safeNumber(manualIncomeRow[0]?.total);
+
   const directFnbRevenue = safeNumber(
     (directFnbRevenueRow as { rows?: Array<Record<string, unknown>> }).rows?.[0]?.total,
   );
@@ -527,7 +575,11 @@ export default async function ReportsPage({
     revenueRow[0]?.revenue,
   );
 
-  const revenue = bookingRevenue + directFnbRevenue;
+  const revenue =
+    bookingRevenue +
+    directFnbRevenue +
+    packageSales +
+    manualIncomeTotal;
 
   const totalExpenses =
     safeNumber(
@@ -688,6 +740,11 @@ export default async function ReportsPage({
               revenue,
               currency,
             )}
+          </div>
+
+          <div className="text-[11px] text-white/80 mt-1">
+            Packages {formatMoney(packageSales, currency)} · Other income{" "}
+            {formatMoney(manualIncomeTotal, currency)}
           </div>
         </div>
 

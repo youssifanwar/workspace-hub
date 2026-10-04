@@ -23,6 +23,11 @@ import {
   getCalendarBusyPeriods,
 } from "@/lib/google-calendar";
 
+import {
+  buildOccurrenceDates,
+  parseRecurrence,
+} from "@/lib/meeting-recurrence";
+
 export const dynamic = "force-dynamic";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -81,48 +86,6 @@ function addDays(
   return result;
 }
 
-function buildOccurrenceDates(
-  start: Date,
-  end: Date,
-  recurrence: "none" | "weekly",
-  count: number,
-): Array<{
-  start: Date;
-  end: Date;
-}> {
-  if (recurrence === "none") {
-    return [
-      {
-        start: new Date(start),
-        end: new Date(end),
-      },
-    ];
-  }
-
-  const result: Array<{
-    start: Date;
-    end: Date;
-  }> = [];
-
-  for (
-    let index = 0;
-    index < count;
-    index += 1
-  ) {
-    result.push({
-      start: addDays(
-        start,
-        index * 7,
-      ),
-      end: addDays(
-        end,
-        index * 7,
-      ),
-    });
-  }
-
-  return result;
-}
 
 /* ============================================================================
  * GET
@@ -169,9 +132,7 @@ export async function GET(
       url.searchParams.get("recurrence");
 
     const recurrence =
-      recurrenceRaw === "weekly"
-        ? "weekly"
-        : "none";
+      parseRecurrence(recurrenceRaw) ?? "none";
 
     const requestedCount =
       parsePositiveInteger(
@@ -210,7 +171,7 @@ export async function GET(
     }
 
     if (
-      recurrence === "weekly" &&
+      recurrence !== "none" &&
       (
         requestedCount < 1 ||
         requestedCount >
@@ -221,7 +182,7 @@ export async function GET(
         {
           available: false,
           error:
-            `Weekly recurrence count must be between 1 and ${MAX_RECURRING_OCCURRENCES}.`,
+            `Recurrence count must be between 1 and ${MAX_RECURRING_OCCURRENCES}.`,
         },
         {
           status: 400,
@@ -237,7 +198,7 @@ export async function GET(
         {
           available: false,
           error:
-            "Recurrence count can only be greater than 1 for weekly recurrence.",
+            "Recurrence count can only be greater than 1 for recurring reservations.",
         },
         {
           status: 400,
@@ -430,7 +391,7 @@ export async function GET(
         start,
         end,
         recurrence,
-        recurrence === "weekly"
+        recurrence !== "none"
           ? requestedCount
           : 1,
       );
@@ -671,7 +632,7 @@ export async function GET(
       recurrence,
 
       recurrenceCount:
-        recurrence === "weekly"
+        recurrence !== "none"
           ? requestedCount
           : 1,
 

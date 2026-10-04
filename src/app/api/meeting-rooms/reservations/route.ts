@@ -37,6 +37,12 @@ import {
   getCalendarBusyPeriods,
 } from "@/lib/google-calendar";
 
+import {
+  buildOccurrenceDates,
+  parseRecurrence,
+  type Recurrence,
+} from "@/lib/meeting-recurrence";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -114,35 +120,6 @@ function addDays(
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
-}
-
-function buildOccurrenceDates(
-  start: Date,
-  end: Date,
-  recurrence: "none" | "weekly",
-  count: number,
-): Array<{
-  start: Date;
-  end: Date;
-}> {
-  if (recurrence === "none") {
-    return [
-      {
-        start: new Date(start),
-        end: new Date(end),
-      },
-    ];
-  }
-
-  return Array.from(
-    {
-      length: count,
-    },
-    (_, index) => ({
-      start: addDays(start, index * 7),
-      end: addDays(end, index * 7),
-    }),
-  );
 }
 
 async function findInternalConflict(
@@ -665,21 +642,8 @@ export async function POST(
     // RECURRENCE
     // ---------------------------------------------------------------------------
 
-    let recurrence:
-      | "none"
-      | "weekly";
-
-    if (
-      body.recurrence === undefined ||
-      body.recurrence === null
-    ) {
-      recurrence = "none";
-    } else if (
-      body.recurrence === "none" ||
-      body.recurrence === "weekly"
-    ) {
-      recurrence = body.recurrence;
-    } else {
+    const parsedRecurrence = parseRecurrence(body.recurrence);
+    if (!parsedRecurrence) {
       return NextResponse.json(
         {
           error:
@@ -690,10 +654,10 @@ export async function POST(
         },
       );
     }
-
+    const recurrence: Recurrence = parsedRecurrence;
     let recurrenceCount = 1;
 
-    if (recurrence === "weekly") {
+    if (recurrence !== "none") {
       const requestedCount =
         parsePositiveInteger(
           body.recurrenceCount ?? 1,
@@ -707,7 +671,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              `Weekly recurrence count must be between 1 and ${MAX_RECURRING_OCCURRENCES}.`,
+              `Recurrence count must be between 1 and ${MAX_RECURRING_OCCURRENCES}.`,
           },
           {
             status: 400,
@@ -733,7 +697,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "recurrenceCount is only supported for weekly reservations.",
+              "recurrenceCount is only supported for recurring reservations.",
           },
           {
             status: 400,
@@ -1018,8 +982,8 @@ export async function POST(
                 packagePurchaseId
                   ? "Billing: Meeting Room Package"
                   : "Billing: Regular",
-                recurrence === "weekly"
-                  ? `Weekly occurrences: ${recurrenceCount}`
+                recurrence !== "none"
+                  ? `${recurrence === "daily" ? "Daily" : "Weekly"} occurrences: ${recurrenceCount}`
                   : "",
                 notes
                   ? `Notes: ${notes}`
@@ -1657,7 +1621,9 @@ export async function POST(
                     recurrenceRule:
                       recurrence === "weekly"
                         ? `RRULE:FREQ=WEEKLY;COUNT=${recurrenceCount}`
-                        : null,
+                        : recurrence === "daily"
+                          ? `RRULE:FREQ=DAILY;COUNT=${recurrenceCount}`
+                          : null,
 
                     recurrenceCount:
                       recurrenceCount > 1

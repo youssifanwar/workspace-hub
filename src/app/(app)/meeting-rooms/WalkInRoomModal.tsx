@@ -5,6 +5,8 @@ import {
   useState,
 } from "react";
 
+import CustomerSearchField from "./CustomerSearchField";
+
 type PricingTier = {
   id: number;
   minPeople: number;
@@ -285,7 +287,7 @@ export default function WalkInRoomModal({
     setPricePreview(null);
   }
 
-  async function loadCustomerPackages() {
+  async function loadCustomerPackages(phoneOverride?: string) {
     resetMessages();
     resetPrice();
     setPackageError(null);
@@ -293,7 +295,7 @@ export default function WalkInRoomModal({
     setSelectedPackageId(null);
 
     const phone =
-      customerPhone.trim();
+      (phoneOverride ?? customerPhone).trim();
 
     if (!phone) {
       setPackageError(
@@ -735,6 +737,37 @@ export default function WalkInRoomModal({
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
               Customer
+            </div>
+
+            <div className="mb-4">
+              <CustomerSearchField
+                name={customerName}
+                phone={customerPhone}
+                disabled={isBusy}
+                onNameChange={(value) => {
+                  setCustomerName(value);
+                  setCustomerPackages([]);
+                  setSelectedPackageId(null);
+                  setPackageError(null);
+                  resetMessages();
+                  resetPrice();
+                }}
+                onPhoneChange={(value) => {
+                  setCustomerPhone(value);
+                  resetMessages();
+                  resetPrice();
+                }}
+                onPick={(c) => {
+                  setCustomerName(c.name);
+                  setCustomerPhone(c.phone);
+                  setCustomerPackages([]);
+                  setSelectedPackageId(null);
+                  setPackageError(null);
+                  resetMessages();
+                  resetPrice();
+                  void loadCustomerPackages(c.phone);
+                }}
+              />
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">

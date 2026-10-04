@@ -1,17 +1,34 @@
 import { db } from "@/db";
 import { customers, bookings } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSetting, formatMoney } from "@/lib/settings";
 import CustomerEditButton from "./CustomerEditButton";
+import CustomerPackagesButton from "./CustomerPackagesButton";
+import AddCustomerButton from "./AddCustomerButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const currency = await getSetting("currency");
+  const { q } = await searchParams;
+  const term = (q ?? "").trim().slice(0, 100);
+  const digits = term.replace(/\D/g, "");
+  const escaped = term.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const filter = term
+    ? or(
+        ilike(customers.name, `%${escaped}%`),
+        ilike(customers.phone, `%${escaped}%`),
+        digits ? ilike(customers.phoneNormalized, `%${digits}%`) : undefined,
+      )
+    : undefined;
 
   const rows = await db
     .select({
@@ -27,17 +44,35 @@ export default async function CustomersPage() {
     })
     .from(customers)
     .leftJoin(bookings, eq(bookings.customerId, customers.id))
+    .where(filter)
     .groupBy(customers.id)
     .orderBy(desc(customers.createdAt))
-    .limit(200);
+    .limit(500);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
-        <p className="text-slate-500">
-          {rows.length} customer{rows.length === 1 ? "" : "s"} registered.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
+          <p className="text-slate-500">
+            {rows.length} customer{rows.length === 1 ? "" : "s"}{" "}
+            {term ? "found" : "registered"}.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <form method="get" className="flex gap-2">
+            <input
+              name="q"
+              defaultValue={term}
+              placeholder="Search name or phone"
+              className="input"
+            />
+            <button type="submit" className="btn btn-ghost">
+              Search
+            </button>
+          </form>
+          <AddCustomerButton />
+        </div>
       </div>
 
       <div className="card overflow-hidden">
@@ -80,6 +115,12 @@ export default async function CustomersPage() {
                       {formatMoney(parseFloat(c.totalSpent), currency)}
                     </td>
                     <td className="py-3 px-4 text-right">
+                      <CustomerPackagesButton
+                        customerId={c.id}
+                        customerName={c.name}
+                        customerPhone={c.phone}
+                        currency={currency}
+                      />
                       <CustomerEditButton
                         currency={currency}
                         customer={{

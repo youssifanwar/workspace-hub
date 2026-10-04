@@ -13,12 +13,16 @@ export default function WorkspaceSettings({
   workspacePhone,
   currency,
   invoiceFooter,
+  earlyCheckinMinutes,
+  staleSessionHours,
 }: {
   workspaceName: string;
   workspaceAddress: string;
   workspacePhone: string;
   currency: string;
   invoiceFooter: string;
+  earlyCheckinMinutes: string;
+  staleSessionHours: string;
 }) {
   const router = useRouter();
 
@@ -27,6 +31,8 @@ export default function WorkspaceSettings({
   const [phone, setPhone] = useState(workspacePhone);
   const [cur, setCur] = useState(currency);
   const [footer, setFooter] = useState(invoiceFooter);
+  const [earlyMin, setEarlyMin] = useState(earlyCheckinMinutes);
+  const [staleHours, setStaleHours] = useState(staleSessionHours);
 
   const [loading, setLoading] = useState(false);
 
@@ -125,6 +131,12 @@ export default function WorkspaceSettings({
           workspace_phone: normalizedPhone,
           currency: normalizedCurrency,
           invoice_footer: normalizedFooter,
+          stale_session_hours: String(
+            Math.max(1, Math.min(72, Math.floor(Number(staleHours) || 10))),
+          ),
+          meeting_room_early_checkin_minutes: String(
+            Math.max(0, Math.min(1440, Math.floor(Number(earlyMin) || 0))),
+          ),
         }),
       });
 
@@ -294,6 +306,56 @@ export default function WorkspaceSettings({
           }}
           maxLength={500}
           placeholder="Thank you for visiting!"
+          disabled={loading}
+        />
+      </div>
+
+      {/* MEETING ROOM EARLY CHECK-IN */}
+      <div>
+        <label
+          htmlFor="early-checkin"
+          className="label"
+        >
+          Meeting room: allow check-in before start (minutes)
+        </label>
+
+        <input
+          id="early-checkin"
+          name="meeting_room_early_checkin_minutes"
+          className="input"
+          type="number"
+          min={0}
+          max={1440}
+          value={earlyMin}
+          onChange={(e) => {
+            setEarlyMin(e.target.value);
+            setMsg(null);
+          }}
+          disabled={loading}
+        />
+      </div>
+
+      {/* STALE SESSION THRESHOLD */}
+      <div>
+        <label
+          htmlFor="stale-hours"
+          className="label"
+        >
+          Flag sessions open longer than (hours)
+        </label>
+
+        <input
+          id="stale-hours"
+          name="stale_session_hours"
+          className="input"
+          type="number"
+          min={1}
+          max={72}
+          value={staleHours}
+          onChange={(e) => {
+            setStaleHours(e.target.value);
+            setMsg(null);
+          }}
           disabled={loading}
         />
       </div>

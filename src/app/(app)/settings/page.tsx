@@ -175,6 +175,8 @@ export default async function SettingsPage() {
               workspacePhone={settings.workspace_phone}
               currency={settings.currency}
               invoiceFooter={settings.invoice_footer}
+              earlyCheckinMinutes={settings.meeting_room_early_checkin_minutes}
+              staleSessionHours={settings.stale_session_hours}
             />
           </div>
         )}

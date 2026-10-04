@@ -20,7 +20,9 @@ export type SettingKey =
   | "customer_session_2h"
   | "customer_session_3h"
   | "customer_session_4h"
-  | "customer_session_day_pass";
+  | "customer_session_day_pass"
+  | "meeting_room_early_checkin_minutes"
+  | "stale_session_hours";
 
 /* ============================================================================
  * DEFAULTS
@@ -82,6 +84,14 @@ const DEFAULTS: Record<
 
   customer_session_day_pass:
     "150.00",
+  /* How many minutes BEFORE the reserved start time a customer may be
+   * checked in to a meeting room. Editable in Settings. */
+  meeting_room_early_checkin_minutes:
+    "30",
+  /* Sessions open longer than this many hours are flagged as possibly
+   * forgotten. Editable in Settings. */
+  stale_session_hours:
+    "10",
 };
 
 /* ============================================================================

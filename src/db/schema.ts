@@ -1759,6 +1759,31 @@ export const expenses = pgTable(
 );
 
 // =============================================================================
+// MANUAL INCOME
+//
+// Money received that is NOT already tracked by sessions, F&B orders or
+// package sales (e.g. event fees, printing, one-off services).
+// =============================================================================
+
+export const manualIncomes = pgTable("manual_incomes", {
+  id: serial("id").primaryKey(),
+  shiftId: integer("shift_id")
+    .notNull()
+    .references(() => shifts.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  category: varchar("category", { length: 100 })
+    .notNull()
+    .default("General"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// =============================================================================
 // STAFF SESSIONS
 // =============================================================================
 

@@ -99,6 +99,10 @@ export default async function BookingDetail({
       subscriptionId:
         bookings.subscriptionId,
 
+      
+      customerId:
+        bookings.customerId,
+
       subscriptionHoursUsed:
         bookings.subscriptionHoursUsed,
     })
@@ -209,7 +213,7 @@ export default async function BookingDetail({
           ),
           eq(
             customerSubscriptions.customerId,
-            customers.id,
+            row.customerId,
           ),
         ),
       )

@@ -16,10 +16,7 @@ export type SettingKey =
   | "kitchen_printer_name"
   | "invoice_printer_name"
   | "public_base_url"
-  | "customer_session_1h"
-  | "customer_session_2h"
-  | "customer_session_3h"
-  | "customer_session_4h"
+  | "customer_session_tiers"
   | "customer_session_day_pass"
   | "meeting_room_early_checkin_minutes"
   | "stale_session_hours";
@@ -62,25 +59,17 @@ const DEFAULTS: Record<
   /* --------------------------------------------------------------------------
    * CUSTOMER SESSION PRICING
    *
-   * Exact business rules:
-   * 1h  = 40
-   * 2h  = 70
-   * 3h  = 100
-   * 4h  = 130
-   * >4h = 150 Day Pass
+   * `customer_session_tiers` is a JSON array of { hours, price }, any
+   * number of tiers, fully editable from Settings — NOT fixed to
+   * 1/2/3/4 hours. `customer_session_day_pass` is the flat rate charged
+   * once a session runs longer than the last configured tier.
+   *
+   * These values are only the fallback used the very first time the app
+   * runs, before an admin has saved pricing from Settings.
    * ------------------------------------------------------------------------ */
 
-  customer_session_1h:
-    "40.00",
-
-  customer_session_2h:
-    "70.00",
-
-  customer_session_3h:
-    "100.00",
-
-  customer_session_4h:
-    "130.00",
+  customer_session_tiers:
+    '[{"hours":1,"price":40},{"hours":2,"price":70},{"hours":3,"price":100},{"hours":4,"price":130}]',
 
   customer_session_day_pass:
     "150.00",
@@ -190,11 +179,15 @@ export async function setSetting(
  * CUSTOMER SESSION PRICING
  * ========================================================================== */
 
+export type SessionPricingTier = {
+  hours: number;
+  price: number;
+};
+
 export type CustomerSessionPricing = {
-  oneHour: number;
-  twoHours: number;
-  threeHours: number;
-  fourHours: number;
+  /** Sorted ascending by `hours`. Any number of tiers is supported. */
+  tiers: SessionPricingTier[];
+  /** Flat rate for a session longer than the last tier. */
   dayPass: number;
 };
 
@@ -221,34 +214,85 @@ function parsePositiveMoney(
   );
 }
 
+/**
+ * Parses and validates the `customer_session_tiers` JSON setting. Invalid,
+ * missing or empty input falls back to the shipped default tiers (this is
+ * a safety net so billing never breaks — not a hardcoded business rule).
+ */
+export function parseSessionTiers(raw: string): SessionPricingTier[] {
+  const fallback = (): SessionPricingTier[] =>
+    (
+      JSON.parse(
+        DEFAULTS.customer_session_tiers,
+      ) as Array<{ hours: unknown; price: unknown }>
+    ).map((t) => ({
+      hours: Number(t.hours),
+      price: Number(t.price),
+    }));
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return fallback();
+  }
+  if (!Array.isArray(parsed)) return fallback();
+
+  const byHours = new Map<number, number>();
+  for (const entry of parsed) {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      !("hours" in entry) ||
+      !("price" in entry)
+    ) {
+      continue;
+    }
+    const hours = Number((entry as { hours: unknown }).hours);
+    const price = Number((entry as { price: unknown }).price);
+    if (
+      !Number.isFinite(hours) ||
+      !Number.isInteger(hours) ||
+      hours <= 0 ||
+      hours > 24 * 31 ||
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      continue;
+    }
+    // A later duplicate hour value overrides an earlier one.
+    byHours.set(hours, Math.round(price * 100) / 100);
+  }
+
+  const tiers = Array.from(byHours.entries())
+    .map(([hours, price]) => ({ hours, price }))
+    .sort((a, b) => a.hours - b.hours);
+
+  return tiers.length > 0 ? tiers : fallback();
+}
+
+export function serializeSessionTiers(
+  tiers: SessionPricingTier[],
+): string {
+  return JSON.stringify(
+    tiers
+      .filter(
+        (t) =>
+          Number.isInteger(t.hours) &&
+          t.hours > 0 &&
+          Number.isFinite(t.price) &&
+          t.price >= 0,
+      )
+      .sort((a, b) => a.hours - b.hours),
+  );
+}
+
 export async function getCustomerSessionPricing(): Promise<CustomerSessionPricing> {
   const all =
     await getAllSettings();
 
   return {
-    oneHour:
-      parsePositiveMoney(
-        all.customer_session_1h,
-        DEFAULTS.customer_session_1h,
-      ),
-
-    twoHours:
-      parsePositiveMoney(
-        all.customer_session_2h,
-        DEFAULTS.customer_session_2h,
-      ),
-
-    threeHours:
-      parsePositiveMoney(
-        all.customer_session_3h,
-        DEFAULTS.customer_session_3h,
-      ),
-
-    fourHours:
-      parsePositiveMoney(
-        all.customer_session_4h,
-        DEFAULTS.customer_session_4h,
-      ),
+    tiers: parseSessionTiers(all.customer_session_tiers),
 
     dayPass:
       parsePositiveMoney(
@@ -262,6 +306,13 @@ export async function getCustomerSessionPricing(): Promise<CustomerSessionPricin
  * CUSTOMER SESSION BILLING
  * ========================================================================== */
 
+/**
+ * Finds the price for a session of `billableHours` whole hours: the
+ * cheapest tier whose `hours` covers the session, or the day-pass rate if
+ * the session runs longer than every configured tier. Supports any number
+ * of tiers — adding, removing or renumbering them in Settings needs no
+ * code change.
+ */
 export function calculateCustomerSessionSeatCharge(
   billableHours: number,
   pricing: CustomerSessionPricing,
@@ -277,24 +328,17 @@ export function calculateCustomerSessionSeatCharge(
     );
   }
 
-  switch (
-    billableHours
-  ) {
-    case 1:
-      return pricing.oneHour;
+  const sorted = [...pricing.tiers].sort(
+    (a, b) => a.hours - b.hours,
+  );
 
-    case 2:
-      return pricing.twoHours;
-
-    case 3:
-      return pricing.threeHours;
-
-    case 4:
-      return pricing.fourHours;
-
-    default:
-      return pricing.dayPass;
+  for (const tier of sorted) {
+    if (billableHours <= tier.hours) {
+      return tier.price;
+    }
   }
+
+  return pricing.dayPass;
 }
 
 /* ============================================================================

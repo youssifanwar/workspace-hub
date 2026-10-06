@@ -105,68 +105,30 @@ type Product = {
 };
 
 type CustomerSessionPricing = {
-  oneHour: number;
-
-  twoHours: number;
-
-  threeHours: number;
-
-  fourHours: number;
-
+  /** Any number of { hours, price } tiers, sorted ascending by hours. */
+  tiers: Array<{ hours: number; price: number }>;
   dayPass: number;
 };
 
+/*
+ * This is a client component, so it can't import the server-only
+ * `@/lib/settings` module (it pulls in the database client). This mirrors
+ * the pure math from `calculateCustomerSessionSeatCharge` there — the
+ * cheapest tier whose hours cover the session, or the day-pass rate once
+ * the session runs past every tier. No hour count is hardcoded; it reads
+ * entirely from the `pricing.tiers` the server sent down.
+ */
 function calculateSessionPrice(
   billableHours: number,
   pricing: CustomerSessionPricing,
 ) {
-  if (billableHours <= 1) {
-    return {
-      seatCharge:
-        pricing.oneHour,
-
-      pricingType:
-        "hour" as const,
-    };
+  const sorted = [...pricing.tiers].sort((a, b) => a.hours - b.hours);
+  for (const tier of sorted) {
+    if (billableHours <= tier.hours) {
+      return { seatCharge: tier.price, pricingType: "hour" as const };
+    }
   }
-
-  if (billableHours === 2) {
-    return {
-      seatCharge:
-        pricing.twoHours,
-
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  if (billableHours === 3) {
-    return {
-      seatCharge:
-        pricing.threeHours,
-
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  if (billableHours === 4) {
-    return {
-      seatCharge:
-        pricing.fourHours,
-
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  return {
-    seatCharge:
-      pricing.dayPass,
-
-    pricingType:
-      "day" as const,
-  };
+  return { seatCharge: pricing.dayPass, pricingType: "day" as const };
 }
 
 export default function BookingView({

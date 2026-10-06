@@ -21,7 +21,7 @@ import {
   redirect,
   notFound,
 } from "next/navigation";
-import { getSetting } from "@/lib/settings";
+import { getCustomerSessionPricing, getSetting } from "@/lib/settings";
 import BookingView from "./BookingView";
 
 export const dynamic = "force-dynamic";
@@ -98,9 +98,6 @@ export default async function BookingDetail({
 
       subscriptionId:
         bookings.subscriptionId,
-
-      customerId:
-        bookings.customerId,
 
       subscriptionHoursUsed:
         bookings.subscriptionHoursUsed,
@@ -212,7 +209,7 @@ export default async function BookingDetail({
           ),
           eq(
             customerSubscriptions.customerId,
-            row.customerId,
+            customers.id,
           ),
         ),
       )
@@ -417,38 +414,10 @@ export default async function BookingDetail({
       asc(products.name),
     );
 
-  const [
-    currency,
-    oneHourSetting,
-    twoHoursSetting,
-    threeHoursSetting,
-    fourHoursSetting,
-    dayPassSetting,
-  ] = await Promise.all([
+  const [currency, sessionPricing] = await Promise.all([
     getSetting("currency"),
-    getSetting("customer_session_1h"),
-    getSetting("customer_session_2h"),
-    getSetting("customer_session_3h"),
-    getSetting("customer_session_4h"),
-    getSetting("customer_session_day_pass"),
+    getCustomerSessionPricing(),
   ]);
-
-  const sessionPricing = {
-    oneHour:
-      Number(oneHourSetting),
-
-    twoHours:
-      Number(twoHoursSetting),
-
-    threeHours:
-      Number(threeHoursSetting),
-
-    fourHours:
-      Number(fourHoursSetting),
-
-    dayPass:
-      Number(dayPassSetting),
-  };
 
   return (
     <BookingView

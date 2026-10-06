@@ -20,7 +20,9 @@ import { getActiveShiftForUser } from "@/lib/shift";
 
 
 import {
+  calculateCustomerSessionSeatCharge,
   getCustomerSessionPricing,
+  type CustomerSessionPricing,
 } from "@/lib/settings";
 
 /**
@@ -45,57 +47,30 @@ import {
  * duplicate/concurrent checkout requests.
  */
 
+/**
+ * Thin wrapper around the single shared pricing function
+ * (`calculateCustomerSessionSeatCharge` in `@/lib/settings`) so checkout
+ * never carries its own copy of the tier logic. `pricingType` is "day"
+ * once the session runs past every configured tier, "hour" otherwise —
+ * used only for the human-readable billing note below.
+ */
 function calculateSessionPrice(
   billableHours: number,
-  pricing: {
-    oneHour: number;
-    twoHours: number;
-    threeHours: number;
-    fourHours: number;
-    dayPass: number;
-  },
+  pricing: CustomerSessionPricing,
 ) {
-  if (billableHours <= 1) {
-    return {
-      seatCharge:
-        pricing.oneHour,
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  if (billableHours === 2) {
-    return {
-      seatCharge:
-        pricing.twoHours,
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  if (billableHours === 3) {
-    return {
-      seatCharge:
-        pricing.threeHours,
-      pricingType:
-        "hour" as const,
-    };
-  }
-
-  if (billableHours === 4) {
-    return {
-      seatCharge:
-        pricing.fourHours,
-      pricingType:
-        "hour" as const,
-    };
-  }
-
+  const maxTierHours = pricing.tiers.reduce(
+    (max, t) => Math.max(max, t.hours),
+    0,
+  );
   return {
-    seatCharge:
-      pricing.dayPass,
+    seatCharge: calculateCustomerSessionSeatCharge(
+      billableHours,
+      pricing,
+    ),
     pricingType:
-      "day" as const,
+      billableHours > maxTierHours
+        ? ("day" as const)
+        : ("hour" as const),
   };
 }
 
@@ -299,17 +274,9 @@ export async function POST(
      * silently use NaN / Infinity / negative values.
      */
     if (
-      !isFiniteNonNegativeNumber(
-        sessionPricing.oneHour,
-      ) ||
-      !isFiniteNonNegativeNumber(
-        sessionPricing.twoHours,
-      ) ||
-      !isFiniteNonNegativeNumber(
-        sessionPricing.threeHours,
-      ) ||
-      !isFiniteNonNegativeNumber(
-        sessionPricing.fourHours,
+      sessionPricing.tiers.length === 0 ||
+      sessionPricing.tiers.some(
+        (t) => !isFiniteNonNegativeNumber(t.price),
       ) ||
       !isFiniteNonNegativeNumber(
         sessionPricing.dayPass,
@@ -906,17 +873,8 @@ export async function POST(
             pricingType:
               pricing.pricingType,
 
-            firstHourPrice:
-              sessionPricing.oneHour,
-
-            secondHourPrice:
-              sessionPricing.twoHours,
-
-            thirdHourPrice:
-              sessionPricing.threeHours,
-
-            fourthHourPrice:
-              sessionPricing.fourHours,
+            sessionPricingTiers:
+              sessionPricing.tiers,
 
             dayPassPrice:
               sessionPricing.dayPass,

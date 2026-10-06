@@ -310,10 +310,7 @@ export async function POST(
       await getCustomerSessionPricing();
 
     const pricingValues = [
-      sessionPricing.oneHour,
-      sessionPricing.twoHours,
-      sessionPricing.threeHours,
-      sessionPricing.fourHours,
+      ...sessionPricing.tiers.map((t) => t.price),
       sessionPricing.dayPass,
     ];
 
@@ -872,9 +869,10 @@ export async function POST(
                      * from the business rules.
                      */
                     hourlyRateSnapshot:
-                      sessionPricing.oneHour.toFixed(
-                        2,
-                      ),
+                      (
+                        sessionPricing.tiers[0]?.price ??
+                        sessionPricing.dayPass
+                      ).toFixed(2),
 
                     billingMode,
 
@@ -1038,17 +1036,8 @@ export async function POST(
                  */
                 pricingSnapshot:
                   {
-                    oneHour:
-                      sessionPricing.oneHour,
-
-                    twoHours:
-                      sessionPricing.twoHours,
-
-                    threeHours:
-                      sessionPricing.threeHours,
-
-                    fourHours:
-                      sessionPricing.fourHours,
+                    tiers:
+                      sessionPricing.tiers,
 
                     dayPass:
                       sessionPricing.dayPass,
@@ -1091,17 +1080,8 @@ export async function POST(
 
             pricingSnapshot:
               {
-                oneHour:
-                  sessionPricing.oneHour,
-
-                twoHours:
-                  sessionPricing.twoHours,
-
-                threeHours:
-                  sessionPricing.threeHours,
-
-                fourHours:
-                  sessionPricing.fourHours,
+                tiers:
+                  sessionPricing.tiers,
 
                 dayPass:
                   sessionPricing.dayPass,

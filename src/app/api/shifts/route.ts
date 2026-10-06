@@ -7,11 +7,11 @@ import {
 
 import { db } from "@/db";
 
-import { shifts } from "@/db/schema";
+import { shifts, users } from "@/db/schema";
 
 import { getCurrentUser } from "@/lib/auth";
 
-import { getActiveShiftForUser } from "@/lib/shift";
+import { getActiveShiftForUser, getAnyActiveShift } from "@/lib/shift";
 
 export const dynamic =
   "force-dynamic";
@@ -189,21 +189,18 @@ export async function POST(
       await db.transaction(
         async (tx) => {
           /*
-           * Serialize shift creation for this user.
-           *
-           * Without this lock, two simultaneous requests can both execute
-           * getActiveShiftForUser() before either INSERT commits.
+           * Serialize ALL shift creation, system-wide, with a single fixed
+           * lock key (not keyed by user). Only one shift may be open at a
+           * time across the whole workspace — this lock is what makes
+           * that rule race-safe when two different accounts try to open
+           * a shift at the same moment.
            */
           await tx.execute(
-            sql`
-              SELECT pg_advisory_xact_lock(
-                ${user.id}
-              )
-            `,
+            sql`SELECT pg_advisory_xact_lock(727274001)`,
           );
 
           /* -------------------------------------------------------------- */
-          /* ACTIVE SHIFT CHECK                                               */
+          /* ACTIVE SHIFT CHECK (SYSTEM-WIDE — only one shift at a time)      */
           /* -------------------------------------------------------------- */
 
           const existing =
@@ -214,6 +211,19 @@ export async function POST(
           if (existing) {
             throw new ApiError(
               "You already have an active shift.",
+              409,
+            );
+          }
+
+          const anyActive = await getAnyActiveShift();
+          if (anyActive) {
+            const [holder] = await tx
+              .select({ fullName: users.fullName })
+              .from(users)
+              .where(eq(users.id, anyActive.userId))
+              .limit(1);
+            throw new ApiError(
+              `${holder?.fullName ?? "Another user"} already has an open shift (started ${anyActive.openedAt.toLocaleString()}). Only one shift can be open at a time — ask them to close it first.`,
               409,
             );
           }

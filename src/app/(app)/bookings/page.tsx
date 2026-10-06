@@ -5,8 +5,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveShiftForUser } from "@/lib/shift";
 import {
+  calculateCustomerSessionSeatCharge,
   getCustomerSessionPricing,
   getSetting,
+  type CustomerSessionPricing,
 } from "@/lib/settings";
 import OpenSessionButton from "./OpenSessionButton";
 import QuickCancelButton from "./QuickCancelButton";
@@ -19,44 +21,9 @@ export const dynamic = "force-dynamic";
 /* TYPES                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type CustomerSessionPricing = {
-  oneHour: number;
-  twoHours: number;
-  threeHours: number;
-  fourHours: number;
-  dayPass: number;
-};
-
 type BillingMode =
   | "regular"
   | "package";
-
-/* -------------------------------------------------------------------------- */
-/* SESSION PRICING                                                            */
-/* -------------------------------------------------------------------------- */
-
-function calculateRegularSeatCharge(
-  billableHours: number,
-  pricing: CustomerSessionPricing,
-) {
-  if (billableHours <= 1) {
-    return pricing.oneHour;
-  }
-
-  if (billableHours === 2) {
-    return pricing.twoHours;
-  }
-
-  if (billableHours === 3) {
-    return pricing.threeHours;
-  }
-
-  if (billableHours === 4) {
-    return pricing.fourHours;
-  }
-
-  return pricing.dayPass;
-}
 
 /* -------------------------------------------------------------------------- */
 /* PAGE                                                                       */
@@ -453,7 +420,7 @@ function SessionCard({
     session.billingMode ===
     "package"
       ? 0
-      : calculateRegularSeatCharge(
+      : calculateCustomerSessionSeatCharge(
           billableHours,
           pricing,
         );

@@ -15,7 +15,7 @@ import {
   meetingRoomReservations,
 } from "@/db/schema";
 
-import { canManage, getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 import { getActiveShiftForUser } from "@/lib/shift";
 import { getSetting } from "@/lib/settings";
@@ -91,15 +91,6 @@ export async function PATCH(
       );
     }
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can adjust meeting-room sessions.",
-        },
-        { status: 403 },
-      );
-    }
 
     const activeShift = await getActiveShiftForUser(user.id);
 
@@ -544,47 +535,73 @@ export async function PATCH(
         if (mapping?.calendarId && reservation.googleEventId) {
           mappingCalendarId = mapping.calendarId;
 
-          const busy = await getCalendarBusyPeriods(
-            mapping.calendarId,
-            reservation.endAt.toISOString(),
-            newEndAt.toISOString(),
-          );
+          /*
+           * Google Calendar sync is best-effort for an already-active
+           * session: the room's real availability was just re-checked
+           * against our own reservations above, so a Calendar outage,
+           * expired token or network error must NOT block extending a
+           * session that is physically fine to extend. A genuine
+           * double-booking still blocks the request (busy.length > 0
+           * below); only connectivity/auth failures are swallowed.
+           */
+          let busy: Awaited<ReturnType<typeof getCalendarBusyPeriods>> = [];
+          let busyCheckFailed = false;
+          try {
+            busy = await getCalendarBusyPeriods(
+              mapping.calendarId,
+              reservation.endAt.toISOString(),
+              newEndAt.toISOString(),
+            );
+          } catch (error) {
+            busyCheckFailed = true;
+            console.error(
+              "Meeting room add_hours: could not read Google Calendar busy periods, continuing without it:",
+              error,
+            );
+          }
 
-          if (busy.length > 0) {
+          if (!busyCheckFailed && busy.length > 0) {
             throw new Error(
               "The room is already busy in Google Calendar during the additional time.",
             );
           }
 
-          const [customer] = await tx
-            .select({ name: customers.name })
-            .from(customers)
-            .where(eq(customers.id, booking.customerId))
-            .limit(1);
+          try {
+            const [customer] = await tx
+              .select({ name: customers.name })
+              .from(customers)
+              .where(eq(customers.id, booking.customerId))
+              .limit(1);
 
-          const customerName = customer?.name || "Meeting room customer";
+            const customerName = customer?.name || "Meeting room customer";
 
-          const googleResult = await updateGoogleCalendarEvent(
-            mapping.calendarId,
-            reservation.googleEventId,
-            {
-              summary: "Meeting Room — Active Session",
-              description: [
-                `Customer: ${customerName}`,
-                `Attendees: ${newAttendeeCount}`,
-                `Duration: ${newDurationHours} hour(s)`,
-                `Session ID: ${reservation.id}`,
-              ].join("\n"),
-              start: reservation.startAt.toISOString(),
-              end: newEndAt.toISOString(),
-            },
-          );
+            const googleResult = await updateGoogleCalendarEvent(
+              mapping.calendarId,
+              reservation.googleEventId,
+              {
+                summary: "Meeting Room — Active Session",
+                description: [
+                  `Customer: ${customerName}`,
+                  `Attendees: ${newAttendeeCount}`,
+                  `Duration: ${newDurationHours} hour(s)`,
+                  `Session ID: ${reservation.id}`,
+                ].join("\n"),
+                start: reservation.startAt.toISOString(),
+                end: newEndAt.toISOString(),
+              },
+            );
 
-          updatedGoogleEvents.push({
-            calendarId: mapping.calendarId,
-            eventId: reservation.googleEventId,
-            previous: googleResult.previous,
-          });
+            updatedGoogleEvents.push({
+              calendarId: mapping.calendarId,
+              eventId: reservation.googleEventId,
+              previous: googleResult.previous,
+            });
+          } catch (error) {
+            console.error(
+              "Meeting room add_hours: the DB was updated but the Google Calendar event could not be synced:",
+              error,
+            );
+          }
         }
       }
 
@@ -904,16 +921,6 @@ export async function DELETE(
       );
     }
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can cancel meeting-room reservations.",
-        },
-        { status: 403 },
-      );
-    }
-
     const activeShift = await getActiveShiftForUser(user.id);
 
     if (!activeShift) {
@@ -942,10 +949,13 @@ export async function DELETE(
           id: meetingRoomReservations.id,
           deskId: meetingRoomReservations.deskId,
           customerId: meetingRoomReservations.customerId,
+          bookingId: meetingRoomReservations.bookingId,
           startAt: meetingRoomReservations.startAt,
           endAt: meetingRoomReservations.endAt,
           status: meetingRoomReservations.status,
           googleEventId: meetingRoomReservations.googleEventId,
+          packagePurchaseId: meetingRoomReservations.packagePurchaseId,
+          packageHoursUsed: meetingRoomReservations.packageHoursUsed,
         })
         .from(meetingRoomReservations)
         .where(eq(meetingRoomReservations.id, reservationId))
@@ -955,10 +965,64 @@ export async function DELETE(
         throw new Error("Meeting room reservation not found.");
       }
 
-      if (reservation.status !== "confirmed") {
+      if (
+        reservation.status !== "confirmed" &&
+        reservation.status !== "active"
+      ) {
         throw new Error(
-          `Only confirmed meeting room reservations can be cancelled. Current status: "${reservation.status}".`,
+          `Only an upcoming or active meeting room reservation can be cancelled. Current status: "${reservation.status}".`,
         );
+      }
+
+      /*
+       * An ACTIVE reservation is a customer physically in the room right
+       * now, linked to a row in `bookings`. Cancelling it must also
+       * remove that linked session — otherwise it stays "active" forever
+       * and keeps showing up as an occupied room / active session
+       * everywhere else in the app.
+       */
+      if (reservation.status === "active") {
+        if (!reservation.bookingId) {
+          throw new Error(
+            "This active reservation has no linked customer session.",
+          );
+        }
+
+        const [booking] = await tx
+          .select({
+            id: bookings.id,
+            status: bookings.status,
+            shiftId: bookings.shiftId,
+          })
+          .from(bookings)
+          .where(eq(bookings.id, reservation.bookingId))
+          .limit(1);
+
+        if (booking && booking.status === "active") {
+          if (booking.shiftId !== activeShift.id) {
+            throw new Error(
+              "This session does not belong to your active shift.",
+            );
+          }
+
+          const deletedBooking = await tx
+            .delete(bookings)
+            .where(
+              and(
+                eq(bookings.id, booking.id),
+                eq(bookings.status, "active"),
+              ),
+            )
+            .returning({ id: bookings.id });
+
+          if (deletedBooking.length === 0) {
+            throw new Error(
+              "The linked session changed before cancellation could be completed.",
+            );
+          }
+        }
+        // If the booking was already gone/closed, we still proceed to
+        // cancel the reservation itself below rather than getting stuck.
       }
 
       const [mapping] = await tx
@@ -973,12 +1037,13 @@ export async function DELETE(
         .update(meetingRoomReservations)
         .set({
           status: "cancelled",
+          bookingId: null,
           updatedAt: new Date(),
         })
         .where(
           and(
             eq(meetingRoomReservations.id, reservation.id),
-            eq(meetingRoomReservations.status, "confirmed"),
+            eq(meetingRoomReservations.status, reservation.status),
           ),
         )
         .returning({
@@ -994,6 +1059,41 @@ export async function DELETE(
         );
       }
 
+      /*
+       * Give back any package hours this reservation had already
+       * consumed (hours are deducted at booking time, not at checkout).
+       * Without this, a cancelled meeting room session permanently cost
+       * the customer package hours for a room they never used.
+       */
+      if (
+        reservation.packagePurchaseId &&
+        Number(reservation.packageHoursUsed) > 0
+      ) {
+        const reversalKey = `meeting-room-cancel-reversal:${reservation.id}`;
+        const [existingReversal] = await tx
+          .select({ id: meetingRoomPackageUsageLedger.id })
+          .from(meetingRoomPackageUsageLedger)
+          .where(
+            eq(
+              meetingRoomPackageUsageLedger.idempotencyKey,
+              reversalKey,
+            ),
+          )
+          .limit(1);
+
+        if (!existingReversal) {
+          await tx.insert(meetingRoomPackageUsageLedger).values({
+            packagePurchaseId: reservation.packagePurchaseId,
+            reservationId: reservation.id,
+            userId: user.id,
+            entryType: "reversal",
+            hoursDelta: Number(reservation.packageHoursUsed).toFixed(2),
+            reason: `Cancelled meeting room reservation #${reservation.id}`,
+            idempotencyKey: reversalKey,
+          });
+        }
+      }
+
       await tx.insert(auditLogs).values({
         userId: user.id,
         action: "meeting_room_reservation_cancelled",
@@ -1002,9 +1102,11 @@ export async function DELETE(
         details: {
           roomId: reservation.deskId,
           customerId: reservation.customerId,
+          wasActive: reservation.status === "active",
           startAt: reservation.startAt.toISOString(),
           endAt: reservation.endAt.toISOString(),
           googleEventId: reservation.googleEventId,
+          shiftId: activeShift.id,
         },
       });
 

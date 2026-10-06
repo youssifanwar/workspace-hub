@@ -6,8 +6,11 @@ import { db } from "@/db";
 import {
   bankTransactions,
   bookings,
+  customerMeetingRoomPackages,
   customers,
+  customerSubscriptions,
   expenses,
+  manualIncomes,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import {
@@ -79,6 +82,10 @@ export default async function DashboardPage() {
     activeSessionsRows,
     recentSessions,
     paymentBreakdown,
+    todayDeskPackageRow,
+    todayMeetingPackageRow,
+    todayManualIncomeRow,
+    activeMeetingRoomsRow,
   ] = await Promise.all([
     // TODAY'S REVENUE
     db
@@ -246,18 +253,74 @@ export default async function DashboardPage() {
         ),
       )
       .groupBy(bookings.paymentMethod),
+
+    // TODAY'S PACKAGE SALES (desk), by payment date, excluding cancelled
+    db
+      .select({
+        total: sql<string>`coalesce(sum(${customerSubscriptions.priceSnapshot}), 0)`,
+      })
+      .from(customerSubscriptions)
+      .where(
+        and(
+          sql`${customerSubscriptions.status} <> 'cancelled'`,
+          gte(customerSubscriptions.purchasedAt, startOfDay),
+        ),
+      ),
+
+    // TODAY'S PACKAGE SALES (meeting room), by payment date
+    db
+      .select({
+        total: sql<string>`coalesce(sum(${customerMeetingRoomPackages.priceSnapshot}), 0)`,
+      })
+      .from(customerMeetingRoomPackages)
+      .where(
+        and(
+          sql`${customerMeetingRoomPackages.status} <> 'cancelled'`,
+          gte(customerMeetingRoomPackages.purchasedAt, startOfDay),
+        ),
+      ),
+
+    // TODAY'S MANUAL INCOME (Expenses & Income page)
+    db
+      .select({
+        total: sql<string>`coalesce(sum(${manualIncomes.amount}), 0)`,
+      })
+      .from(manualIncomes)
+      .where(gte(manualIncomes.createdAt, startOfDay)),
+
+    // ACTIVE MEETING ROOM SESSIONS (separate from open-seating sessions)
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.status, "active"),
+          sql`${bookings.deskId} is not null`,
+        ),
+      ),
   ]);
 
   const directFnbRevenue = safeNumber(
     (directFnbRevenueRow.rows?.[0] as { total?: unknown } | undefined)?.total,
   );
 
+  const todayPackageSales =
+    safeNumber(todayDeskPackageRow[0]?.total) +
+    safeNumber(todayMeetingPackageRow[0]?.total);
+  const todayManualIncome = safeNumber(todayManualIncomeRow[0]?.total);
+
   const todayRevenue =
-    safeNumber(todayRevenueRow[0]?.total) + directFnbRevenue;
+    safeNumber(todayRevenueRow[0]?.total) +
+    directFnbRevenue +
+    todayPackageSales +
+    todayManualIncome;
   const todayOrders =
     safeNumber(todayOrdersRow[0]?.total) + directFnbRevenue;
   const todaySeat = safeNumber(todaySeatRow[0]?.total);
   const todayExpenses = safeNumber(todayExpensesRow[0]?.total);
+  const activeMeetingRoomsCount = Number(
+    activeMeetingRoomsRow[0]?.c ?? 0,
+  );
 
   const bankDeposits = safeNumber(todayBankRow[0]?.deposits);
   const bankWithdrawals = safeNumber(todayBankRow[0]?.withdrawals);
@@ -293,6 +356,7 @@ export default async function DashboardPage() {
     {
       label: "Today's Revenue",
       value: formatMoney(todayRevenue, currency),
+      sub: `Packages ${formatMoney(todayPackageSales, currency)} · Other ${formatMoney(todayManualIncome, currency)}`,
       icon: "💰",
       grad: "from-emerald-500 to-teal-500",
     },
@@ -325,6 +389,12 @@ export default async function DashboardPage() {
       value: `${activeCount}`,
       icon: "👤",
       grad: "from-fuchsia-500 to-pink-500",
+    },
+    {
+      label: "Active Meeting Rooms",
+      value: `${activeMeetingRoomsCount}`,
+      icon: "🗓️",
+      grad: "from-violet-500 to-indigo-500",
     },
     {
       label: "Customers",
@@ -454,11 +524,12 @@ export default async function DashboardPage() {
                   /*
                    * Customer Session billing:
                    * - Package => seat charge = 0
-                   * - Regular => 1h 40, 2h 70, 3h 100,
-                   *   4h 130, >4h Day Pass 150
+                   * - Regular => whichever configured tier (Settings)
+                   *   covers the elapsed hours, or the Day Pass rate
+                   *   once it runs past every tier.
                    *
-                   * This keeps the dashboard aligned with
-                   * the server-side customer session pricing.
+                   * This keeps the dashboard aligned with the
+                   * server-side customer session pricing.
                    */
                   const seatCharge = isPackage
                     ? 0

@@ -121,6 +121,44 @@ export default function ActiveMeetingRooms({
     useState(false);
   const [adjustmentError, setAdjustmentError] =
     useState<string | null>(null);
+  const [cancellingId, setCancellingId] =
+    useState<number | null>(null);
+
+  async function cancelSession(session: ActiveSession) {
+    if (cancellingId !== null) return;
+    if (
+      !confirm(
+        `Cancel this session for ${session.customerName}? The room will be freed and nothing will be charged. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setCancellingId(session.reservationId);
+    try {
+      const response = await fetch(
+        `/api/meeting-rooms/reservations/${session.reservationId}`,
+        { method: "DELETE" },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            `Could not cancel the session (HTTP ${response.status}).`,
+        );
+      }
+      await load();
+      router.refresh();
+    } catch (cancelError) {
+      console.error("Meeting room cancel error:", cancelError);
+      alert(
+        cancelError instanceof Error
+          ? cancelError.message
+          : "Could not cancel this session.",
+      );
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   const load = useCallback(
     async (silent = false) => {
@@ -645,9 +683,24 @@ export default function ActiveMeetingRooms({
                         ),
                       });
                     }}
-                    disabled={checkingOut || adjusting}
+                    disabled={checkingOut || adjusting || cancellingId !== null}
                   >
                     💳 Checkout &amp; Close Session
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost w-full py-2 text-red-600"
+                    onClick={() => void cancelSession(session)}
+                    disabled={
+                      checkingOut ||
+                      adjusting ||
+                      cancellingId !== null
+                    }
+                  >
+                    {cancellingId === session.reservationId
+                      ? "Cancelling…"
+                      : "✕ Cancel session"}
                   </button>
                 </div>
               </div>

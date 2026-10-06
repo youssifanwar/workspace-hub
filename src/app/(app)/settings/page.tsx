@@ -273,9 +273,12 @@ export default async function SettingsPage() {
       {/* USERS */}
       {admin && (
         <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            👥 Users & permissions
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold">👥 Users & permissions</h3>
+            <a href="/settings/shifts" className="btn btn-ghost text-sm">
+              🕒 Who's on shift →
+            </a>
+          </div>
 
           <UsersAdmin
             users={allUsers.map((userRow) => ({

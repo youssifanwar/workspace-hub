@@ -7,6 +7,8 @@ import {
 
 import { useRouter } from "next/navigation";
 
+import QuickBookModal from "./QuickBookModal";
+
 /* ============================================================================
  * TYPES
  * ========================================================================== */
@@ -15,6 +17,7 @@ type Room = {
   id: number;
   name: string;
   hourlyRate: string;
+  capacity: number;
 };
 
 type Reservation = {
@@ -225,9 +228,15 @@ function uniqueReservations(
 export default function MeetingRoomCalendar({
   rooms,
   reservations,
+  startHour,
+  endHour,
+  maxBookingHours,
 }: {
   rooms: Room[];
   reservations: Reservation[];
+  startHour: number;
+  endHour: number;
+  maxBookingHours: number;
 }) {
   const router = useRouter();
 
@@ -247,6 +256,8 @@ export default function MeetingRoomCalendar({
       null,
     );
 
+  const [bookingStart, setBookingStart] =
+    useState<Date | null>(null);
   const [cancellingId, setCancellingId] =
     useState<number | null>(
       null,
@@ -613,6 +624,19 @@ export default function MeetingRoomCalendar({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={() => {
+                const d = new Date();
+                d.setMinutes(0, 0, 0);
+                d.setHours(d.getHours() + 1);
+                setBookingStart(d);
+              }}
+              className="btn btn-primary"
+            >
+              + New reservation
+            </button>
+
+            <button
+              type="button"
               onClick={goToday}
               className="btn btn-ghost"
             >
@@ -772,9 +796,24 @@ export default function MeetingRoomCalendar({
           reservations={
             filteredReservations
           }
+          startHour={startHour}
+          endHour={endHour}
           onSelectReservation={
             openReservation
           }
+          onSelectSlot={(slotStart) =>
+            setBookingStart(slotStart)
+          }
+        />
+      )}
+
+      {bookingStart && (
+        <QuickBookModal
+          rooms={rooms}
+          initialRoomId={selectedRoom}
+          initialStart={bookingStart}
+          maxDurationHours={maxBookingHours}
+          onClose={() => setBookingStart(null)}
         />
       )}
 
@@ -1203,20 +1242,27 @@ export default function MeetingRoomCalendar({
 function TimeGrid({
   days,
   reservations,
+  startHour,
+  endHour,
   onSelectReservation,
+  onSelectSlot,
 }: {
   days: Date[];
   reservations: Reservation[];
+  startHour: number;
+  endHour: number;
   onSelectReservation: (
     reservation: Reservation,
   ) => void;
+  onSelectSlot: (slotStart: Date) => void;
 }) {
+  // Visible hours come from Settings (calendar start/end), not code.
   const hours = Array.from(
     {
-      length: 15,
+      length: Math.max(1, endHour - startHour),
     },
     (_, index) =>
-      index + 8,
+      index + startHour,
   );
 
   return (
@@ -1392,11 +1438,36 @@ function TimeGrid({
                     return (
                       <div
                         key={`${day.toISOString()}-${hour}`}
-                        className="relative min-h-[76px] border-b border-slate-100 bg-white p-1"
+                        role="button"
+                        tabIndex={cellEnd.getTime() > Date.now() ? 0 : -1}
+                        aria-label={`New reservation ${cellStart.toLocaleString()}`}
+                        onClick={() => {
+                          if (cellEnd.getTime() > Date.now()) {
+                            onSelectSlot(cellStart);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (
+                            (e.key === "Enter" || e.key === " ") &&
+                            cellEnd.getTime() > Date.now()
+                          ) {
+                            e.preventDefault();
+                            onSelectSlot(cellStart);
+                          }
+                        }}
+                        className={`relative min-h-[76px] border-b border-slate-100 bg-white p-1 ${
+                          cellEnd.getTime() > Date.now()
+                            ? "cursor-pointer hover:bg-indigo-50/60"
+                            : "bg-slate-50/60"
+                        }`}
                       >
                         <div className="absolute inset-x-0 top-1/2 border-t border-slate-50" />
 
-                        <div className="relative space-y-1">
+                        <div
+                          className="relative space-y-1"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
                           {events.map(
                             (
                               event,

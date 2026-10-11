@@ -177,6 +177,9 @@ export default async function SettingsPage() {
               invoiceFooter={settings.invoice_footer}
               earlyCheckinMinutes={settings.meeting_room_early_checkin_minutes}
               staleSessionHours={settings.stale_session_hours}
+              calendarStartHour={settings.calendar_start_hour}
+              calendarEndHour={settings.calendar_end_hour}
+              maxBookingHours={settings.meeting_room_max_booking_hours}
             />
           </div>
         )}

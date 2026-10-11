@@ -15,6 +15,9 @@ export default function WorkspaceSettings({
   invoiceFooter,
   earlyCheckinMinutes,
   staleSessionHours,
+  calendarStartHour,
+  calendarEndHour,
+  maxBookingHours,
 }: {
   workspaceName: string;
   workspaceAddress: string;
@@ -23,6 +26,9 @@ export default function WorkspaceSettings({
   invoiceFooter: string;
   earlyCheckinMinutes: string;
   staleSessionHours: string;
+  calendarStartHour: string;
+  calendarEndHour: string;
+  maxBookingHours: string;
 }) {
   const router = useRouter();
 
@@ -33,6 +39,9 @@ export default function WorkspaceSettings({
   const [footer, setFooter] = useState(invoiceFooter);
   const [earlyMin, setEarlyMin] = useState(earlyCheckinMinutes);
   const [staleHours, setStaleHours] = useState(staleSessionHours);
+  const [calStart, setCalStart] = useState(calendarStartHour);
+  const [calEnd, setCalEnd] = useState(calendarEndHour);
+  const [maxBook, setMaxBook] = useState(maxBookingHours);
 
   const [loading, setLoading] = useState(false);
 
@@ -131,6 +140,9 @@ export default function WorkspaceSettings({
           workspace_phone: normalizedPhone,
           currency: normalizedCurrency,
           invoice_footer: normalizedFooter,
+          calendar_start_hour: String(Math.max(0, Math.min(23, Math.floor(Number(calStart) || 0)))),
+          calendar_end_hour: String(Math.max(1, Math.min(24, Math.floor(Number(calEnd) || 24)))),
+          meeting_room_max_booking_hours: String(Math.max(1, Math.min(24, Math.floor(Number(maxBook) || 8)))),
           stale_session_hours: String(
             Math.max(1, Math.min(72, Math.floor(Number(staleHours) || 10))),
           ),
@@ -358,6 +370,28 @@ export default function WorkspaceSettings({
           }}
           disabled={loading}
         />
+      </div>
+
+      {/* MEETING ROOM CALENDAR */}
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label htmlFor="cal-start" className="label">Calendar starts (hour)</label>
+          <input id="cal-start" className="input" type="number" min={0} max={23}
+            value={calStart} disabled={loading}
+            onChange={(e) => { setCalStart(e.target.value); setMsg(null); }} />
+        </div>
+        <div>
+          <label htmlFor="cal-end" className="label">Calendar ends (hour)</label>
+          <input id="cal-end" className="input" type="number" min={1} max={24}
+            value={calEnd} disabled={loading}
+            onChange={(e) => { setCalEnd(e.target.value); setMsg(null); }} />
+        </div>
+        <div>
+          <label htmlFor="max-book" className="label">Longest booking (hours)</label>
+          <input id="max-book" className="input" type="number" min={1} max={24}
+            value={maxBook} disabled={loading}
+            onChange={(e) => { setMaxBook(e.target.value); setMsg(null); }} />
+        </div>
       </div>
 
       {/* MESSAGE */}

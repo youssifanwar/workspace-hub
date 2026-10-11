@@ -21,6 +21,9 @@ const ALLOWED_KEYS: SettingKey[] = [
   "customer_session_day_pass",
   "meeting_room_early_checkin_minutes",
   "stale_session_hours",
+  "calendar_start_hour",
+  "calendar_end_hour",
+  "meeting_room_max_booking_hours",
 ];
 
 /**
@@ -95,6 +98,31 @@ export async function PATCH(req: Request) {
       await setSetting("customer_session_tiers", normalized);
       saved.push(k);
       continue;
+    }
+
+    const INT_RANGES: Partial<Record<string, [number, number, string]>> = {
+      calendar_start_hour: [0, 23, "Calendar start hour must be 0–23."],
+      calendar_end_hour: [1, 24, "Calendar end hour must be 1–24."],
+      meeting_room_max_booking_hours: [1, 24, "Max booking hours must be 1–24."],
+      stale_session_hours: [1, 72, "Stale session hours must be 1–72."],
+      meeting_room_early_checkin_minutes: [0, 1440, "Early check-in minutes must be 0–1440."],
+    };
+    const range = INT_RANGES[k];
+    if (range) {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < range[0] || n > range[1]) {
+        return NextResponse.json({ error: range[2] }, { status: 400 });
+      }
+    }
+    if (
+      k === "calendar_end_hour" &&
+      "calendar_start_hour" in body &&
+      Number(v) <= Number(body.calendar_start_hour)
+    ) {
+      return NextResponse.json(
+        { error: "Calendar end hour must be after the start hour." },
+        { status: 400 },
+      );
     }
 
     // Accept both string and number values from the client (price fields

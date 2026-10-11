@@ -20,6 +20,7 @@ import {
 
 import { redirect } from "next/navigation";
 
+import { getSetting } from "@/lib/settings";
 import MeetingRoomCalendar from "./MeetingRoomCalendar";
 
 export const dynamic =
@@ -46,6 +47,8 @@ export default async function MeetingRoomCalendarPage() {
 
         hourlyRate:
           desks.hourlyRate,
+        capacity:
+          desks.capacity,
       })
       .from(
         desks,
@@ -68,6 +71,18 @@ export default async function MeetingRoomCalendarPage() {
           desks.sortOrder,
         ),
       );
+
+  const [startRaw, endRaw, maxRaw] = await Promise.all([
+    getSetting("calendar_start_hour"),
+    getSetting("calendar_end_hour"),
+    getSetting("meeting_room_max_booking_hours"),
+  ]);
+  let startHour = Number(startRaw);
+  let endHour = Number(endRaw);
+  if (!Number.isInteger(startHour) || startHour < 0 || startHour > 23) startHour = 8;
+  if (!Number.isInteger(endHour) || endHour <= startHour || endHour > 24) endHour = Math.max(startHour + 1, 23);
+  let maxBookingHours = Number(maxRaw);
+  if (!Number.isInteger(maxBookingHours) || maxBookingHours < 1 || maxBookingHours > 24) maxBookingHours = 8;
 
   const now =
     new Date();
@@ -157,8 +172,13 @@ export default async function MeetingRoomCalendarPage() {
 
           hourlyRate:
             room.hourlyRate,
+          capacity:
+            room.capacity,
         }),
       )}
+      startHour={startHour}
+      endHour={endHour}
+      maxBookingHours={maxBookingHours}
       reservations={reservations.map(
         (reservation) => ({
           id:

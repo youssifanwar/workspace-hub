@@ -296,7 +296,7 @@ export async function POST(
             0
           ) {
             throw new ApiError(
-              `Cannot close shift: ${openBookings.length} booking(s) are still active. Please check them out first.`,
+              `Cannot close shift: ${openBookings.length} session(s) are still active. Check them out first — or, if another employee is taking over and customers are staying, use "Hand over shift" instead (it keeps them open).`,
               409,
             );
           }

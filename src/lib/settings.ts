@@ -19,7 +19,10 @@ export type SettingKey =
   | "customer_session_tiers"
   | "customer_session_day_pass"
   | "meeting_room_early_checkin_minutes"
-  | "stale_session_hours";
+  | "stale_session_hours"
+  | "calendar_start_hour"
+  | "calendar_end_hour"
+  | "meeting_room_max_booking_hours";
 
 /* ============================================================================
  * DEFAULTS
@@ -81,6 +84,14 @@ const DEFAULTS: Record<
    * forgotten. Editable in Settings. */
   stale_session_hours:
     "10",
+  /* Meeting-room calendar visible hours (0-24) and the longest booking
+   * offered in the quick-book form. Editable in Settings. */
+  calendar_start_hour:
+    "8",
+  calendar_end_hour:
+    "23",
+  meeting_room_max_booking_hours:
+    "8",
 };
 
 /* ============================================================================

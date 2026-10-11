@@ -15,10 +15,7 @@ import {
   meetingRoomReservations,
 } from "@/db/schema";
 
-import {
-  canManage,
-  getCurrentUser,
-} from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -41,12 +38,6 @@ export async function GET() {
       );
     }
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        { error: "Permission denied." },
-        { status: 403 },
-      );
-    }
 
 
     const rows = await db
@@ -62,6 +53,7 @@ export async function GET() {
           meetingRoomReservations.customerId,
         customerName: customers.name,
         customerPhone: customers.phone,
+        customerBalance: customers.balance,
         accessCode: bookings.accessCode,
         startAt:
           meetingRoomReservations.startAt,
@@ -261,6 +253,8 @@ export async function GET() {
 
           customerPhone:
             row.customerPhone,
+          customerBalance:
+            Number(row.customerBalance ?? 0),
 
           accessCode:
             row.accessCode,

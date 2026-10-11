@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { ilike, or } from "drizzle-orm";
+import { ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { customers } from "@/db/schema";
+import { bookings, customers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ export async function GET(req: Request) {
         name: customers.name,
         phone: customers.phone,
         email: customers.email,
+        balance: customers.balance,
       })
       .from(customers)
       .where(
@@ -45,7 +46,33 @@ export async function GET(req: Request) {
       .orderBy(customers.name)
       .limit(8);
 
-    return NextResponse.json({ customers: rows });
+    // Visits + total hours spent (desk and meeting-room sessions).
+    const ids = rows.map((r) => r.id);
+    const statRows =
+      ids.length === 0
+        ? []
+        : await db
+            .select({
+              customerId: bookings.customerId,
+              visits: sql<number>`count(*)::int`,
+              hours: sql<string>`coalesce(sum(greatest(0, extract(epoch from (coalesce(${bookings.checkedOutAt}, now()) - ${bookings.checkedInAt})) / 3600)), 0)`,
+            })
+            .from(bookings)
+            .where(inArray(bookings.customerId, ids))
+            .groupBy(bookings.customerId);
+    const stats = new Map(statRows.map((r) => [r.customerId, r]));
+
+    return NextResponse.json({
+      customers: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        phone: r.phone,
+        email: r.email,
+        balance: Number(r.balance),
+        visits: stats.get(r.id)?.visits ?? 0,
+        totalHours: Math.round(Number(stats.get(r.id)?.hours ?? 0) * 10) / 10,
+      })),
+    });
   } catch (error) {
     console.error("Customer search error:", error);
     return NextResponse.json(

@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     amount?: unknown;
     category?: unknown;
+    paymentMethod?: unknown;
     note?: unknown;
   } | null;
   if (!body) {
@@ -38,6 +39,23 @@ export async function POST(req: Request) {
   if (!category || category.length > 100) {
     return NextResponse.json(
       { error: "Category must be between 1 and 100 characters." },
+      { status: 400 },
+    );
+  }
+
+  const paymentMethod =
+    body.paymentMethod === undefined ||
+    body.paymentMethod === null ||
+    body.paymentMethod === ""
+      ? "cash"
+      : body.paymentMethod;
+  if (
+    paymentMethod !== "cash" &&
+    paymentMethod !== "visa" &&
+    paymentMethod !== "instapay"
+  ) {
+    return NextResponse.json(
+      { error: "Choose cash, visa or instapay." },
       { status: 400 },
     );
   }
@@ -75,6 +93,7 @@ export async function POST(req: Request) {
           shiftId: shift.id,
           userId: user.id,
           amount: amount.toFixed(2),
+          paymentMethod,
           category,
           note,
         })
@@ -85,7 +104,7 @@ export async function POST(req: Request) {
         action: "income_created",
         entityType: "income",
         entityId: income.id,
-        details: { amount, category, note, shiftId: shift.id },
+        details: { amount, category, paymentMethod, note, shiftId: shift.id },
       });
       return income;
     });

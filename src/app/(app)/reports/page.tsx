@@ -907,7 +907,9 @@ export default async function ReportsPage({
                         : payment.method ===
                             "instapay"
                           ? "📱 InstaPay"
-                          : payment.method ===
+                          : payment.method === "balance"
+                            ? "👛 Customer balance"
+                            : payment.method ===
                               "bank"
                             ? "🏦 Bank"
                             : payment.method ===

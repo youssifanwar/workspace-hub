@@ -10,10 +10,11 @@ import {
   meetingRoomReservations,
 } from "@/db/schema";
 
-import { canManage, getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 import { deleteGoogleCalendarEvent } from "@/lib/google-calendar";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { applyBalanceChange } from "@/lib/customer-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ const PAYMENT_METHODS = [
   "cash",
   "visa",
   "instapay",
+  "balance",
 ] as const;
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -87,15 +89,6 @@ export async function POST(
       );
     }
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can checkout meeting-room sessions.",
-        },
-        { status: 403 },
-      );
-    }
 
     const activeShift = await getActiveShiftForUser(user.id);
 
@@ -328,7 +321,10 @@ export async function POST(
         subtotalGrandTotal - manualDiscountAmount,
       );
 
-      const paidAmount = roundMoney(requestedPaidAmount ?? grandTotal);
+      const payFromBalance = paymentMethod === "balance";
+      const paidAmount = payFromBalance
+        ? grandTotal
+        : roundMoney(requestedPaidAmount ?? grandTotal);
 
       if (paidAmount < grandTotal) {
         throw new Error(
@@ -338,6 +334,21 @@ export async function POST(
 
       const changeAmount = roundMoney(paidAmount - grandTotal);
       const checkedOutAt = new Date();
+
+      // Pay from the customer's prepaid balance, atomically with the
+      // checkout: if the balance can't cover it the whole checkout rolls
+      // back with a clear "Not enough balance" error.
+      if (payFromBalance && grandTotal > 0) {
+        await applyBalanceChange(tx, {
+          customerId: booking.customerId,
+          delta: -grandTotal,
+          type: "payment",
+          shiftId: activeShift.id,
+          userId: user.id,
+          bookingId: booking.id,
+          note: `Meeting room session #${booking.id}`,
+        });
+      }
 
       await tx
         .update(bookings)
@@ -463,10 +474,12 @@ export async function POST(
       { error: message },
       {
         status:
-          message.includes("Insufficient payment") ||
-          message.includes("Discount cannot exceed")
-            ? 400
-            : 500,
+          message.includes("Not enough balance")
+            ? 409
+            : message.includes("Insufficient payment") ||
+                message.includes("Discount cannot exceed")
+              ? 400
+              : 500,
       },
     );
   }

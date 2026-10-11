@@ -437,3 +437,131 @@ canvas {
 .print-only {
   display: none;
 }
+/* ==========================================================================
+ * POLISH LAYER
+ * Visual refinements only — no layout or behaviour changes.
+ * ========================================================================== */
+
+::selection {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+/* Slim, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Cards and KPI tiles lift slightly on hover */
+.card {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+a.card:hover,
+button.card:hover {
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.09);
+  transform: translateY(-1px);
+  border-color: #c7d2fe;
+}
+.kpi {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
+}
+
+/* Buttons feel responsive when pressed */
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Tables inside cards: calmer headers, clear hover, tabular numbers */
+.card table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.card table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  white-space: nowrap;
+}
+.card table tbody tr {
+  transition: background-color 0.12s ease;
+}
+.card table tbody tr:hover {
+  background-color: rgba(99, 102, 241, 0.04);
+}
+
+/* Modals: soft backdrop fade and dialog pop-in */
+.fixed.inset-0.z-50 {
+  animation: overlay-in 0.16s ease-out;
+}
+.fixed.inset-0.z-50 > .card,
+.fixed.inset-0.z-50 > div > .card {
+  animation: dialog-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Inputs: gentle hover so fields read as interactive */
+.input:hover:not(:disabled):not(:focus),
+.select:hover:not(:disabled):not(:focus) {
+  border-color: #a5b4fc;
+}
+
+/* Money and counters line up in columns */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-to-left text (Arabic names/notes) reads correctly inside inputs */
+input,
+textarea {
+  unicode-bidi: plaintext;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getShiftExtraCash } from "@/lib/shift-cash";
 
 export const dynamic = "force-dynamic";
 
@@ -177,9 +178,11 @@ export async function POST(req: Request) {
         .where(eq(bankTransactions.shiftId, openShift.id));
 
       const openingCashOutgoing = Number(openShift.openingCash ?? 0);
+      const extraCash = await getShiftExtraCash(tx, openShift.id);
       const cashSales =
         Number(bookingCashRow?.total ?? 0) +
-        Number(directFnbCashRow?.total ?? 0);
+        Number(directFnbCashRow?.total ?? 0) +
+        extraCash.total;
       const expenseTotal = Number(expensesRow?.total ?? 0);
       const bankDeposits = Number(bankRow?.deposits ?? 0);
       const bankWithdrawals = Number(bankRow?.withdrawals ?? 0);

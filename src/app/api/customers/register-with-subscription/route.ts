@@ -628,6 +628,14 @@ export async function POST(
                 startsAt:
                   now,
 
+                // Registered at the desk and paid in cash by default; the
+                // shift is recorded so the cash lands in the right drawer.
+                paymentMethod:
+                  "cash",
+
+                shiftId:
+                  shift.id,
+
                 expiresAt,
 
                 status:

@@ -4,6 +4,7 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getActiveShiftForUser, getAnyActiveShift } from "@/lib/shift";
+import { getShiftExtraCash } from "@/lib/shift-cash";
 import { db } from "@/db";
 import {
   bankTransactions,
@@ -318,12 +319,20 @@ export default async function ShiftPage() {
     )?.total,
   );
 
+  const balanceTotal = safeMoney(
+    methodRows.find(
+      (method) => method.method === "balance",
+    )?.total,
+  );
+
   const openingCash = safeMoney(active.openingCash);
+  const extraCash = await getShiftExtraCash(db, active.id);
 
   const expectedCashInDrawer = Math.round(
     (
       openingCash +
-      cashTotal -
+      cashTotal +
+      extraCash.total -
       totalExpenses -
       bankDeposits +
       bankWithdrawals
@@ -427,6 +436,41 @@ export default async function ShiftPage() {
                 currency,
               )}
             />
+
+            <Line
+              label="👛 Paid from customer balance"
+              value={formatMoney(
+                balanceTotal,
+                currency,
+              )}
+            />
+
+            <div className="border-t border-slate-100 pt-3 mt-3 space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Extra cash in drawer
+              </div>
+              <Line
+                label="📦 Packages (cash)"
+                value={formatMoney(
+                  extraCash.packages,
+                  currency,
+                )}
+              />
+              <Line
+                label="➕ Other income (cash)"
+                value={formatMoney(
+                  extraCash.manualIncome,
+                  currency,
+                )}
+              />
+              <Line
+                label="👛 Balance top-ups (cash)"
+                value={formatMoney(
+                  extraCash.balanceDeposits,
+                  currency,
+                )}
+              />
+            </div>
 
             <div className="border-t border-slate-100 pt-3 mt-3">
               <Line

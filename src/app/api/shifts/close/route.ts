@@ -19,6 +19,7 @@ import {
 import {
   getCurrentUser,
 } from "@/lib/auth";
+import { getShiftExtraCash } from "@/lib/shift-cash";
 
 export const dynamic =
   "force-dynamic";
@@ -429,13 +430,20 @@ export async function POST(
               active.openingCash ?? 0,
             );
 
+          // Cash from packages, manual income and balance top-ups.
+          const extraCash =
+            await getShiftExtraCash(
+              tx,
+              active.id,
+            );
           const cashSales =
             Number(
               bookingCashRow?.total ?? 0,
             ) +
             Number(
               directFnbCashRow?.total ?? 0,
-            );
+            ) +
+            extraCash.total;
 
           const expenseTotal =
             Number(

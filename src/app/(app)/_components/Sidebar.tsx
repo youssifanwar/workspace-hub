@@ -81,7 +81,7 @@ const NAV: NavItem[] = [
   },
   {
     href: "/expenses",
-    label: "Expenses",
+    label: "Expenses & Income",
     icon: "💸",
     needsShift: true,
   },

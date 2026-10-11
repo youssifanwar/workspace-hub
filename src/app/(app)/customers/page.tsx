@@ -1,11 +1,12 @@
 import { db } from "@/db";
 import { customers, bookings } from "@/db/schema";
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
-import { getCurrentUser } from "@/lib/auth";
+import { canManage, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSetting, formatMoney } from "@/lib/settings";
 import CustomerEditButton from "./CustomerEditButton";
 import CustomerPackagesButton from "./CustomerPackagesButton";
+import CustomerBalanceButton from "./CustomerBalanceButton";
 import AddCustomerButton from "./AddCustomerButton";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,9 @@ export default async function CustomersPage({
       phone: customers.phone,
       email: customers.email,
       notes: customers.notes,
+      balance: customers.balance,
       createdAt: customers.createdAt,
+      totalHours: sql<string>`coalesce(sum(greatest(0, extract(epoch from (coalesce(${bookings.checkedOutAt}, now()) - ${bookings.checkedInAt})) / 3600)), 0)`,
       totalVisits: sql<number>`count(${bookings.id})::int`,
       totalSpent: sql<string>`coalesce(sum(${bookings.total}), 0)`,
       lastVisit: sql<Date | null>`max(${bookings.checkedInAt})`,
@@ -83,8 +86,10 @@ export default async function CustomersPage({
                 <th className="py-3 px-4">Name</th>
                 <th className="py-3 px-4">Phone</th>
                 <th className="py-3 px-4">Visits</th>
+                <th className="py-3 px-4">Hours</th>
                 <th className="py-3 px-4">Last visit</th>
                 <th className="py-3 px-4 text-right">Total spent</th>
+                <th className="py-3 px-4 text-right">Balance</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -108,18 +113,40 @@ export default async function CustomersPage({
                     </td>
                     <td className="py-3 px-4">📞 {c.phone}</td>
                     <td className="py-3 px-4">{c.totalVisits}</td>
+                    <td className="py-3 px-4 tabular-nums">
+                      {parseFloat(c.totalHours).toFixed(1)} h
+                    </td>
                     <td className="py-3 px-4 text-slate-500">
                       {c.lastVisit ? new Date(c.lastVisit).toLocaleString() : "-"}
                     </td>
                     <td className="py-3 px-4 text-right font-bold tabular-nums">
                       {formatMoney(parseFloat(c.totalSpent), currency)}
                     </td>
+                    <td className="py-3 px-4 text-right font-bold tabular-nums">
+                      <span
+                        className={
+                          Number(c.balance) > 0
+                            ? "text-indigo-700"
+                            : "text-slate-400"
+                        }
+                      >
+                        {formatMoney(Number(c.balance), currency)}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-right">
+                      <CustomerBalanceButton
+                        customerId={c.id}
+                        customerName={c.name}
+                        balance={Number(c.balance)}
+                        currency={currency}
+                        canAdjust={canManage(user.role)}
+                      />
                       <CustomerPackagesButton
                         customerId={c.id}
                         customerName={c.name}
                         customerPhone={c.phone}
                         currency={currency}
+                        balance={Number(c.balance)}
                       />
                       <CustomerEditButton
                         currency={currency}

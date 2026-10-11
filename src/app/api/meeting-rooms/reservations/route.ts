@@ -20,10 +20,7 @@ import {
   meetingRoomReservations,
 } from "@/db/schema";
 
-import {
-  canManage,
-  getCurrentUser,
-} from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 import {
   calculateMeetingRoomBooking,
@@ -308,20 +305,6 @@ export async function POST(
     // AUTHORIZATION
     // ---------------------------------------------------------------------------
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can create meeting-room reservations.",
-        },
-        {
-          status: 403,
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        },
-      );
-    }
 
     // ---------------------------------------------------------------------------
     // BODY

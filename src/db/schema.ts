@@ -28,6 +28,8 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "cash",
   "visa",
   "instapay",
+  // Paid out of the customer's prepaid account balance.
+  "balance",
 ]);
 
 export const deskTypeEnum = pgEnum("desk_type", [
@@ -219,6 +221,15 @@ export const customers = pgTable(
     ),
 
     notes: text("notes"),
+
+    // Prepaid account balance. Changed ONLY together with a row in
+    // customer_balance_transactions (see src/lib/customer-balance.ts).
+    balance: numeric("balance", {
+      precision: 12,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
 
     createdAt: timestamp(
       "created_at",
@@ -509,6 +520,14 @@ export const customerSubscriptions =
     {
       id: serial("id").primaryKey(),
 
+      // How this package was paid, and in which shift (cash drawer).
+      paymentMethod: paymentMethodEnum("payment_method")
+        .notNull()
+        .default("cash"),
+      shiftId: integer("shift_id").references(() => shifts.id, {
+        onDelete: "set null",
+      }),
+
       customerId: integer(
         "customer_id",
       )
@@ -650,6 +669,13 @@ export const customerMeetingRoomPackages = pgTable(
   "customer_meeting_room_packages",
   {
     id: serial("id").primaryKey(),
+
+    paymentMethod: paymentMethodEnum("payment_method")
+      .notNull()
+      .default("cash"),
+    shiftId: integer("shift_id").references(() => shifts.id, {
+      onDelete: "set null",
+    }),
 
     customerId: integer("customer_id")
       .notNull()
@@ -1774,6 +1800,9 @@ export const manualIncomes = pgTable("manual_incomes", {
     .notNull()
     .references(() => users.id),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method")
+    .notNull()
+    .default("cash"),
   category: varchar("category", { length: 100 })
     .notNull()
     .default("General"),
@@ -1782,6 +1811,43 @@ export const manualIncomes = pgTable("manual_incomes", {
     .notNull()
     .defaultNow(),
 });
+
+// =============================================================================
+// CUSTOMER BALANCE LEDGER
+//
+// Every change to customers.balance has exactly one row here:
+//   deposit    (+)  customer topped up; money received in `shiftId`
+//   payment    (-)  balance spent on a session / package
+//   refund     (+)  balance returned after a cancelled/voided payment
+//   adjustment (+/-) manual correction by a manager/admin
+// =============================================================================
+
+export const customerBalanceTransactions = pgTable(
+  "customer_balance_transactions",
+  {
+    id: serial("id").primaryKey(),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    type: varchar("type", { length: 20 }).notNull(),
+    // Positive = money in, negative = money out.
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    balanceAfter: numeric("balance_after", { precision: 12, scale: 2 }).notNull(),
+    // How the customer paid for a deposit (cash/visa/instapay). Null otherwise.
+    paymentMethod: paymentMethodEnum("payment_method"),
+    shiftId: integer("shift_id").references(() => shifts.id, {
+      onDelete: "set null",
+    }),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    bookingId: integer("booking_id"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
 
 // =============================================================================
 // STAFF SESSIONS

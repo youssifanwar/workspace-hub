@@ -25,6 +25,7 @@ type ActiveSession = {
   customerId: number;
   customerName: string;
   customerPhone: string | null;
+  customerBalance: number;
   accessCode: string | null;
   startAt: string;
   endAt: string;
@@ -45,7 +46,7 @@ type ActiveSession = {
 
 type CheckoutState = {
   session: ActiveSession;
-  paymentMethod: "cash" | "visa" | "instapay";
+  paymentMethod: "cash" | "visa" | "instapay" | "balance";
   discountAmount: string;
   paidAmount: string;
 };
@@ -896,11 +897,15 @@ export default function ActiveMeetingRooms({
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Payment method
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {([
                     ["cash", "Cash"],
                     ["visa", "Visa"],
                     ["instapay", "InstaPay"],
+                    [
+                      "balance",
+                      `Balance · ${checkout.session.customerBalance.toFixed(2)}`,
+                    ],
                   ] as const).map(
                     ([value, label]) => (
                       <button

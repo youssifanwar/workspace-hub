@@ -72,6 +72,9 @@ export default async function BookingDetail({
       customerName:
         customers.name,
 
+      customerBalance:
+        customers.balance,
+
       customerPhone:
         customers.phone,
 
@@ -133,10 +136,13 @@ export default async function BookingDetail({
   }
 
   /*
-   * Meeting-room check-ins also create a booking record so F&B orders
-   * can be attached to the customer session. The regular booking page
-   * is not intended to manage meeting-room pricing or reservations.
-   * Redirect those sessions to the Meeting Rooms page.
+   * A meeting-room check-in also creates a row in this same `bookings`
+   * table (deskId pointing at the room) so F&B orders have somewhere to
+   * attach. This page's billing (customer-session hourly tiers), arrival
+   * time editor and cancel button are built for open-seating ("shared")
+   * sessions only and are WRONG for a meeting room. Send staff to the
+   * Meeting Rooms page instead, where the reservation's own pricing and
+   * actions apply.
    */
   if (row.deskType === "meeting_room") {
     redirect("/meeting-rooms");
@@ -426,6 +432,9 @@ export default async function BookingDetail({
 
         customerName:
           row.customerName,
+
+        customerBalance:
+          Number(row.customerBalance ?? 0),
 
         customerPhone:
           row.customerPhone,

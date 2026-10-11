@@ -15,6 +15,8 @@ type Booking = {
 
   customerName: string;
 
+  customerBalance: number;
+
   customerPhone: string;
 
   deskName: string;
@@ -1056,6 +1058,10 @@ export default function BookingView({
             booking.id
           }
 
+          customerBalance={
+            booking.customerBalance
+          }
+
           total={
             total
           }
@@ -1123,6 +1129,8 @@ function PackageInfo({
 function CheckoutModal({
   bookingId,
 
+  customerBalance,
+
   total,
 
   discount,
@@ -1149,6 +1157,8 @@ function CheckoutModal({
 
   isPackage: boolean;
 
+  customerBalance: number;
+
   packageRemaining:
     | number
     | null;
@@ -1163,7 +1173,7 @@ function CheckoutModal({
     method,
     setMethod,
   ] = useState<
-    "cash" | "visa" | "instapay"
+    "cash" | "visa" | "instapay" | "balance"
   >("cash");
 
   const [paid, setPaid] =
@@ -1343,12 +1353,13 @@ function CheckoutModal({
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           {(
             [
               "cash",
               "visa",
               "instapay",
+              "balance",
             ] as const
           ).map(
             (paymentMethod) => (
@@ -1378,12 +1389,18 @@ function CheckoutModal({
                     : paymentMethod ===
                         "visa"
                     ? "💳"
+                    : paymentMethod ===
+                        "balance"
+                    ? "👛"
                     : "📱"}
                 </div>
 
                 {paymentMethod ===
                 "instapay"
                   ? "InstaPay"
+                  : paymentMethod ===
+                      "balance"
+                  ? `Balance · ${customerBalance.toFixed(2)}`
                   : paymentMethod}
               </button>
             ),

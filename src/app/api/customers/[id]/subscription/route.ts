@@ -20,11 +20,16 @@ import {
 
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
+import {
+  applyBalanceChange,
+  BalanceError,
+} from "@/lib/customer-balance";
 
 export const dynamic =
   "force-dynamic";
 
 type PurchaseBody = {
+  paymentMethod?: unknown;
   purchasedAt?: unknown;
   packageId?: number | string;
   note?: string | null;
@@ -449,6 +454,7 @@ export async function POST(
       );
     }
 
+
     /* ---------------------------------------------------------------------- */
     /* CUSTOMER ID                                                            */
     /* ---------------------------------------------------------------------- */
@@ -504,6 +510,22 @@ export async function POST(
       cleanOptionalNote(
         body.note,
       );
+
+    const packagePaymentMethod =
+      body.paymentMethod === undefined ||
+      body.paymentMethod === null ||
+      body.paymentMethod === ""
+        ? "cash"
+        : body.paymentMethod;
+
+    if (
+      packagePaymentMethod !== "cash" &&
+      packagePaymentMethod !== "visa" &&
+      packagePaymentMethod !== "instapay" &&
+      packagePaymentMethod !== "balance"
+    ) {
+      throw new ApiError("Invalid payment method.", 400);
+    }
 
     /* ---------------------------------------------------------------------- */
     /* TRANSACTION                                                            */
@@ -771,6 +793,12 @@ export async function POST(
                 purchasedAt: paymentDate,
                 startsAt: paymentDate,
 
+                paymentMethod:
+                  packagePaymentMethod,
+
+                shiftId:
+                  shift.id,
+
                 expiresAt,
 
                 status:
@@ -788,6 +816,29 @@ export async function POST(
 
           const subscription =
             inserted[0];
+
+          // Paid from the customer's prepaid balance: debit atomically in
+          // this same transaction (rolls everything back if not enough).
+          if (
+            packagePaymentMethod ===
+              "balance" &&
+            price > 0 &&
+            subscription
+          ) {
+            await applyBalanceChange(
+              tx,
+              {
+                customerId,
+                delta: -price,
+                type: "payment",
+                shiftId:
+                  shift.id,
+                userId:
+                  user.id,
+                note: `Package "${pkg.name}"`,
+              },
+            );
+          }
 
           if (!subscription) {
             throw new ApiError(
@@ -972,6 +1023,22 @@ export async function POST(
       "Purchase customer subscription error:",
       error,
     );
+
+    if (
+      error instanceof
+      BalanceError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status:
+            error.status,
+        },
+      );
+    }
 
     if (
       error instanceof

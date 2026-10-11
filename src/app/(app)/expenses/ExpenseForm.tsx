@@ -40,6 +40,7 @@ export default function ExpenseForm({
   categories?: string[];
 }) {
   const isIncome = kind === "income";
+  const [incomeMethod, setIncomeMethod] = useState<"cash" | "visa" | "instapay">("cash");
   const categoryOptions = Array.from(
     new Set([...(categories ?? []), ...CATEGORIES]),
   );
@@ -125,6 +126,7 @@ export default function ExpenseForm({
           body: JSON.stringify({
             amount: numericAmount,
             category: category.trim(),
+            ...(isIncome ? { paymentMethod: incomeMethod } : {}),
             note: trimmedNote,
           }),
         },
@@ -241,6 +243,29 @@ export default function ExpenseForm({
           )}
         </datalist>
       </div>
+
+      {isIncome && (
+        <div>
+          <label className="label">Received by</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["cash", "visa", "instapay"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setIncomeMethod(m)}
+                disabled={loading}
+                className={`p-2.5 rounded-xl border font-semibold text-sm capitalize ${
+                  incomeMethod === m
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {m === "instapay" ? "InstaPay" : m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* NOTE */}
       <div>

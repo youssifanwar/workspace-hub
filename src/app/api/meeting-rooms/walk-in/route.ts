@@ -21,10 +21,7 @@ import {
   meetingRoomReservations,
 } from "@/db/schema";
 
-import {
-  canManage,
-  getCurrentUser,
-} from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 import {
   getActiveShiftForUser,
@@ -189,15 +186,6 @@ export async function POST(
       );
     }
 
-    if (!canManage(user.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only managers/admins can start meeting-room sessions.",
-        },
-        { status: 403 },
-      );
-    }
 
     const activeShift =
       await getActiveShiftForUser(

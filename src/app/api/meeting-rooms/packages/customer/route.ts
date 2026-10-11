@@ -19,6 +19,7 @@ import {
 } from "@/db/schema";
 
 import { getActiveShiftForUser } from "@/lib/shift";
+import { applyBalanceChange, BalanceError } from "@/lib/customer-balance";
 
 import {
   getCurrentUser,
@@ -509,6 +510,7 @@ export async function POST(req: Request) {
       customerId?: unknown;
       packageId?: unknown;
       purchasedAt?: unknown;
+      paymentMethod?: unknown;
       note?: unknown;
     } | null;
     if (!body) throw new SaleError("Invalid request.");
@@ -541,6 +543,21 @@ export async function POST(req: Request) {
         throw new SaleError("Payment date is more than a year ago.");
       }
       paymentDate = parsed;
+    }
+
+    const paymentMethod =
+      body.paymentMethod === undefined ||
+      body.paymentMethod === null ||
+      body.paymentMethod === ""
+        ? "cash"
+        : body.paymentMethod;
+    if (
+      paymentMethod !== "cash" &&
+      paymentMethod !== "visa" &&
+      paymentMethod !== "instapay" &&
+      paymentMethod !== "balance"
+    ) {
+      throw new SaleError("Invalid payment method.");
     }
 
     const note =
@@ -604,12 +621,26 @@ export async function POST(req: Request) {
           purchasedAt: paymentDate,
           startsAt: paymentDate,
           expiresAt,
+          paymentMethod,
+          shiftId: shift.id,
           status: "active",
           note,
           createdByUserId: user.id,
         })
         .returning({ id: customerMeetingRoomPackages.id });
       if (!purchase) throw new SaleError("Could not create purchase.", 500);
+
+      // Paid from the customer's prepaid balance: debit atomically here.
+      if (paymentMethod === "balance" && price > 0) {
+        await applyBalanceChange(tx, {
+          customerId: customer.id,
+          delta: -price,
+          type: "payment",
+          shiftId: shift.id,
+          userId: user.id,
+          note: `Meeting room package "${pkg.name}"`,
+        });
+      }
 
       await tx.insert(meetingRoomPackageUsageLedger).values({
         packagePurchaseId: purchase.id,
@@ -650,6 +681,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, purchase: result }, { status: 201 });
   } catch (error) {
+    if (error instanceof BalanceError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
     if (error instanceof SaleError) {
       return NextResponse.json(
         { error: error.message },

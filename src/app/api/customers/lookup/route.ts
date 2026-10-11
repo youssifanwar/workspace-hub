@@ -610,6 +610,14 @@ export async function GET(
               stats?.totalSpent,
             ),
           ),
+
+        balance:
+          Math.max(
+            0,
+            toSafeNumber(
+              (customer as { balance?: unknown }).balance,
+            ),
+          ),
       },
 
       subscriptions,

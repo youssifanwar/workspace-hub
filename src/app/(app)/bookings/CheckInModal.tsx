@@ -1,5 +1,6 @@
 "use client";
 
+import CustomerSearchField from "../meeting-rooms/CustomerSearchField";
 import {
   useEffect,
   useRef,
@@ -34,6 +35,7 @@ type CustomerLookupResult = {
     visits: number;
     totalHours: number;
     totalSpent: number;
+    balance?: number;
   };
   subscriptions?: CustomerSubscription[];
 };
@@ -721,6 +723,20 @@ export default function CheckInModal({
           className="space-y-4"
           noValidate
         >
+          <CustomerSearchField
+            compact
+            label="Search customer by name or phone"
+            disabled={loading}
+            onPick={(c) => {
+              // Setting the phone triggers the normal lookup below, which
+              // loads the customer's stats (visits, hours, spent),
+              // packages and balance.
+              setPhone(c.phone);
+              setLookupError(null);
+              setError(null);
+            }}
+          />
+
           <div>
             <label
               htmlFor="customer-phone"
@@ -803,7 +819,7 @@ export default function CheckInModal({
                   </div>
 
                   {customerStats && (
-                    <div className="grid grid-cols-3 gap-2 mt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
                       <Stat
                         label="Visits"
                         value={String(customerStats.visits)}
@@ -817,6 +833,13 @@ export default function CheckInModal({
                       <Stat
                         label="Spent"
                         value={`${customerStats.totalSpent.toFixed(
+                          2,
+                        )} ${currency}`}
+                      />
+
+                      <Stat
+                        label="Balance"
+                        value={`${(customerStats.balance ?? 0).toFixed(
                           2,
                         )} ${currency}`}
                       />

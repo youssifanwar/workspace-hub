@@ -17,6 +17,10 @@ import {
 
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
+import {
+  applyBalanceChange,
+  BalanceError,
+} from "@/lib/customer-balance";
 
 
 import {
@@ -171,7 +175,8 @@ export async function POST(
       paymentMethod?:
         | "cash"
         | "visa"
-        | "instapay";
+        | "instapay"
+        | "balance";
 
       paidAmount?: number;
 
@@ -184,7 +189,8 @@ export async function POST(
           paymentMethod?:
             | "cash"
             | "visa"
-            | "instapay";
+            | "instapay"
+            | "balance";
 
           paidAmount?: number;
 
@@ -208,7 +214,8 @@ export async function POST(
     if (
       paymentMethod !== "cash" &&
       paymentMethod !== "visa" &&
-      paymentMethod !== "instapay"
+      paymentMethod !== "instapay" &&
+      paymentMethod !== "balance"
     ) {
       return NextResponse.json(
         {
@@ -530,7 +537,12 @@ export async function POST(
            * For non-cash payments we still keep the supplied paid amount
            * for the invoice/history, but checkout must cover the total.
            */
+          const payFromBalance =
+            paymentMethod ===
+            "balance";
+
           if (
+            !payFromBalance &&
             paid < total
           ) {
             throw new CheckoutError(
@@ -546,12 +558,45 @@ export async function POST(
             );
           }
 
+          /*
+           * Paying from the customer's prepaid balance: the full total is
+           * debited atomically in this same transaction (it fails with
+           * "Not enough balance" and rolls the whole checkout back if the
+           * customer can't cover it).
+           */
+          const paidEffective =
+            payFromBalance
+              ? total
+              : paid;
+
+          if (
+            payFromBalance &&
+            total > 0
+          ) {
+            await applyBalanceChange(
+              tx,
+              {
+                customerId:
+                  booking.customerId,
+                delta: -total,
+                type: "payment",
+                shiftId:
+                  activeShift.id,
+                userId:
+                  user.id,
+                bookingId:
+                  booking.id,
+                note: `Session #${booking.id}`,
+              },
+            );
+          }
+
           const change =
             paymentMethod ===
             "cash"
               ? Math.max(
                   0,
-                  paid -
+                  paidEffective -
                     total,
                 )
               : 0;
@@ -800,7 +845,7 @@ export async function POST(
                   ),
 
                 paidAmount:
-                  paid.toFixed(
+                  paidEffective.toFixed(
                     2,
                   ),
 
@@ -887,7 +932,8 @@ export async function POST(
 
             total,
 
-            paid,
+            paid:
+              paidEffective,
 
             change,
 
@@ -907,6 +953,22 @@ export async function POST(
       ...result,
     });
   } catch (error) {
+    if (
+      error instanceof
+      BalanceError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status:
+            error.status,
+        },
+      );
+    }
+
     if (
       error instanceof
       CheckoutError

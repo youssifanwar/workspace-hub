@@ -39,11 +39,13 @@ export default function CustomerPackagesButton({
   customerName,
   customerPhone,
   currency,
+  balance = 0,
 }: {
   customerId: number;
   customerName: string;
   customerPhone: string;
   currency: string;
+  balance?: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -60,6 +62,9 @@ export default function CustomerPackagesButton({
   const [packageId, setPackageId] = useState("");
   const [paidAt, setPaidAt] = useState(toLocalInput(new Date()));
   const [note, setNote] = useState("");
+  const [payMethod, setPayMethod] = useState<
+    "cash" | "visa" | "instapay" | "balance"
+  >("cash");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,12 +160,14 @@ export default function CustomerPackagesButton({
           ? {
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
+              paymentMethod: payMethod,
               note: note || null,
             }
           : {
               customerId,
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
+              paymentMethod: payMethod,
               note: note || null,
             };
       const res = await fetch(url, {
@@ -306,6 +313,32 @@ export default function CustomerPackagesButton({
                     packages. Create them in Settings first.
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Paid by</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
+                  {(["cash", "visa", "instapay", "balance"] as const).map(
+                    (m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setPayMethod(m)}
+                        className={`p-2.5 rounded-xl border font-semibold text-sm capitalize ${
+                          payMethod === m
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {m === "instapay"
+                          ? "InstaPay"
+                          : m === "balance"
+                            ? `Balance · ${balance.toFixed(2)}`
+                            : m}
+                      </button>
+                    ),
+                  )}
+                </div>
               </div>
 
               <div>

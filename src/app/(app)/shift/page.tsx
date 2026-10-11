@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
-import { getCurrentUser } from "@/lib/auth";
-import { getActiveShiftForUser } from "@/lib/shift";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getActiveShiftForUser, getAnyActiveShift } from "@/lib/shift";
 import { db } from "@/db";
 import {
   bankTransactions,
@@ -16,6 +16,7 @@ import { formatMoney, getSetting } from "@/lib/settings";
 
 import OpenShiftForm from "./OpenShiftForm";
 import CloseShiftForm from "./CloseShiftForm";
+import HandoverForm from "./HandoverForm";
 
 export const dynamic = "force-dynamic";
 
@@ -70,10 +71,26 @@ export default async function ShiftPage() {
     redirect("/login");
   }
 
-  const [currency, active] = await Promise.all([
+  const [currency, active, anyActive, activeUsers] = await Promise.all([
     getSetting("currency"),
     getActiveShiftForUser(user.id),
+    getAnyActiveShift(),
+    db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(eq(users.active, true))
+      .orderBy(users.fullName),
   ]);
+  const holder = anyActive
+    ? activeUsers.find((u) => u.id === anyActive.userId) ?? null
+    : null;
+  const handoverCandidates = activeUsers
+    .filter((u) => !anyActive || u.id !== anyActive.userId)
+    .map((u) => ({ username: u.username, fullName: u.fullName }));
 
   if (!active) {
     const recent = await db
@@ -103,9 +120,38 @@ export default async function ShiftPage() {
           </p>
         </div>
 
-        <div className="card p-6">
-          <OpenShiftForm currency={currency} />
-        </div>
+        {anyActive && (
+          <div className="card p-6 border border-amber-200 bg-amber-50">
+            <h3 className="font-bold text-amber-900">
+              {holder?.fullName ?? "Another employee"} has the shift open
+            </h3>
+            <p className="text-sm text-amber-800 mt-1">
+              Opened {formatDate(anyActive.openedAt)}. Only one shift can be
+              open at a time. Ask them to use <b>Hand over shift</b> on
+              their Shift page{isAdmin(user.role) ? ", or hand it over yourself below" : ", or ask an admin to do it"}.
+            </p>
+          </div>
+        )}
+
+        {anyActive && isAdmin(user.role) && (
+          <div className="card p-6">
+            <h3 className="font-bold mb-3">
+              Hand over {holder?.fullName ?? "the open"} shift
+            </h3>
+            <HandoverForm
+              candidates={handoverCandidates}
+              expectedCash={null}
+              currency={currency}
+              holderName={holder?.fullName}
+            />
+          </div>
+        )}
+
+        {!anyActive && (
+          <div className="card p-6">
+            <OpenShiftForm currency={currency} />
+          </div>
+        )}
 
         {recent.length > 0 && (
           <div className="card p-6">
@@ -478,6 +524,16 @@ export default async function ShiftPage() {
         </h3>
 
         <CloseShiftForm
+          expectedCash={expectedCashInDrawer}
+          currency={currency}
+        />
+      </div>
+
+      <div className="card p-6">
+        <h3 className="font-bold mb-4">Hand over to the next employee</h3>
+
+        <HandoverForm
+          candidates={handoverCandidates}
           expectedCash={expectedCashInDrawer}
           currency={currency}
         />

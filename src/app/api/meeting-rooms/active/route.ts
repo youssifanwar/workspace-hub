@@ -38,8 +38,6 @@ export async function GET() {
       );
     }
 
-
-
     const rows = await db
       .select({
         reservationId:
@@ -130,6 +128,7 @@ export async function GET() {
         meetingRoomReservations.customerId,
         customers.name,
         customers.phone,
+        customers.balance,
         bookings.accessCode,
         meetingRoomReservations.startAt,
         meetingRoomReservations.endAt,
@@ -253,6 +252,7 @@ export async function GET() {
 
           customerPhone:
             row.customerPhone,
+
           customerBalance:
             Number(row.customerBalance ?? 0),
 

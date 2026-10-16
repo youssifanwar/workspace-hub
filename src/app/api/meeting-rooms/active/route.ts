@@ -1,9 +1,9 @@
+
 import { NextResponse } from "next/server";
 import {
   asc,
   eq,
   inArray,
-  sql,
 } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -38,54 +38,70 @@ export async function GET() {
       );
     }
 
-
-
+    // Fetch active reservations without aggregating booking items.
+    // This avoids the PostgreSQL GROUP BY error and preserves
+    // the original reservation and customer information.
     const rows = await db
       .select({
         reservationId:
           meetingRoomReservations.id,
+
         bookingId:
           meetingRoomReservations.bookingId,
+
         roomId:
           meetingRoomReservations.deskId,
-        roomName: desks.name,
+
+        roomName:
+          desks.name,
+
         customerId:
           meetingRoomReservations.customerId,
-        customerName: customers.name,
-        customerPhone: customers.phone,
-        customerBalance: customers.balance,
-        accessCode: bookings.accessCode,
+
+        customerName:
+          customers.name,
+
+        customerPhone:
+          customers.phone,
+
+        customerBalance:
+          customers.balance,
+
+        accessCode:
+          bookings.accessCode,
+
         startAt:
           meetingRoomReservations.startAt,
+
         endAt:
           meetingRoomReservations.endAt,
+
         attendeeCount:
           meetingRoomReservations.attendeeCount,
+
         durationHours:
           meetingRoomReservations.durationHours,
+
         hourlyRate:
           meetingRoomReservations.hourlyRateSnapshot,
+
         roomSubtotal:
           meetingRoomReservations.subtotalAmount,
+
         roomDiscount:
           meetingRoomReservations.discountAmount,
+
         roomTotal:
           meetingRoomReservations.totalAmount,
+
         packagePurchaseId:
           meetingRoomReservations.packagePurchaseId,
+
         status:
           meetingRoomReservations.status,
+
         notes:
           meetingRoomReservations.notes,
-        fnbTotal: sql<string>`
-          coalesce(
-            sum(
-              ${bookingItems.unitPrice} *
-              ${bookingItems.quantity}
-            ),
-            0
-          )
-        `,
       })
       .from(meetingRoomReservations)
       .innerJoin(
@@ -109,39 +125,11 @@ export async function GET() {
           meetingRoomReservations.bookingId,
         ),
       )
-      .leftJoin(
-        bookingItems,
-        eq(
-          bookingItems.bookingId,
-          bookings.id,
-        ),
-      )
       .where(
         eq(
           meetingRoomReservations.status,
           "active",
         ),
-      )
-      .groupBy(
-        meetingRoomReservations.id,
-        meetingRoomReservations.bookingId,
-        meetingRoomReservations.deskId,
-        desks.name,
-        meetingRoomReservations.customerId,
-        customers.name,
-        customers.phone,
-        bookings.accessCode,
-        meetingRoomReservations.startAt,
-        meetingRoomReservations.endAt,
-        meetingRoomReservations.attendeeCount,
-        meetingRoomReservations.durationHours,
-        meetingRoomReservations.hourlyRateSnapshot,
-        meetingRoomReservations.subtotalAmount,
-        meetingRoomReservations.discountAmount,
-        meetingRoomReservations.totalAmount,
-        meetingRoomReservations.packagePurchaseId,
-        meetingRoomReservations.status,
-        meetingRoomReservations.notes,
       )
       .orderBy(
         asc(
@@ -149,32 +137,39 @@ export async function GET() {
         ),
       );
 
-    const bookingIds: number[] = [];
+    // Collect valid booking IDs for the separate order query.
+    const bookingIds = [
+      ...new Set(
+        rows
+          .map((row) => row.bookingId)
+          .filter(
+            (id): id is number =>
+              id !== null &&
+              Number.isSafeInteger(id) &&
+              id > 0,
+          ),
+      ),
+    ];
 
-    for (const row of rows) {
-      const id = row.bookingId;
-
-      if (
-        id !== null &&
-        Number.isSafeInteger(id) &&
-        id > 0
-      ) {
-        bookingIds.push(id);
-      }
-    }
-
+    // Fetch all order items associated with these bookings.
     const itemRows = bookingIds.length
       ? await db
           .select({
             bookingId:
               bookingItems.bookingId,
-            id: bookingItems.id,
+
+            id:
+              bookingItems.id,
+
             name:
               bookingItems.nameSnapshot,
+
             unitPrice:
               bookingItems.unitPrice,
+
             quantity:
               bookingItems.quantity,
+
             createdAt:
               bookingItems.createdAt,
           })
@@ -186,13 +181,22 @@ export async function GET() {
             ),
           )
           .orderBy(
-            asc(bookingItems.createdAt),
+            asc(
+              bookingItems.createdAt,
+            ),
           )
       : [];
 
+    // Group order items by booking while preserving each item's details.
     const itemsByBooking = new Map<
       number,
       ActiveOrderItem[]
+    >();
+
+    // Calculate the F&B total separately for each booking.
+    const fnbTotalsByBooking = new Map<
+      number,
+      number
     >();
 
     for (const item of itemRows) {
@@ -204,26 +208,38 @@ export async function GET() {
         name: item.name,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
-        createdAt:
-          item.createdAt.toISOString(),
+        createdAt: item.createdAt.toISOString(),
       });
 
       itemsByBooking.set(
         item.bookingId,
         list,
       );
+
+      const currentTotal =
+        fnbTotalsByBooking.get(item.bookingId) ?? 0;
+
+      fnbTotalsByBooking.set(
+        item.bookingId,
+        currentTotal +
+          Number(item.unitPrice) * item.quantity,
+      );
     }
 
     return NextResponse.json({
       ok: true,
+
       sessions: rows.map((row) => {
         const roomTotal = Number(
           row.roomTotal,
         );
 
-        const fnbTotal = Number(
-          row.fnbTotal,
-        );
+        const fnbTotal =
+          row.bookingId !== null
+            ? fnbTotalsByBooking.get(
+                row.bookingId,
+              ) ?? 0
+            : 0;
 
         const items =
           row.bookingId !== null
@@ -253,8 +269,11 @@ export async function GET() {
 
           customerPhone:
             row.customerPhone,
+
           customerBalance:
-            Number(row.customerBalance ?? 0),
+            Number(
+              row.customerBalance ?? 0,
+            ),
 
           accessCode:
             row.accessCode,
@@ -269,7 +288,9 @@ export async function GET() {
             row.attendeeCount,
 
           durationHours:
-            Number(row.durationHours),
+            Number(
+              row.durationHours,
+            ),
 
           hourlyRate:
             row.hourlyRate,

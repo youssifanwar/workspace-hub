@@ -18,6 +18,7 @@ import { formatMoney, getSetting } from "@/lib/settings";
 import OpenShiftForm from "./OpenShiftForm";
 import CloseShiftForm from "./CloseShiftForm";
 import HandoverForm from "./HandoverForm";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ function formatDate(value: Date | string | null): string {
   }
 
   return date.toLocaleString("en-EG", {
-    timeZone: "Africa/Cairo",
+    timeZone: activeTimeZone(),
     year: "numeric",
     month: "numeric",
     day: "numeric",
@@ -67,6 +68,7 @@ function formatDate(value: Date | string | null): string {
 
 export default async function ShiftPage() {
   const user = await getCurrentUser();
+  await loadTimezone();
 
   if (!user) {
     redirect("/login");

@@ -18,6 +18,7 @@ export default function WorkspaceSettings({
   calendarStartHour,
   calendarEndHour,
   maxBookingHours,
+  timezone,
 }: {
   workspaceName: string;
   workspaceAddress: string;
@@ -29,6 +30,7 @@ export default function WorkspaceSettings({
   calendarStartHour: string;
   calendarEndHour: string;
   maxBookingHours: string;
+  timezone: string;
 }) {
   const router = useRouter();
 
@@ -42,6 +44,7 @@ export default function WorkspaceSettings({
   const [calStart, setCalStart] = useState(calendarStartHour);
   const [calEnd, setCalEnd] = useState(calendarEndHour);
   const [maxBook, setMaxBook] = useState(maxBookingHours);
+  const [tz, setTz] = useState(timezone);
 
   const [loading, setLoading] = useState(false);
 
@@ -140,6 +143,7 @@ export default function WorkspaceSettings({
           workspace_phone: normalizedPhone,
           currency: normalizedCurrency,
           invoice_footer: normalizedFooter,
+          timezone: tz.trim(),
           calendar_start_hour: String(Math.max(0, Math.min(23, Math.floor(Number(calStart) || 0)))),
           calendar_end_hour: String(Math.max(1, Math.min(24, Math.floor(Number(calEnd) || 24)))),
           meeting_room_max_booking_hours: String(Math.max(1, Math.min(24, Math.floor(Number(maxBook) || 8)))),
@@ -370,6 +374,26 @@ export default function WorkspaceSettings({
           }}
           disabled={loading}
         />
+      </div>
+
+      {/* TIMEZONE */}
+      <div>
+        <label htmlFor="workspace-timezone" className="label">
+          Timezone (all dates and times are shown in this zone)
+        </label>
+        <input
+          id="workspace-timezone"
+          className="input"
+          list="timezone-options"
+          value={tz}
+          disabled={loading}
+          onChange={(e) => { setTz(e.target.value); setMsg(null); }}
+        />
+        <datalist id="timezone-options">
+          {["Africa/Cairo","Asia/Riyadh","Asia/Dubai","Asia/Kuwait","Asia/Qatar","Asia/Amman","Asia/Beirut","Africa/Casablanca","Africa/Tunis","Europe/London","Europe/Istanbul","UTC"].map((z) => (
+            <option key={z} value={z} />
+          ))}
+        </datalist>
       </div>
 
       {/* MEETING ROOM CALENDAR */}

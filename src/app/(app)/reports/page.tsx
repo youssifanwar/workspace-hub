@@ -32,6 +32,7 @@ import {
   formatMoney,
   getSetting,
 } from "@/lib/settings";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,7 @@ function formatDate(
 
   return value.toLocaleDateString(
     "en-EG",
+    { timeZone: activeTimeZone() },
   );
 }
 
@@ -105,6 +107,7 @@ function formatDateTime(
 
   return value.toLocaleString(
     "en-EG",
+    { timeZone: activeTimeZone() },
   );
 }
 
@@ -114,6 +117,7 @@ export default async function ReportsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await getCurrentUser();
+  await loadTimezone();
 
   if (!user) {
     redirect("/login");
@@ -395,6 +399,9 @@ export default async function ReportsPage({
             expenses.createdAt,
             to,
           ),
+          // Voided packages are already excluded from revenue; don't
+          // subtract their cash refund from profit a second time.
+          sql`${expenses.category} <> 'Package refund'`,
         ),
       ),
 

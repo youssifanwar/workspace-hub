@@ -8,6 +8,7 @@ import CustomerEditButton from "./CustomerEditButton";
 import CustomerPackagesButton from "./CustomerPackagesButton";
 import CustomerBalanceButton from "./CustomerBalanceButton";
 import AddCustomerButton from "./AddCustomerButton";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function CustomersPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const user = await getCurrentUser();
+  await loadTimezone();
   if (!user) redirect("/login");
   const currency = await getSetting("currency");
   const { q } = await searchParams;
@@ -117,7 +119,7 @@ export default async function CustomersPage({
                       {parseFloat(c.totalHours).toFixed(1)} h
                     </td>
                     <td className="py-3 px-4 text-slate-500">
-                      {c.lastVisit ? new Date(c.lastVisit).toLocaleString() : "-"}
+                      {c.lastVisit ? new Date(c.lastVisit).toLocaleString("en-EG", { timeZone: activeTimeZone() }) : "-"}
                     </td>
                     <td className="py-3 px-4 text-right font-bold tabular-nums">
                       {formatMoney(parseFloat(c.totalSpent), currency)}
@@ -147,6 +149,7 @@ export default async function CustomersPage({
                         customerPhone={c.phone}
                         currency={currency}
                         balance={Number(c.balance)}
+                        canVoid={canManage(user.role)}
                       />
                       <CustomerEditButton
                         currency={currency}

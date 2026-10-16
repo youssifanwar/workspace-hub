@@ -40,12 +40,14 @@ export default function CustomerPackagesButton({
   customerPhone,
   currency,
   balance = 0,
+  canVoid = false,
 }: {
   customerId: number;
   customerName: string;
   customerPhone: string;
   currency: string;
   balance?: number;
+  canVoid?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -141,6 +143,46 @@ export default function CustomerPackagesButton({
   }, [open, load]);
 
   const list = kind === "desk" ? deskPkgs : meetingPkgs;
+
+  async function voidPackage(item: Owned) {
+    const reason = window.prompt(
+      `Void "${item.name}"? Only unused packages can be voided.\nWrite the reason:`,
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      setError("A reason is required to void a package.");
+      return;
+    }
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/packages/void", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: item.kind,
+          purchaseId: item.id,
+          reason: reason.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Could not void the package.");
+        return;
+      }
+      setSuccess(
+        data.refund === "balance"
+          ? "Package voided and refunded to the customer's balance."
+          : data.paymentMethod === "cash"
+            ? "Package voided. Hand the cash back to the customer."
+            : "Package voided. Refund the customer through the same payment method.",
+      );
+      await load();
+      router.refresh();
+    } catch {
+      setError("Network error. Try again.");
+    }
+  }
 
   async function sell() {
     if (!packageId) {
@@ -263,6 +305,15 @@ export default function CustomerPackagesButton({
                         <div className="text-slate-500">
                           {o.price.toFixed(2)} {currency} · {o.status}
                         </div>
+                        {canVoid && o.status === "active" && (
+                          <button
+                            type="button"
+                            className="text-xs text-red-600 font-semibold mt-1 hover:underline"
+                            onClick={() => void voidPackage(o)}
+                          >
+                            Void (sold by mistake)
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

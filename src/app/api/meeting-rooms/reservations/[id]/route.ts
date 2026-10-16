@@ -245,16 +245,17 @@ export async function PATCH(
             and(
               eq(meetingRoomReservations.deskId, reservation.deskId),
               eq(meetingRoomReservations.status, "active"),
-              lt(meetingRoomReservations.startAt, reservation.endAt),
-              gt(meetingRoomReservations.endAt, reservation.startAt),
               ne(meetingRoomReservations.id, reservation.id),
             ),
           )
           .limit(1);
 
+        // One session per room at a time — even a previous session that
+        // ran past its booked end still occupies the room until it is
+        // checked out.
         if (activeConflict) {
           throw new Error(
-            "This meeting room is already active in an overlapping session.",
+            "This room still has a session in progress. Check that session out before checking in the next one.",
           );
         }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, canManage } from "@/lib/auth";
+import { isValidTimeZone } from "@/lib/timezone";
 import {
   serializeSessionTiers,
   setSetting,
@@ -21,6 +22,7 @@ const ALLOWED_KEYS: SettingKey[] = [
   "customer_session_day_pass",
   "meeting_room_early_checkin_minutes",
   "stale_session_hours",
+  "timezone",
   "calendar_start_hour",
   "calendar_end_hour",
   "meeting_room_max_booking_hours",
@@ -107,6 +109,14 @@ export async function PATCH(req: Request) {
       stale_session_hours: [1, 72, "Stale session hours must be 1–72."],
       meeting_room_early_checkin_minutes: [0, 1440, "Early check-in minutes must be 0–1440."],
     };
+    if (k === "timezone") {
+      if (typeof v !== "string" || !isValidTimeZone(v.trim())) {
+        return NextResponse.json(
+          { error: "Unknown timezone. Use a name like Africa/Cairo or Asia/Riyadh." },
+          { status: 400 },
+        );
+      }
+    }
     const range = INT_RANGES[k];
     if (range) {
       const n = Number(v);

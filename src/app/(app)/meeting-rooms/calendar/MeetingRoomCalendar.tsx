@@ -7,7 +7,8 @@ import {
 
 import { useRouter } from "next/navigation";
 
-import QuickBookModal from "./QuickBookModal";
+import ConfirmDialog from "../ConfirmDialog";
+import ReservationDialog from "../ReservationDialog";
 
 /* ============================================================================
  * TYPES
@@ -231,12 +232,16 @@ export default function MeetingRoomCalendar({
   startHour,
   endHour,
   maxBookingHours,
+  currency,
+  timeZone,
 }: {
   rooms: Room[];
   reservations: Reservation[];
   startHour: number;
   endHour: number;
   maxBookingHours: number;
+  currency: string;
+  timeZone: string;
 }) {
   const router = useRouter();
 
@@ -256,6 +261,8 @@ export default function MeetingRoomCalendar({
       null,
     );
 
+  const [pendingCancel, setPendingCancel] =
+    useState<Reservation | null>(null);
   const [bookingStart, setBookingStart] =
     useState<Date | null>(null);
   const [cancellingId, setCancellingId] =
@@ -408,13 +415,6 @@ export default function MeetingRoomCalendar({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Check in ${reservation.customerName || "this customer"} to ${reservation.roomName}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
 
     setCheckingInId(reservation.id);
     setActionMessage(null);
@@ -475,7 +475,7 @@ export default function MeetingRoomCalendar({
     }
   }
 
-  async function cancelReservation(
+  async function runCancelReservation(
     reservation: Reservation,
   ) {
     if (
@@ -509,14 +509,10 @@ export default function MeetingRoomCalendar({
         await fetch(
           `/api/meeting-rooms/reservations/${reservation.id}`,
           {
-            method: "PATCH",
+            method: "DELETE",
             headers: {
-              "Content-Type": "application/json",
               Accept: "application/json",
             },
-            body: JSON.stringify({
-              action: "cancel",
-            }),
             cache: "no-store",
           },
         );
@@ -590,6 +586,11 @@ export default function MeetingRoomCalendar({
     } finally {
       setCancellingId(null);
     }
+  }
+
+  function cancelReservation(reservation: Reservation) {
+    if (cancellingId !== null || reservation.status !== "confirmed") return;
+    setPendingCancel(reservation);
   }
 
   const title =
@@ -808,12 +809,42 @@ export default function MeetingRoomCalendar({
       )}
 
       {bookingStart && (
-        <QuickBookModal
-          rooms={rooms}
+        <ReservationDialog
+          rooms={rooms.map((r) => ({
+            id: r.id,
+            name: r.name,
+            capacity: r.capacity,
+          }))}
+          currency={currency}
           initialRoomId={selectedRoom}
           initialStart={bookingStart}
           maxDurationHours={maxBookingHours}
+          timeZone={timeZone}
           onClose={() => setBookingStart(null)}
+        />
+      )}
+
+      {pendingCancel && (
+        <ConfirmDialog
+          title="Cancel this reservation?"
+          message={
+            <>
+              <b>{pendingCancel.customerName || "Customer"}</b> ·{" "}
+              {pendingCancel.roomName}
+              <br />
+              {new Date(pendingCancel.startAt).toLocaleString([], { timeZone })}
+              <br />
+              Package hours (if used) are returned to the customer.
+            </>
+          }
+          confirmLabel="Cancel reservation"
+          busy={cancellingId === pendingCancel.id}
+          onConfirm={async () => {
+            const target = pendingCancel;
+            await runCancelReservation(target);
+            setPendingCancel(null);
+          }}
+          onClose={() => cancellingId === null && setPendingCancel(null)}
         />
       )}
 

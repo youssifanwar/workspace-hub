@@ -6,13 +6,14 @@ import { db } from "@/db";
 import { bookings, shifts, users } from "@/db/schema";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
 function formatDateTime(value: Date | null): string {
   if (!value) return "-";
   return value.toLocaleString("en-EG", {
-    timeZone: "Africa/Cairo",
+    timeZone: activeTimeZone(),
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -31,6 +32,7 @@ function formatDuration(from: Date, to: Date | null): string {
 
 export default async function StaffShiftsPage() {
   const user = await getCurrentUser();
+  await loadTimezone();
   if (!user) redirect("/login");
   if (!isAdmin(user.role)) redirect("/settings");
 

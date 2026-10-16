@@ -4,6 +4,7 @@ import {
   and,
   eq,
   gt,
+  inArray,
   lt,
   sql,
 } from "drizzle-orm";
@@ -138,9 +139,11 @@ async function findInternalConflict(
           meetingRoomReservations.deskId,
           roomId,
         ),
-        eq(
+        // A customer currently IN the room (active) blocks the room just
+        // like an upcoming (confirmed) reservation does.
+        inArray(
           meetingRoomReservations.status,
-          "confirmed",
+          ["confirmed", "active"],
         ),
         lt(
           meetingRoomReservations.startAt,

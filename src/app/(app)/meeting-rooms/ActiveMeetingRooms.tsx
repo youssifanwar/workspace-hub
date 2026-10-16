@@ -9,6 +9,8 @@ import {
 
 import { useRouter } from "next/navigation";
 
+import ConfirmDialog from "./ConfirmDialog";
+
 type OrderItem = {
   id: number;
   name: string;
@@ -125,16 +127,22 @@ export default function ActiveMeetingRooms({
   const [cancellingId, setCancellingId] =
     useState<number | null>(null);
 
-  async function cancelSession(session: ActiveSession) {
+  const [pendingCancel, setPendingCancel] =
+    useState<ActiveSession | null>(null);
+  const [cancelError, setCancelError] =
+    useState<string | null>(null);
+
+  function cancelSession(session: ActiveSession) {
     if (cancellingId !== null) return;
-    if (
-      !confirm(
-        `Cancel this session for ${session.customerName}? The room will be freed and nothing will be charged. This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    setCancelError(null);
+    setPendingCancel(session);
+  }
+
+  async function confirmCancelSession() {
+    const session = pendingCancel;
+    if (!session || cancellingId !== null) return;
     setCancellingId(session.reservationId);
+    setCancelError(null);
     try {
       const response = await fetch(
         `/api/meeting-rooms/reservations/${session.reservationId}`,
@@ -147,13 +155,14 @@ export default function ActiveMeetingRooms({
             `Could not cancel the session (HTTP ${response.status}).`,
         );
       }
+      setPendingCancel(null);
       await load();
       router.refresh();
-    } catch (cancelError) {
-      console.error("Meeting room cancel error:", cancelError);
-      alert(
-        cancelError instanceof Error
-          ? cancelError.message
+    } catch (cancelFailure) {
+      console.error("Meeting room cancel error:", cancelFailure);
+      setCancelError(
+        cancelFailure instanceof Error
+          ? cancelFailure.message
           : "Could not cancel this session.",
       );
     } finally {
@@ -437,16 +446,16 @@ export default function ActiveMeetingRooms({
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">
-            Active Meeting Rooms
+          <h2 className="text-lg font-bold text-slate-900">
+            In session
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-0.5">
             Live room sessions, customer QR access and F&amp;B orders.
           </p>
         </div>
 
-        <div className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-800">
-          Active {sessions.length}
+        <div className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-sm font-semibold text-emerald-700">
+          {sessions.length} active
         </div>
       </div>
 
@@ -1094,6 +1103,26 @@ export default function ActiveMeetingRooms({
             </div>
           </div>
         </div>
+      )}
+
+      {pendingCancel && (
+        <ConfirmDialog
+          title="Cancel this session?"
+          message={
+            <>
+              <b>{pendingCancel.customerName}</b> · {pendingCancel.roomName}
+              <br />
+              The room is freed immediately and nothing is charged. Package
+              hours (if used) go back to the customer. This can&apos;t be
+              undone.
+            </>
+          }
+          confirmLabel="Cancel session"
+          busy={cancellingId !== null}
+          error={cancelError}
+          onConfirm={() => void confirmCancelSession()}
+          onClose={() => cancellingId === null && setPendingCancel(null)}
+        />
       )}
     </section>
   );

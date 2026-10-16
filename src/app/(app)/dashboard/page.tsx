@@ -19,6 +19,7 @@ import {
   getCustomerSessionPricing,
   getSetting,
 } from "@/lib/settings";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ function getTodayStart() {
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
+  await loadTimezone();
 
   if (!user) {
     redirect("/login");
@@ -140,7 +142,14 @@ export default async function DashboardPage() {
         `,
       })
       .from(expenses)
-      .where(gte(expenses.createdAt, startOfDay)),
+      // A voided package is already removed from revenue, so its cash
+      // refund must not be subtracted from profit a second time.
+      .where(
+        and(
+          gte(expenses.createdAt, startOfDay),
+          sql`${expenses.category} <> 'Package refund'`,
+        ),
+      ),
 
     // TODAY'S BANK MOVEMENT
     db
@@ -576,7 +585,7 @@ export default async function DashboardPage() {
                           started{" "}
                           {new Date(
                             session.checkedInAt,
-                          ).toLocaleTimeString()}
+                          ).toLocaleTimeString("en-EG", { timeZone: activeTimeZone() })}
                         </div>
                       </div>
 
@@ -714,7 +723,7 @@ export default async function DashboardPage() {
                       {session.checkedOutAt
                         ? new Date(
                             session.checkedOutAt,
-                          ).toLocaleString()
+                          ).toLocaleString("en-EG", { timeZone: activeTimeZone() })
                         : "-"}
                     </td>
 

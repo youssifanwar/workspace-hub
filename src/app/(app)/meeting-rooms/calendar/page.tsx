@@ -21,6 +21,7 @@ import {
 import { redirect } from "next/navigation";
 
 import { getSetting } from "@/lib/settings";
+import { loadTimezone } from "@/lib/timezone";
 import MeetingRoomCalendar from "./MeetingRoomCalendar";
 
 export const dynamic =
@@ -72,6 +73,10 @@ export default async function MeetingRoomCalendarPage() {
         ),
       );
 
+  const [timeZone, currency] = await Promise.all([
+    loadTimezone(),
+    getSetting("currency"),
+  ]);
   const [startRaw, endRaw, maxRaw] = await Promise.all([
     getSetting("calendar_start_hour"),
     getSetting("calendar_end_hour"),
@@ -179,6 +184,8 @@ export default async function MeetingRoomCalendarPage() {
       startHour={startHour}
       endHour={endHour}
       maxBookingHours={maxBookingHours}
+      currency={currency}
+      timeZone={timeZone}
       reservations={reservations.map(
         (reservation) => ({
           id:

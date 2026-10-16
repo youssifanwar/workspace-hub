@@ -14,6 +14,7 @@ import OpenSessionButton from "./OpenSessionButton";
 import QuickCancelButton from "./QuickCancelButton";
 import Link from "next/link";
 import BookingsLiveRefresh from "./BookingsLiveRefresh";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ type BillingMode =
 export default async function BookingsPage() {
   const user =
     await getCurrentUser();
+  await loadTimezone();
 
   if (!user) {
     redirect("/login");
@@ -689,7 +691,7 @@ function formatTime(
   return date.toLocaleTimeString(
     "en-EG",
     {
-      timeZone: "Africa/Cairo",
+      timeZone: activeTimeZone(),
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",

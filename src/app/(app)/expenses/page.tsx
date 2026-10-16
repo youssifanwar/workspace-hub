@@ -8,6 +8,7 @@ import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
 
 import ExpenseForm from "./ExpenseForm";
+import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ function formatDateTime(value: Date) {
     return "-";
   }
 
-  return value.toLocaleString("en-EG");
+  return value.toLocaleString("en-EG", { timeZone: activeTimeZone() });
 }
 
 export default async function ExpensesPage({
@@ -40,6 +41,7 @@ export default async function ExpensesPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const user = await getCurrentUser();
+  await loadTimezone();
 
   if (!user) {
     redirect("/login");

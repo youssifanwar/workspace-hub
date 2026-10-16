@@ -10,6 +10,7 @@ import { google } from "googleapis";
 
 import { db } from "@/db";
 import { settings } from "@/db/schema";
+import { loadTimezone } from "@/lib/timezone";
 
 /* -------------------------------------------------------------------------- */
 /* CONSTANTS                                                                  */
@@ -1482,6 +1483,8 @@ export async function createGoogleCalendarEvent(
       auth: client,
     });
 
+  const eventTimeZone = await loadTimezone();
+
   const event: {
     summary: string;
     description?: string;
@@ -1505,14 +1508,14 @@ export async function createGoogleCalendarEvent(
       dateTime:
         start.toISOString(),
       timeZone:
-        "Africa/Cairo",
+        eventTimeZone,
     },
 
     end: {
       dateTime:
         end.toISOString(),
       timeZone:
-        "Africa/Cairo",
+        eventTimeZone,
     },
   };
 
@@ -1690,6 +1693,8 @@ export async function updateGoogleCalendarEvent(
       end: previousEnd,
     };
 
+    const eventTimeZone = await loadTimezone();
+
     const result =
       await calendar.events.patch({
         calendarId,
@@ -1703,13 +1708,13 @@ export async function updateGoogleCalendarEvent(
             dateTime:
               start.toISOString(),
             timeZone:
-              "Africa/Cairo",
+              eventTimeZone,
           },
           end: {
             dateTime:
               end.toISOString(),
             timeZone:
-              "Africa/Cairo",
+              eventTimeZone,
           },
         },
       });

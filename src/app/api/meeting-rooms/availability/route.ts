@@ -4,6 +4,7 @@ import {
   and,
   eq,
   gt,
+  inArray,
   lt,
 } from "drizzle-orm";
 
@@ -484,9 +485,11 @@ export async function GET(
                 room.id,
               ),
 
-              eq(
+              // A customer currently IN the room (active) blocks the room
+              // just like an upcoming (confirmed) reservation does.
+              inArray(
                 meetingRoomReservations.status,
-                "confirmed",
+                ["confirmed", "active"],
               ),
 
               lt(

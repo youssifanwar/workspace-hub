@@ -20,6 +20,7 @@ export type SettingKey =
   | "customer_session_day_pass"
   | "meeting_room_early_checkin_minutes"
   | "stale_session_hours"
+  | "timezone"
   | "calendar_start_hour"
   | "calendar_end_hour"
   | "meeting_room_max_booking_hours";
@@ -28,7 +29,7 @@ export type SettingKey =
  * DEFAULTS
  * ========================================================================== */
 
-const DEFAULTS: Record<
+export const DEFAULTS: Record<
   SettingKey,
   string
 > = {
@@ -86,6 +87,9 @@ const DEFAULTS: Record<
     "10",
   /* Meeting-room calendar visible hours (0-24) and the longest booking
    * offered in the quick-book form. Editable in Settings. */
+  /* IANA timezone used to display every date/time (e.g. Africa/Cairo). */
+  timezone:
+    "Africa/Cairo",
   calendar_start_hour:
     "8",
   calendar_end_hour:

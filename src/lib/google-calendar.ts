@@ -71,11 +71,19 @@ type GoogleCalendarCredentials = {
 /* ENVIRONMENT DETECTION                                                      */
 /* -------------------------------------------------------------------------- */
 
-function isVercelRuntime(): boolean {
+function isWebRuntime(): boolean {
+  // Vercel uses the same database-backed OAuth flow as other hosted Node runtimes.
+  // Railway does not set VERCEL_* variables, so it must be detected explicitly.
+  // GOOGLE_REDIRECT_URI is also a reliable opt-in for other hosted deployments.
   return Boolean(
     process.env.VERCEL ||
       process.env.VERCEL_URL ||
-      process.env.VERCEL_ENV,
+      process.env.VERCEL_ENV ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.RAILWAY_PROJECT_ID ||
+      process.env.RAILWAY_SERVICE_ID ||
+      process.env.RAILWAY_PUBLIC_DOMAIN ||
+      process.env.GOOGLE_REDIRECT_URI?.trim(),
   );
 }
 
@@ -95,7 +103,8 @@ function getWebRedirectUri(): string {
     process.env.APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
-    process.env.VERCEL_URL?.trim();
+    process.env.VERCEL_URL?.trim() ||
+    process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
 
   if (!baseUrl) {
     throw new Error(
@@ -159,10 +168,10 @@ function getCredentialsPath(): string {
 
 function loadCredentials(): GoogleCalendarCredentials {
   /*
-   * Vercel/serverless: use environment variables.
+   * Hosted web runtime (Vercel/Railway): use environment variables.
    * Local/Electron: keep the existing credentials.json flow.
    */
-  if (isVercelRuntime()) {
+  if (isWebRuntime()) {
     const clientId =
       process.env.GOOGLE_CLIENT_ID?.trim();
 
@@ -174,7 +183,7 @@ function loadCredentials(): GoogleCalendarCredentials {
       !clientSecret
     ) {
       throw new Error(
-        "Google OAuth client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel Environment Variables.",
+        "Google OAuth client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your hosting provider environment variables.",
       );
     }
 
@@ -559,7 +568,7 @@ async function clearWebGoogleToken() {
 }
 
 export async function disconnectGoogleCalendar() {
-  if (isVercelRuntime()) {
+  if (isWebRuntime()) {
     await clearWebGoogleToken();
     return;
   }
@@ -642,7 +651,7 @@ function isInvalidGrantError(
 
 export async function getAuthenticatedClient() {
   const token =
-    isVercelRuntime()
+    isWebRuntime()
       ? await loadWebGoogleToken()
       : loadGoogleToken();
 
@@ -651,7 +660,7 @@ export async function getAuthenticatedClient() {
   }
 
   const redirectUri =
-    isVercelRuntime()
+    isWebRuntime()
       ? getWebRedirectUri()
       : "http://127.0.0.1";
 
@@ -674,7 +683,7 @@ export async function getAuthenticatedClient() {
     (newTokens) => {
       void (async () => {
         try {
-          if (isVercelRuntime()) {
+          if (isWebRuntime()) {
             const currentToken =
               await loadWebGoogleToken() ??
               {};
@@ -754,7 +763,7 @@ export async function getGoogleCalendarStatus() {
       )
     ) {
       try {
-        if (isVercelRuntime()) {
+        if (isWebRuntime()) {
           await clearWebGoogleToken();
         } else {
           clearLocalGoogleToken();
@@ -842,13 +851,13 @@ function cleanupOAuthServer(
 
 export async function startGoogleAuthorization(): Promise<GoogleAuthorizationResult> {
   /*
-   * Vercel/web flow:
+   * Hosted web flow:
    * - No local server.
    * - No openBrowser().
    * - Google redirects to /api/google-calendar/auth.
    * - The caller stores the state in an HttpOnly cookie.
    */
-  if (isVercelRuntime()) {
+  if (isWebRuntime()) {
     const state =
       crypto.randomBytes(32).toString(
         "hex",
@@ -1216,9 +1225,9 @@ export async function startGoogleAuthorization(): Promise<GoogleAuthorizationRes
 export async function finishGoogleWebAuthorization(
   code: string,
 ): Promise<void> {
-  if (!isVercelRuntime()) {
+  if (!isWebRuntime()) {
     throw new Error(
-      "Web Google OAuth callback is only available in the Vercel/web runtime.",
+      "Web Google OAuth callback is only available in a hosted web runtime.",
     );
   }
 
@@ -1382,7 +1391,7 @@ export async function getCalendarBusyPeriods(
         error,
       )
     ) {
-      if (isVercelRuntime()) {
+      if (isWebRuntime()) {
         await clearWebGoogleToken();
       } else {
         clearLocalGoogleToken();
@@ -1559,7 +1568,7 @@ export async function createGoogleCalendarEvent(
         error,
       )
     ) {
-      if (isVercelRuntime()) {
+      if (isWebRuntime()) {
         await clearWebGoogleToken();
       } else {
         clearLocalGoogleToken();
@@ -1734,7 +1743,7 @@ export async function updateGoogleCalendarEvent(
         error,
       )
     ) {
-      if (isVercelRuntime()) {
+      if (isWebRuntime()) {
         await clearWebGoogleToken();
       } else {
         clearLocalGoogleToken();
@@ -1791,7 +1800,7 @@ export async function deleteGoogleCalendarEvent(
         error,
       )
     ) {
-      if (isVercelRuntime()) {
+      if (isWebRuntime()) {
         await clearWebGoogleToken();
       } else {
         clearLocalGoogleToken();

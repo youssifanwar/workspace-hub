@@ -1062,6 +1062,14 @@ export const products = pgTable(
       .notNull()
       .default(true),
 
+    // Whether customers may ORDER this product from the QR menu. This is
+    // separate from `active` (whether it is VISIBLE on the menu): a product
+    // can stay visible while ordering is paused by the manager.
+    orderEnabled: boolean(
+      "order_enabled",
+    )
+      .notNull()
+      .default(true),
     // Current physical stock available for sale.
     // 0 means the product is out of stock.
     stockQuantity: integer(
@@ -1760,6 +1768,13 @@ export const expenses = pgTable(
       },
     ).notNull(),
 
+    // Expenses can be paid from the cash drawer or by non-cash methods.
+    // This is required for correct cash reconciliation. Existing rows migrate
+    // as cash so their historical drawer totals remain unchanged.
+    paymentMethod: paymentMethodEnum("payment_method")
+      .notNull()
+      .default("cash"),
+
     category: varchar(
       "category",
       {
@@ -1811,6 +1826,52 @@ export const manualIncomes = pgTable("manual_incomes", {
     .notNull()
     .defaultNow(),
 });
+
+// =============================================================================
+// CUSTOMER DEVICE SESSIONS
+//
+// One row per phone/device that joined a booking with its 4-digit code.
+// Every device keeps its own independent session, but all of them belong to
+// the SAME booking — so orders from everyone land on one bill, and a new
+// person joining never logs the others out.
+// =============================================================================
+
+export const bookingAccessSessions = pgTable(
+  "booking_access_sessions",
+  {
+    id: serial("id").primaryKey(),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    // SHA-256 of the random token held in the device's cookie.
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    userAgent: varchar("user_agent", { length: 300 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("booking_access_sessions_booking_idx").on(table.bookingId),
+  ],
+);
+
+// Failed/successful access-code attempts, used to block code guessing
+// (a 4-digit code only has 10,000 possibilities).
+export const accessCodeAttempts = pgTable(
+  "access_code_attempts",
+  {
+    id: serial("id").primaryKey(),
+    // SHA-256 of the client IP — the raw address is never stored.
+    ipHash: varchar("ip_hash", { length: 64 }).notNull(),
+    success: boolean("success").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("access_code_attempts_ip_idx").on(table.ipHash, table.createdAt),
+  ],
+);
 
 // =============================================================================
 // CUSTOMER BALANCE LEDGER

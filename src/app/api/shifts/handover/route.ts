@@ -164,7 +164,7 @@ export async function POST(req: Request) {
 
       const [expensesRow] = await tx
         .select({
-          total: sql<string>`coalesce(sum(${expenses.amount}), 0)`,
+          total: sql<string>`coalesce(sum(case when ${expenses.paymentMethod} = 'cash' then ${expenses.amount} else 0 end), 0)`,
         })
         .from(expenses)
         .where(eq(expenses.shiftId, openShift.id));

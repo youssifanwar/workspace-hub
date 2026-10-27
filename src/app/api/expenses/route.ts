@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 type CreateExpenseBody = {
   amount?: unknown;
   category?: unknown;
+  paymentMethod?: unknown;
   note?: unknown;
 };
 
@@ -236,6 +237,22 @@ export async function POST(
     }
 
     /* ------------------------------------------------------------------------
+     * PAYMENT METHOD (used by cash drawer reconciliation)
+     * ---------------------------------------------------------------------- */
+
+    const paymentMethod =
+      body.paymentMethod === undefined || body.paymentMethod === null || body.paymentMethod === ""
+        ? "cash"
+        : body.paymentMethod;
+
+    if (paymentMethod !== "cash" && paymentMethod !== "visa" && paymentMethod !== "instapay") {
+      return NextResponse.json(
+        { error: "Choose cash, visa or instapay for the expense payment method." },
+        { status: 400 },
+      );
+    }
+
+    /* ------------------------------------------------------------------------
      * NOTE
      * ---------------------------------------------------------------------- */
 
@@ -384,6 +401,8 @@ export async function POST(
                 amount:
                   amount.toFixed(2),
 
+                paymentMethod,
+
                 category,
 
                 note,
@@ -400,6 +419,9 @@ export async function POST(
 
                 amount:
                   expenses.amount,
+
+                paymentMethod:
+                  expenses.paymentMethod,
 
                 category:
                   expenses.category,
@@ -448,6 +470,8 @@ export async function POST(
                     createdExpense.amount,
                   ),
 
+                paymentMethod: createdExpense.paymentMethod,
+
                 category:
                   createdExpense.category,
 
@@ -480,6 +504,8 @@ export async function POST(
 
           amount:
             result.amount,
+
+          paymentMethod: result.paymentMethod,
 
           category:
             result.category,

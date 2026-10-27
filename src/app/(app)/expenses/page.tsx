@@ -64,6 +64,8 @@ export default async function ExpensesPage({
     incomeRows,
     expenseCategoryRows,
     incomeCategoryRows,
+    shiftExpenseRow,
+    shiftIncomeRow,
   ] = await Promise.all([
     db
       .select({
@@ -77,6 +79,7 @@ export default async function ExpensesPage({
       .select({
         id: expenses.id,
         amount: expenses.amount,
+        paymentMethod: expenses.paymentMethod,
         category: expenses.category,
         note: expenses.note,
         createdAt: expenses.createdAt,
@@ -98,6 +101,7 @@ export default async function ExpensesPage({
       .select({
         id: manualIncomes.id,
         amount: manualIncomes.amount,
+        paymentMethod: manualIncomes.paymentMethod,
         category: manualIncomes.category,
         note: manualIncomes.note,
         createdAt: manualIncomes.createdAt,
@@ -112,8 +116,18 @@ export default async function ExpensesPage({
       .selectDistinct({ category: manualIncomes.category })
       .from(manualIncomes)
       .limit(100),
+    db
+      .select({ total: sql<string>`coalesce(sum(${expenses.amount}), 0)` })
+      .from(expenses)
+      .where(eq(expenses.shiftId, shift.id)),
+    db
+      .select({ total: sql<string>`coalesce(sum(${manualIncomes.amount}), 0)` })
+      .from(manualIncomes)
+      .where(eq(manualIncomes.shiftId, shift.id)),
   ]);
   const incomeTotal = safeNumber(incomeTotalsRow[0]?.total);
+  const shiftExpenseTotal = safeNumber(shiftExpenseRow[0]?.total);
+  const shiftIncomeTotal = safeNumber(shiftIncomeRow[0]?.total);
   const expenseCategories = expenseCategoryRows.map((r) => r.category);
   const incomeCategories = incomeCategoryRows.map((r) => r.category);
   const activeRows = isIncome ? incomeRows : rows;
@@ -152,6 +166,22 @@ export default async function ExpensesPage({
             </div>
             <div className="text-2xl font-bold mt-2 tabular-nums">
               {formatMoney(totalExpenses, currency)}
+            </div>
+          </div>
+          <div className="kpi bg-gradient-to-br from-cyan-600 to-blue-600 min-w-[190px]">
+            <div className="text-xs uppercase text-white/80 font-semibold">
+              This shift · income
+            </div>
+            <div className="text-2xl font-bold mt-2 tabular-nums">
+              {formatMoney(shiftIncomeTotal, currency)}
+            </div>
+          </div>
+          <div className="kpi bg-gradient-to-br from-violet-600 to-indigo-600 min-w-[190px]">
+            <div className="text-xs uppercase text-white/80 font-semibold">
+              This shift · expenses
+            </div>
+            <div className="text-2xl font-bold mt-2 tabular-nums">
+              {formatMoney(shiftExpenseTotal, currency)}
             </div>
           </div>
         </div>
@@ -222,6 +252,8 @@ export default async function ExpensesPage({
                       </div>
                       <div className="text-xs text-slate-500 truncate">
                         {row.note?.trim() || "No note"}
+                        {" · "}
+                        {String(row.paymentMethod ?? "cash").toUpperCase()}
                         {" · "}
                         {row.userName || "Unknown user"}
                         {" · "}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/zoned-time";
 
 import CustomerSearchField from "./CustomerSearchField";
+import MeetingPackagePurchase from "./MeetingPackagePurchase";
 
 export type DialogRoom = {
   id: number;
@@ -102,6 +103,7 @@ export default function ReservationDialog({
   const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly">(
     "none",
   );
@@ -156,6 +158,7 @@ export default function ReservationDialog({
           { signal: controller.signal, cache: "no-store" },
         );
         const data = await res.json().catch(() => ({}));
+        setSelectedCustomerId(data?.customer?.id ? Number(data.customer.id) : null);
         setPackages(
           (data?.packages ?? []).filter(
             (p: OwnedPackage) =>
@@ -503,8 +506,12 @@ export default function ReservationDialog({
                   phone={phone}
                   disabled={saving}
                   onNameChange={setName}
-                  onPhoneChange={setPhone}
+                  onPhoneChange={(value) => {
+                    setPhone(value);
+                    setSelectedCustomerId(null);
+                  }}
                   onPick={(c) => {
+                    setSelectedCustomerId(c.id);
                     setName(c.name);
                     setPhone(c.phone);
                   }}
@@ -533,6 +540,16 @@ export default function ReservationDialog({
                     </select>
                   </Field>
                 )}
+                <MeetingPackagePurchase
+                  customerId={selectedCustomerId}
+                  phone={phone}
+                  currency={currency}
+                  disabled={saving}
+                  onPurchased={(purchaseId, owned) => {
+                    setPackages(owned);
+                    setPackageId(purchaseId);
+                  }}
+                />
               </section>
 
               <section className="space-y-4">

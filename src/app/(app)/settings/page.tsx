@@ -181,6 +181,7 @@ export default async function SettingsPage() {
               calendarEndHour={settings.calendar_end_hour}
               maxBookingHours={settings.meeting_room_max_booking_hours}
               timezone={settings.timezone}
+              weekStartsOn={settings.calendar_week_starts_on}
             />
           </div>
         )}

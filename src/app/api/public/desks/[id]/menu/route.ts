@@ -1,3 +1,4 @@
+import { bookingAccessCondition } from "@/lib/customer-session";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
@@ -241,10 +242,7 @@ export async function GET(
             )
             .where(
               and(
-                eq(
-                  bookings.accessTokenHash,
-                  tokenHash,
-                ),
+                bookingAccessCondition(tokenHash),
                 eq(
                   bookings.status,
                   "active",
@@ -352,8 +350,10 @@ export async function GET(
           icon: p.icon,
           imageUrl:
             p.imageUrl,
-          stockQuantity:
-            p.stockQuantity,
+          // Whether the manager currently allows ordering this product.
+          // Stock levels are internal and are NEVER sent to customers.
+          orderable:
+            p.orderEnabled,
         })),
     };
 

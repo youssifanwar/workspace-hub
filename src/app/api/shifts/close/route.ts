@@ -376,18 +376,13 @@ export async function POST(
               .select({
                 total: sql<string>`
                   coalesce(
-                    sum(${expenses.amount}),
+                    sum(case when ${expenses.paymentMethod} = 'cash' then ${expenses.amount} else 0 end),
                     0
                   )
                 `,
               })
               .from(expenses)
-              .where(
-                eq(
-                  expenses.shiftId,
-                  active.id,
-                ),
-              );
+              .where(eq(expenses.shiftId, active.id));
 
           const bankResult =
             await tx

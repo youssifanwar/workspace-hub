@@ -71,18 +71,13 @@ type GoogleCalendarCredentials = {
 /* ENVIRONMENT DETECTION                                                      */
 /* -------------------------------------------------------------------------- */
 
-
 function isVercelRuntime(): boolean {
   return Boolean(
     process.env.VERCEL ||
       process.env.VERCEL_URL ||
-      process.env.VERCEL_ENV ||
-      process.env.RAILWAY_ENVIRONMENT ||
-      process.env.RAILWAY_PROJECT_ID ||
-      process.env.RAILWAY_SERVICE_ID,
+      process.env.VERCEL_ENV,
   );
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* PUBLIC APP URL                                                             */
@@ -179,7 +174,7 @@ function loadCredentials(): GoogleCalendarCredentials {
       !clientSecret
     ) {
       throw new Error(
-        "Google OAuth client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Railway or Vercel Environment Variables."
+        "Google OAuth client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel Environment Variables.",
       );
     }
 

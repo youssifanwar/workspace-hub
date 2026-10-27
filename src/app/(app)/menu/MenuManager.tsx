@@ -21,6 +21,8 @@ type Product = {
   price: string;
   imageUrl: string | null;
   icon: string;
+  /** QR menu: customers may order this product (independent of visibility). */
+  orderEnabled: boolean;
 };
 
 type ApiResponse = {
@@ -220,6 +222,59 @@ export default function MenuManager({
         err,
       );
 
+      setError(
+        "Could not connect to the server. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleOrdering(product: Product) {
+    if (busy) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `/api/products/${product.id}`,
+        {
+          method: "PATCH",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            orderEnabled: !product.orderEnabled,
+          }),
+        },
+      );
+
+      const data =
+        (await res
+          .json()
+          .catch(() => null)) as
+          | ApiResponse
+          | null;
+
+      if (!res.ok) {
+        setError(
+          data?.error ||
+            "Could not change ordering for this product.",
+        );
+        return;
+      }
+
+      router.refresh();
+    } catch (err) {
+      console.error(
+        "Toggle ordering failed:",
+        err,
+      );
       setError(
         "Could not connect to the server. Please try again.",
       );
@@ -500,11 +555,53 @@ export default function MenuManager({
                 {product.name}
               </div>
 
-              <div className="text-xs text-indigo-600 font-bold">
-                {safeNumber(
-                  product.price,
-                ).toFixed(2)}{" "}
-                {currency}
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-indigo-600 font-bold">
+                  {safeNumber(
+                    product.price,
+                  ).toFixed(2)}{" "}
+                  {currency}
+                </div>
+
+                {canManage ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={product.orderEnabled}
+                    aria-label={`Allow customers to order ${product.name}`}
+                    title={
+                      product.orderEnabled
+                        ? "Customers can order this. Click to pause ordering."
+                        : "Ordering is paused. Click to allow ordering."
+                    }
+                    onClick={() =>
+                      void toggleOrdering(product)
+                    }
+                    disabled={busy}
+                    className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold disabled:opacity-50 ${
+                      product.orderEnabled
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        product.orderEnabled
+                          ? "bg-emerald-500"
+                          : "bg-slate-400"
+                      }`}
+                    />
+                    {product.orderEnabled
+                      ? "Orderable"
+                      : "Paused"}
+                  </button>
+                ) : (
+                  !product.orderEnabled && (
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Paused
+                    </span>
+                  )
+                )}
               </div>
             </div>
           </div>

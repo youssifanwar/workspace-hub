@@ -63,8 +63,6 @@ export default async function BookingDetail({
     .select({
       id: bookings.id,
 
-      customerId: bookings.customerId,
-
       status:
         bookings.status,
 
@@ -214,7 +212,7 @@ export default async function BookingDetail({
           ),
           eq(
             customerSubscriptions.customerId,
-            row.customerId,
+            customers.id,
           ),
         ),
       )

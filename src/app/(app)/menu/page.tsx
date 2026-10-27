@@ -51,6 +51,7 @@ export default async function MenuPage() {
           price: products.price,
           imageUrl: products.imageUrl,
           icon: products.icon,
+          orderEnabled: products.orderEnabled,
         })
         .from(products)
         .where(
@@ -80,6 +81,7 @@ export default async function MenuPage() {
       price: product.price,
       imageUrl: product.imageUrl,
       icon: product.icon,
+      orderEnabled: product.orderEnabled,
     }));
 
   return (

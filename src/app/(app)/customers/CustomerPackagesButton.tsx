@@ -238,10 +238,10 @@ export default function CustomerPackagesButton({
     <>
       <button
         type="button"
-        className="btn btn-ghost text-emerald-700"
+        className="btn btn-ghost text-teal-700"
         onClick={() => setOpen(true)}
       >
-        Packages
+        Packages & hours
       </button>
 
       {open && (
@@ -249,7 +249,7 @@ export default function CustomerPackagesButton({
           <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-bold">Packages</h2>
+                <h2 className="text-xl font-bold">Customer packages & hours</h2>
                 <p className="text-sm text-slate-500">
                   {customerName} · {customerPhone}
                 </p>
@@ -322,7 +322,8 @@ export default function CustomerPackagesButton({
             </div>
 
             <div className="border-t border-slate-200 pt-4 space-y-3">
-              <h3 className="font-semibold">Register a new package</h3>
+              <h3 className="font-semibold">Assign / sell a package to this customer</h3>
+              <p className="text-sm text-slate-500">Create package definitions first in Settings → Meeting Room Packages. Then choose Desk hours or Meeting room hours below and register the sale using the customer's payment method.</p>
 
               <div className="flex gap-2">
                 {(["desk", "meeting"] as Kind[]).map((k) => (

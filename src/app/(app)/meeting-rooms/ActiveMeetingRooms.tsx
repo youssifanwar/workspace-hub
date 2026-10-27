@@ -19,6 +19,21 @@ type OrderItem = {
   createdAt: string;
 };
 
+type MenuCategory = {
+  id: number;
+  name: string;
+  icon: string;
+};
+
+type MenuProduct = {
+  id: number;
+  categoryId: number;
+  name: string;
+  price: string;
+  imageUrl: string | null;
+  icon: string;
+};
+
 type ActiveSession = {
   reservationId: number;
   bookingId: number | null;
@@ -28,6 +43,7 @@ type ActiveSession = {
   customerName: string;
   customerPhone: string | null;
   customerBalance: number;
+  connectedDevices: number;
   accessCode: string | null;
   startAt: string;
   endAt: string;
@@ -100,8 +116,12 @@ function formatElapsed(
 
 export default function ActiveMeetingRooms({
   currency,
+  categories,
+  products,
 }: {
   currency: string;
+  categories: MenuCategory[];
+  products: MenuProduct[];
 }) {
   const router = useRouter();
 
@@ -114,6 +134,17 @@ export default function ActiveMeetingRooms({
     useState(() => Date.now());
   const [checkout, setCheckout] =
     useState<CheckoutState | null>(null);
+  const [orderSession, setOrderSession] =
+    useState<ActiveSession | null>(null);
+  const [orderCategoryId, setOrderCategoryId] =
+    useState<number | null>(null);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [addingProductId, setAddingProductId] =
+    useState<number | null>(null);
+  const [orderError, setOrderError] =
+    useState<string | null>(null);
+  const [orderNotice, setOrderNotice] =
+    useState<string | null>(null);
   const [checkingOut, setCheckingOut] =
     useState(false);
   const [actionError, setActionError] =
@@ -254,6 +285,73 @@ export default function ActiveMeetingRooms({
       ),
     [sessions],
   );
+
+  const filteredMenuProducts = useMemo(() => {
+    const query = orderSearch.trim().toLocaleLowerCase();
+    return products.filter((product) => {
+      if (orderCategoryId !== null && product.categoryId !== orderCategoryId) {
+        return false;
+      }
+      if (query && !product.name.toLocaleLowerCase().includes(query)) {
+        return false;
+      }
+      return true;
+    });
+  }, [products, orderCategoryId, orderSearch]);
+
+  function openFnbOrder(session: ActiveSession) {
+    setOrderSession(session);
+    setOrderCategoryId(null);
+    setOrderSearch("");
+    setOrderError(null);
+    setOrderNotice(null);
+  }
+
+  async function addProductToMeeting(product: MenuProduct) {
+    const session = orderSession;
+    if (!session || addingProductId !== null) return;
+
+    if (!session.bookingId) {
+      setOrderError("This meeting room is not linked to an active customer session, so items cannot be added to its bill.");
+      return;
+    }
+
+    setAddingProductId(product.id);
+    setOrderError(null);
+    setOrderNotice(null);
+
+    try {
+      const response = await fetch(
+        `/api/bookings/${session.bookingId}/items`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ productId: product.id, quantity: 1 }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data?.error || `Could not add ${product.name} (HTTP ${response.status}).`,
+        );
+      }
+
+      setOrderNotice(`${product.name} added to ${session.roomName}'s bill.`);
+      await load(true);
+    } catch (addError) {
+      console.error("Add meeting room F&B item error:", addError);
+      setOrderError(
+        addError instanceof Error
+          ? addError.message
+          : "Could not add this product to the meeting room bill.",
+      );
+    } finally {
+      setAddingProductId(null);
+    }
+  }
 
   async function confirmCheckout() {
     if (!checkout) {
@@ -443,12 +541,10 @@ export default function ActiveMeetingRooms({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 meeting-active-section">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">
-            In session
-          </h2>
+          <div className="meeting-section-title-stack"><span className="meeting-section-kicker">LIVE OPERATIONS</span><h2 className="text-lg font-bold text-slate-900">In session</h2></div>
           <p className="text-sm text-slate-500 mt-0.5">
             Live room sessions, customer QR access and F&amp;B orders.
           </p>
@@ -487,9 +583,9 @@ export default function ActiveMeetingRooms({
             return (
               <div
                 key={session.reservationId}
-                className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+                className="meeting-active-room-card rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden"
               >
-                <div className="p-5 border-b border-slate-100">
+                <div className="meeting-active-room-header p-5 border-b border-slate-100">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
@@ -565,12 +661,27 @@ export default function ActiveMeetingRooms({
                         {session.accessCode}
                       </div>
                       <div className="text-xs text-indigo-700 mt-1">
-                        Customer scans the room QR, then enters this 4-digit code once.
+                        Everyone in the meeting can scan the room QR and enter this
+                        same code on their own phone. All orders go on this one
+                        bill.
+                      </div>
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white border border-indigo-200 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            session.connectedDevices > 0
+                              ? "bg-emerald-500"
+                              : "bg-slate-300"
+                          }`}
+                        />
+                        {session.connectedDevices}{" "}
+                        {session.connectedDevices === 1
+                          ? "device connected"
+                          : "devices connected"}
                       </div>
                     </div>
                   )}
 
-                  <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="meeting-active-room-bill rounded-2xl border border-slate-200 p-4">
                     <div className="flex items-center justify-between font-semibold">
                       <span className="text-slate-600">
                         Room
@@ -601,49 +712,50 @@ export default function ActiveMeetingRooms({
                     </div>
                   </div>
 
-                  {session.items.length > 0 ? (
-                    <div className="rounded-2xl border border-slate-200 overflow-hidden">
-                      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-                        <span className="font-bold text-slate-800">
-                          F&amp;B Orders
-                        </span>
-                        <span className="text-xs font-bold text-slate-500">
+                  <div className="meeting-active-fnb-panel rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="meeting-active-fnb-heading px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <span className="font-bold text-slate-800">F&amp;B Orders</span>
+                        <span className="ml-2 text-xs font-bold text-slate-500">
                           {session.itemCount} item(s)
                         </span>
                       </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary px-3 py-2 text-sm"
+                        onClick={() => openFnbOrder(session)}
+                        disabled={checkingOut || adjusting || cancellingId !== null || !session.bookingId}
+                        title={!session.bookingId ? "This session has no linked customer booking" : "Add food and drinks to this meeting room bill"}
+                      >
+                        ＋ Add food &amp; drinks
+                      </button>
+                    </div>
 
+                    {session.items.length > 0 ? (
                       <div className="divide-y divide-slate-100">
-                        {session.items.map(
-                          (item) => (
-                            <div
-                              key={item.id}
-                              className="px-4 py-3 flex items-center justify-between gap-4"
-                            >
-                              <div className="min-w-0">
-                                <div className="font-semibold text-slate-800 truncate">
-                                  {item.name}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  {item.quantity} × {money(item.unitPrice)} {currency}
-                                </div>
-                              </div>
-
-                              <div className="font-bold tabular-nums text-slate-900">
-                                {money(
-                                  Number(item.unitPrice) *
-                                    item.quantity,
-                                )} {currency}
+                        {session.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="px-4 py-3 flex items-center justify-between gap-4"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-800 truncate">{item.name}</div>
+                              <div className="text-xs text-slate-500">
+                                {item.quantity} × {money(item.unitPrice)} {currency}
                               </div>
                             </div>
-                          ),
-                        )}
+                            <div className="font-bold tabular-nums text-slate-900">
+                              {money(Number(item.unitPrice) * item.quantity)} {currency}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                      No F&amp;B orders yet.
-                    </div>
-                  )}
+                    ) : (
+                      <div className="p-4 text-sm text-slate-500">
+                        No F&amp;B orders yet. Staff can add items here even when the customer does not use the QR menu.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -723,6 +835,160 @@ export default function ActiveMeetingRooms({
         <p className="text-xs text-slate-500">
           F&amp;B orders are linked to the same customer booking used by this meeting room session.
         </p>
+      )}
+
+      {orderSession && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm grid place-items-center p-3 sm:p-5"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && addingProductId === null) {
+              setOrderSession(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="meeting-room-add-fnb-title"
+            className="w-full max-w-5xl max-h-[92vh] rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+          >
+            <div className="p-5 sm:p-6 border-b border-slate-100 bg-gradient-to-r from-indigo-50 via-white to-cyan-50">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-indigo-600 font-bold">
+                    Staff order · Meeting room
+                  </div>
+                  <h3 id="meeting-room-add-fnb-title" className="text-2xl font-black text-slate-900 mt-1">
+                    Add food &amp; drinks
+                  </h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    {orderSession.roomName} · {orderSession.customerName}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Items go straight onto this active session&apos;s bill; the customer does not need to scan the QR code.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold"
+                  onClick={() => addingProductId === null && setOrderSession(null)}
+                  disabled={addingProductId !== null}
+                  aria-label="Close add food and drinks"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-4">
+                <input
+                  type="search"
+                  value={orderSearch}
+                  onChange={(event) => setOrderSearch(event.target.value)}
+                  placeholder="Search drinks and food…"
+                  className="input w-full bg-white"
+                  aria-label="Search menu products"
+                  autoFocus
+                />
+              </div>
+              {categories.length > 0 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setOrderCategoryId(null)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition ${
+                      orderCategoryId === null
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300"
+                    }`}
+                  >
+                    All items
+                  </button>
+                  {categories.map((category) => (
+                    <button
+                      type="button"
+                      key={category.id}
+                      onClick={() => setOrderCategoryId(category.id)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition ${
+                        orderCategoryId === category.id
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300"
+                      }`}
+                    >
+                      <span className="mr-1">{category.icon}</span>{category.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto min-h-0">
+              {orderError && (
+                <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {orderError}
+                </div>
+              )}
+              {orderNotice && (
+                <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                  ✓ {orderNotice} You can add more items or close this window.
+                </div>
+              )}
+
+              {filteredMenuProducts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
+                  {products.length === 0
+                    ? "No active menu products are available. Add products in Menu & F&B first."
+                    : "No products match this search or category."}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {filteredMenuProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => void addProductToMeeting(product)}
+                      disabled={addingProductId !== null || !orderSession.bookingId}
+                      className="group min-w-0 rounded-2xl border border-slate-200 bg-white overflow-hidden text-left transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg disabled:opacity-60 disabled:cursor-wait"
+                    >
+                      <div className="relative h-28 sm:h-32 bg-slate-100 flex items-center justify-center overflow-hidden">
+                        {product.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-5xl" aria-hidden="true">{product.icon || "☕"}</span>
+                        )}
+                        <span className="absolute right-2 top-2 rounded-lg bg-white/95 px-2 py-1 text-lg shadow-sm" aria-hidden="true">
+                          {product.icon || "☕"}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <div className="font-bold text-sm text-slate-900 truncate" title={product.name}>{product.name}</div>
+                        <div className="mt-1 text-sm font-extrabold text-indigo-700 tabular-nums">
+                          {money(product.price)} {currency}
+                        </div>
+                        <div className="mt-3 rounded-xl bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition">
+                          {addingProductId === product.id ? "Adding…" : "+ Add 1"}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 p-4 sm:px-6 flex items-center justify-between gap-3 bg-slate-50">
+              <div className="text-xs text-slate-500">
+                Added items appear in F&amp;B Orders and are included in the meeting-room checkout total.
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost shrink-0"
+                onClick={() => addingProductId === null && setOrderSession(null)}
+                disabled={addingProductId !== null}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {adjustment && (

@@ -32,7 +32,7 @@ import {
   formatMoney,
   getSetting,
 } from "@/lib/settings";
-import { activeTimeZone, loadTimezone } from "@/lib/timezone";
+import { activeTimeZone, getZonedDayRange, loadTimezone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -136,25 +136,9 @@ export default async function ReportsPage({
     params.range,
   );
 
-  const from = new Date();
-  from.setHours(
-    0,
-    0,
-    0,
-    0,
-  );
-
-  from.setDate(
-    from.getDate() - days + 1,
-  );
-
-  const to = new Date();
-  to.setHours(
-    23,
-    59,
-    59,
-    999,
-  );
+  // Report windows follow the workspace timezone, not the hosting server's
+  // timezone, so Cairo late-night sales are not silently assigned to yesterday.
+  const { from, to } = getZonedDayRange(days, activeTimeZone());
 
   const [
     revenueRow,
@@ -529,6 +513,49 @@ export default async function ReportsPage({
       .limit(20),
   ]);
 
+  const [otherPaymentRows, otherDailyRows] = await Promise.all([
+    db.execute(sql`
+      SELECT method, COALESCE(SUM(amount), 0) AS total
+      FROM (
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_subscriptions
+        WHERE status <> 'cancelled' AND purchased_at >= ${from} AND purchased_at <= ${to}
+        UNION ALL
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_meeting_room_packages
+        WHERE status <> 'cancelled' AND purchased_at >= ${from} AND purchased_at <= ${to}
+        UNION ALL
+        SELECT payment_method AS method, amount
+        FROM manual_incomes
+        WHERE created_at >= ${from} AND created_at <= ${to}
+      ) other_sources
+      GROUP BY method
+    `),
+    db.execute(sql`
+      SELECT day, COALESCE(SUM(revenue), 0) AS revenue
+      FROM (
+        SELECT to_char(date_trunc('day', purchased_at), 'YYYY-MM-DD') AS day,
+               COALESCE(SUM(price_snapshot), 0) AS revenue
+        FROM customer_subscriptions
+        WHERE status <> 'cancelled' AND purchased_at >= ${from} AND purchased_at <= ${to}
+        GROUP BY date_trunc('day', purchased_at)
+        UNION ALL
+        SELECT to_char(date_trunc('day', purchased_at), 'YYYY-MM-DD') AS day,
+               COALESCE(SUM(price_snapshot), 0) AS revenue
+        FROM customer_meeting_room_packages
+        WHERE status <> 'cancelled' AND purchased_at >= ${from} AND purchased_at <= ${to}
+        GROUP BY date_trunc('day', purchased_at)
+        UNION ALL
+        SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+               COALESCE(SUM(amount), 0) AS revenue
+        FROM manual_incomes
+        WHERE created_at >= ${from} AND created_at <= ${to}
+        GROUP BY date_trunc('day', created_at)
+      ) other_daily
+      GROUP BY day
+    `),
+  ]);
+
   // Package sales (desk + meeting room) counted by PAYMENT date, and manual
   // income entered on the Expenses & Income page.
   const [deskPackageRow, meetingPackageRow, manualIncomeRow] =
@@ -625,18 +652,22 @@ export default async function ReportsPage({
     ]),
   );
 
-  const dailyRowsMerged = dailyRows.map((row) => ({
-    day: row.day,
-    revenue: safeNumber(row.revenue) + (directFnbDailyMap.get(row.day) ?? 0),
-  }));
-
-  const seenDays = new Set(dailyRowsMerged.map((row) => row.day));
+  const otherDailyMap = new Map(
+    ((otherDailyRows as { rows?: Array<Record<string, unknown>> }).rows ?? []).map((row) => [
+      String(row.day ?? ""),
+      safeNumber(row.revenue),
+    ]),
+  );
+  const dailyRevenueMap = new Map<string, number>();
+  for (const row of dailyRows) dailyRevenueMap.set(row.day, safeNumber(row.revenue));
   for (const [day, value] of directFnbDailyMap) {
-    if (!seenDays.has(day)) {
-      dailyRowsMerged.push({ day, revenue: value });
-    }
+    dailyRevenueMap.set(day, (dailyRevenueMap.get(day) ?? 0) + value);
   }
-  dailyRowsMerged.sort((a, b) => a.day.localeCompare(b.day));
+  for (const [day, value] of otherDailyMap) {
+    dailyRevenueMap.set(day, (dailyRevenueMap.get(day) ?? 0) + value);
+  }
+  const dailyRowsMerged = Array.from(dailyRevenueMap, ([day, revenue]) => ({ day, revenue }))
+    .sort((a, b) => a.day.localeCompare(b.day));
 
   const dailyValues =
     dailyRowsMerged.map((row) => row.revenue);
@@ -683,6 +714,10 @@ export default async function ReportsPage({
   }
   for (const [method, value] of directPaymentMap) {
     combinedPaymentMap.set(method, (combinedPaymentMap.get(method) ?? 0) + value);
+  }
+  for (const row of (otherPaymentRows as { rows?: Array<Record<string, unknown>> }).rows ?? []) {
+    const method = String(row.method ?? "unknown");
+    combinedPaymentMap.set(method, (combinedPaymentMap.get(method) ?? 0) + safeNumber(row.total));
   }
   const combinedPaymentRows = Array.from(combinedPaymentMap, ([method, total]) => ({ method, total }));
 
@@ -770,14 +805,14 @@ export default async function ReportsPage({
 
         <div className="kpi bg-gradient-to-br from-orange-500 to-pink-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            F&B
+            F&amp;B · sessions + Direct POS
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(
-              ordersTotal,
-              currency,
-            )}
+            {formatMoney(ordersTotal, currency)}
+          </div>
+          <div className="text-[11px] text-white/80 mt-1">
+            Direct POS {formatMoney(directFnbRevenue, currency)} included
           </div>
         </div>
 

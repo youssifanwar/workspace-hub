@@ -26,10 +26,8 @@ import {
  *    - attendee count
  *    - booking duration
  *
- * 2. Meeting-room packages:
- *    - 10 hours  -> 8% discount
- *    - 20 hours  -> 12% discount
- *    - 40 hours  -> 18% discount
+ * 2. Meeting-room packages use custom whole-hour quantities and a manually
+ *    configured discount (0% by default).
  *
  * 3. A booking cannot use 1.5 hours.
  *
@@ -98,12 +96,6 @@ export type MeetingRoomBillingResult = {
 const MONEY_SCALE = 100;
 
 const ZERO = 0;
-
-const ALLOWED_PACKAGE_HOURS = new Map<number, number>([
-  [10, 8],
-  [20, 12],
-  [40, 18],
-]);
 
 /* -------------------------------------------------------------------------- */
 /* Generic numeric helpers                                                    */
@@ -438,40 +430,6 @@ export async function getMeetingRoomPricingTier(
 
 /* -------------------------------------------------------------------------- */
 /* Package discount                                                           */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Return the business discount assigned to a package size.
- *
- * 10 -> 8
- * 20 -> 12
- * 40 -> 18
- */
-export function getMeetingRoomPackageDiscountPercent(
-  totalHours: string | number,
-): number {
-  const hours =
-    parsePositiveNumber(
-      totalHours,
-      "totalHours",
-    );
-
-  const discount =
-    ALLOWED_PACKAGE_HOURS.get(
-      hours,
-    );
-
-  if (
-    discount === undefined
-  ) {
-    throw new Error(
-      "Meeting room packages must be 10, 20, or 40 hours.",
-    );
-  }
-
-  return discount;
-}
-
 /**
  * Validate package definition.
  *
@@ -484,70 +442,24 @@ export function validateMeetingRoomPackageDefinition(
     price: string | number;
   },
 ) {
-  const totalHours =
-    parsePositiveNumber(
-      input.totalHours,
-      "totalHours",
-    );
-
-  if (
-    !ALLOWED_PACKAGE_HOURS.has(
-      totalHours,
-    )
-  ) {
-    throw new Error(
-      "Meeting room packages must be 10, 20, or 40 hours.",
-    );
+  const totalHours = parsePositiveNumber(input.totalHours, "totalHours");
+  if (!Number.isInteger(totalHours)) {
+    throw new Error("Meeting room package hours must be a whole number.");
   }
 
-  const expectedDiscount =
-    getMeetingRoomPackageDiscountPercent(
-      totalHours,
-    );
-
-  const providedDiscount =
-    Number.parseFloat(
-      String(
-        input.discountPercent,
-      ),
-    );
-
-  if (
-    !Number.isFinite(
-      providedDiscount,
-    )
-  ) {
-    throw new Error(
-      "Invalid package discount.",
-    );
+  const providedDiscount = Number(String(input.discountPercent ?? 0));
+  if (!Number.isFinite(providedDiscount) || providedDiscount < 0 || providedDiscount > 100) {
+    throw new Error("Discount must be between 0 and 100 percent.");
   }
 
-  if (
-    providedDiscount !==
-    expectedDiscount
-  ) {
-    throw new Error(
-      `A ${totalHours}-hour package must use a ${expectedDiscount}% discount.`,
-    );
-  }
-
-  const price =
-    toCents(
-      input.price,
-    );
-
-  if (
-    price <= ZERO
-  ) {
-    throw new Error(
-      "Meeting room package price must be greater than zero.",
-    );
+  const price = toCents(input.price);
+  if (price <= ZERO) {
+    throw new Error("Meeting room package price must be greater than zero.");
   }
 
   return {
     totalHours,
-    discountPercent:
-      expectedDiscount,
+    discountPercent: providedDiscount,
     price: fromCents(price),
   };
 }
@@ -737,19 +649,8 @@ export async function calculateMeetingRoomBookingWithPackage(
     );
   }
 
-  const expectedDiscount =
-    getMeetingRoomPackageDiscountPercent(
-      packageHours,
-    );
-
-  if (
-    discountPercent !==
-    expectedDiscount
-  ) {
-    throw new Error(
-      "Meeting room package discount configuration is invalid.",
-    );
-  }
+  // Purchase snapshots preserve the discount configured when sold. Do not
+  // force the old 8/12/18% preset map: each package can now define its own rate.
 
   const packageHoursUsed =
     base.durationHours;
@@ -1095,25 +996,3 @@ export function validatePricingTiers(
 
   return true;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Exported constants                                                         */
-/* -------------------------------------------------------------------------- */
-
-export const MEETING_ROOM_PACKAGE_RULES =
-  {
-    TEN_HOURS: {
-      totalHours: 10,
-      discountPercent: 8,
-    },
-
-    TWENTY_HOURS: {
-      totalHours: 20,
-      discountPercent: 12,
-    },
-
-    FORTY_HOURS: {
-      totalHours: 40,
-      discountPercent: 18,
-    },
-  } as const;

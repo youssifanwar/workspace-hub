@@ -10,6 +10,9 @@ import {
   bankTransactions,
   bookings,
   expenses,
+  customerSubscriptions,
+  customerMeetingRoomPackages,
+  manualIncomes,
   shifts,
   users,
 } from "@/db/schema";
@@ -216,8 +219,10 @@ export default async function ShiftPage() {
 
   const [
     totalsRow,
-    methodRows,
+    revenueSourceRows,
+    otherRevenueRows,
     expensesRow,
+    cashExpensesRow,
     bankRow,
     bookingsCountRow,
   ] = await Promise.all([
@@ -235,19 +240,43 @@ export default async function ShiftPage() {
         ),
       ),
 
-    db
-      .select({
-        method: bookings.paymentMethod,
-        total: sql<string>`coalesce(sum(${bookings.total}), 0)`,
-      })
-      .from(bookings)
-      .where(
-        and(
-          eq(bookings.shiftId, active.id),
-          eq(bookings.status, "closed"),
-        ),
-      )
-      .groupBy(bookings.paymentMethod),
+    // All revenue-producing transactions are grouped by payment method so
+    // direct F&B, package sales, and manual income appear in the same totals
+    // as regular session checkouts. Balance top-ups are excluded here because
+    // they are stored value, not new revenue (they are reconciled separately).
+    db.execute(sql`
+      SELECT method, COALESCE(SUM(amount), 0) AS total
+      FROM (
+        SELECT payment_method AS method, total AS amount
+        FROM bookings
+        WHERE shift_id = ${active.id} AND status = 'closed'
+        UNION ALL
+        SELECT payment_method AS method, total AS amount
+        FROM fnb_sales
+        WHERE shift_id = ${active.id}
+        UNION ALL
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_subscriptions
+        WHERE shift_id = ${active.id} AND status <> 'cancelled'
+        UNION ALL
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_meeting_room_packages
+        WHERE shift_id = ${active.id} AND status <> 'cancelled'
+        UNION ALL
+        SELECT payment_method AS method, amount
+        FROM manual_incomes
+        WHERE shift_id = ${active.id}
+      ) revenue_sources
+      GROUP BY method
+    `),
+
+    db.execute(sql`
+      SELECT
+        COALESCE((SELECT SUM(total) FROM fnb_sales WHERE shift_id = ${active.id}), 0) AS direct_fnb,
+        COALESCE((SELECT SUM(price_snapshot) FROM customer_subscriptions WHERE shift_id = ${active.id} AND status <> 'cancelled'), 0)
+          + COALESCE((SELECT SUM(price_snapshot) FROM customer_meeting_room_packages WHERE shift_id = ${active.id} AND status <> 'cancelled'), 0) AS packages,
+        COALESCE((SELECT SUM(amount) FROM manual_incomes WHERE shift_id = ${active.id}), 0) AS manual_income
+    `),
 
     db
       .select({
@@ -255,6 +284,13 @@ export default async function ShiftPage() {
       })
       .from(expenses)
       .where(eq(expenses.shiftId, active.id)),
+
+    db
+      .select({
+        total: sql<string>`coalesce(sum(${expenses.amount}), 0)`,
+      })
+      .from(expenses)
+      .where(and(eq(expenses.shiftId, active.id), eq(expenses.paymentMethod, "cash"))),
 
     db
       .select({
@@ -294,51 +330,37 @@ export default async function ShiftPage() {
       .where(eq(bookings.shiftId, active.id)),
   ]);
 
-  const revenue = safeMoney(totalsRow[0]?.revenue);
+  const bookingRevenue = safeMoney(totalsRow[0]?.revenue);
   const seatTotal = safeMoney(totalsRow[0]?.seat);
-  const ordersTotal = safeMoney(totalsRow[0]?.orders);
+  const bookingOrdersTotal = safeMoney(totalsRow[0]?.orders);
+  const otherRevenue = (otherRevenueRows as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? {};
+  const directFnbTotal = safeMoney(otherRevenue.direct_fnb);
+  const packageSalesTotal = safeMoney(otherRevenue.packages);
+  const manualIncomeTotal = safeMoney(otherRevenue.manual_income);
+  const ordersTotal = Math.round((bookingOrdersTotal + directFnbTotal) * 100) / 100;
+  const revenue = Math.round((bookingRevenue + directFnbTotal + packageSalesTotal + manualIncomeTotal) * 100) / 100;
   const totalExpenses = safeMoney(expensesRow[0]?.total);
+  const cashExpensesTotal = safeMoney(cashExpensesRow[0]?.total);
   const bankDeposits = safeMoney(bankRow[0]?.deposits);
-  const bankWithdrawals = safeMoney(
-    bankRow[0]?.withdrawals,
-  );
+  const bankWithdrawals = safeMoney(bankRow[0]?.withdrawals);
 
-  const cashTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "cash",
-    )?.total,
+  const combinedMethods = (revenueSourceRows as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  const methodTotal = (method: string) => safeMoney(
+    combinedMethods.find((row) => String(row.method ?? "") === method)?.total,
   );
-
-  const visaTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "visa",
-    )?.total,
-  );
-
-  const instapayTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "instapay",
-    )?.total,
-  );
-
-  const balanceTotal = safeMoney(
-    methodRows.find(
-      (method) => method.method === "balance",
-    )?.total,
-  );
+  const cashTotal = methodTotal("cash");
+  const visaTotal = methodTotal("visa");
+  const instapayTotal = methodTotal("instapay");
+  const balanceTotal = methodTotal("balance");
 
   const openingCash = safeMoney(active.openingCash);
   const extraCash = await getShiftExtraCash(db, active.id);
 
+  // Cash sales already include direct F&B, package cash payments and manual cash
+  // income. Only cash balance top-ups are added separately because they are not
+  // revenue transactions. Non-cash expenses must never reduce the physical drawer.
   const expectedCashInDrawer = Math.round(
-    (
-      openingCash +
-      cashTotal +
-      extraCash.total -
-      totalExpenses -
-      bankDeposits +
-      bankWithdrawals
-    ) * 100,
+    (openingCash + cashTotal + extraCash.balanceDeposits - cashExpensesTotal - bankDeposits + bankWithdrawals) * 100,
   ) / 100;
 
   const bookingsCount = Math.max(
@@ -390,10 +412,8 @@ export default async function ShiftPage() {
 
         <StatBox
           label="F&B sales"
-          value={formatMoney(
-            ordersTotal,
-            currency,
-          )}
+          value={formatMoney(ordersTotal, currency)}
+          sub={`Direct POS included: ${formatMoney(directFnbTotal, currency)}`}
           icon="🍔"
         />
 
@@ -452,21 +472,21 @@ export default async function ShiftPage() {
                 Extra cash in drawer
               </div>
               <Line
-                label="📦 Packages (cash)"
+                label="📦 Packages cash (included above)"
                 value={formatMoney(
                   extraCash.packages,
                   currency,
                 )}
               />
               <Line
-                label="➕ Other income (cash)"
+                label="➕ Other income cash (included above)"
                 value={formatMoney(
                   extraCash.manualIncome,
                   currency,
                 )}
               />
               <Line
-                label="👛 Balance top-ups (cash)"
+                label="👛 Balance top-ups (added separately)"
                 value={formatMoney(
                   extraCash.balanceDeposits,
                   currency,
@@ -517,7 +537,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="+ Cash sales"
+              label="+ Cash revenue (sessions, F&B, packages & other income)"
               value={formatMoney(
                 cashTotal,
                 currency,
@@ -525,9 +545,14 @@ export default async function ShiftPage() {
             />
 
             <Line
+              label="+ Cash customer-balance top-ups"
+              value={formatMoney(extraCash.balanceDeposits, currency)}
+            />
+
+            <Line
               label="− Cash expenses"
               value={formatMoney(
-                totalExpenses,
+                cashExpensesTotal,
                 currency,
               )}
             />
@@ -593,11 +618,13 @@ function StatBox({
   value,
   icon,
   highlight,
+  sub,
 }: {
   label: string;
   value: string;
   icon: string;
   highlight?: boolean;
+  sub?: string;
 }) {
   return (
     <div
@@ -618,8 +645,9 @@ function StatBox({
       </div>
 
       <div className="flex items-end justify-between mt-2 gap-3">
-        <div className="text-xl font-bold tabular-nums">
-          {value}
+        <div className="min-w-0">
+          <div className="text-xl font-bold tabular-nums">{value}</div>
+          {sub && <div className={`text-[10px] mt-1 ${highlight ? "text-white/75" : "text-slate-400"}`}>{sub}</div>}
         </div>
 
         <div

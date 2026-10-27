@@ -29,6 +29,7 @@ type MeetingRoomPackage = {
 type PackageForm = {
   name: string;
   totalHours: string;
+  discountPercent: string;
   price: string;
   validityDays: string;
   description: string;
@@ -37,37 +38,6 @@ type PackageForm = {
 /* ============================================================================
  * CONSTANTS
  * ========================================================================== */
-
-const PACKAGE_OPTIONS = [
-  {
-    hours: 10,
-    discount: 8,
-  },
-  {
-    hours: 20,
-    discount: 12,
-  },
-  {
-    hours: 40,
-    discount: 18,
-  },
-] as const;
-
-/* ============================================================================
- * HELPERS
- * ========================================================================== */
-
-function getDiscountForHours(
-  hours: number,
-): number | null {
-  const found =
-    PACKAGE_OPTIONS.find(
-      (item) =>
-        item.hours === hours,
-    );
-
-  return found?.discount ?? null;
-}
 
 function formatMoney(
   value: string | number,
@@ -88,6 +58,7 @@ function emptyForm(): PackageForm {
   return {
     name: "",
     totalHours: "10",
+    discountPercent: "0",
     price: "",
     validityDays: "",
     description: "",
@@ -281,6 +252,7 @@ export default function MeetingRoomPackagesAdmin({
           totalHours: String(
             Number(pkg.totalHours),
           ),
+          discountPercent: String(Number(pkg.discountPercent ?? 0)),
           price: String(
             Number(pkg.price),
           ),
@@ -330,24 +302,15 @@ export default function MeetingRoomPackagesAdmin({
         currentForm.totalHours,
       );
 
-    if (
-      !Number.isInteger(
-        totalHours,
-      )
-    ) {
-      return "Package hours must be a whole number.";
+    if (!Number.isInteger(totalHours) || totalHours <= 0) {
+      return "Package hours must be a positive whole number.";
     }
 
-    const requiredDiscount =
-      getDiscountForHours(
-        totalHours,
-      );
-
-    if (
-      requiredDiscount ===
-      null
-    ) {
-      return "Meeting room packages can only be 10, 20, or 40 hours.";
+    const discountPercent = currentForm.discountPercent.trim() === ""
+      ? 0
+      : Number(currentForm.discountPercent);
+    if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+      return "Discount must be between 0 and 100 percent (use 0 for no discount).";
     }
 
     const price =
@@ -411,21 +374,7 @@ export default function MeetingRoomPackagesAdmin({
         form.totalHours,
       );
 
-    const discountPercent =
-      getDiscountForHours(
-        totalHours,
-      );
-
-    if (
-      discountPercent ===
-      null
-    ) {
-      setError(
-        "Invalid package hours.",
-      );
-
-      return;
-    }
+    const discountPercent = Number(form.discountPercent || 0);
 
     setSaving(true);
 
@@ -548,21 +497,7 @@ export default function MeetingRoomPackagesAdmin({
         edit.totalHours,
       );
 
-    const discountPercent =
-      getDiscountForHours(
-        totalHours,
-      );
-
-    if (
-      discountPercent ===
-      null
-    ) {
-      setError(
-        "Invalid package hours.",
-      );
-
-      return;
-    }
+    const discountPercent = Number(edit.discountPercent || 0);
 
     setSaving(true);
 
@@ -747,10 +682,7 @@ export default function MeetingRoomPackagesAdmin({
           </h3>
 
           <p className="text-sm text-slate-500 mt-1">
-            Manage the 10, 20 and 40
-            hour meeting-room packages.
-            Customer purchases keep their
-            historical package snapshot.
+            Create your own meeting-room packages: choose any whole-hour amount, set the selling price, and optionally apply a discount. Customer purchases keep their historical price and hour snapshots.
           </p>
         </div>
 
@@ -774,33 +706,9 @@ export default function MeetingRoomPackagesAdmin({
         </button>
       </div>
 
-      {/* BUSINESS RULES */}
-      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-        <div className="font-semibold text-indigo-950">
-          Package rules
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-3 mt-3">
-          {PACKAGE_OPTIONS.map(
-            (option) => (
-              <div
-                key={
-                  option.hours
-                }
-                className="rounded-xl bg-white border border-indigo-100 p-3"
-              >
-                <div className="font-bold text-indigo-950">
-                  {option.hours} hours
-                </div>
-
-                <div className="text-sm text-indigo-700 mt-1">
-                  {option.discount}%
-                  discount
-                </div>
-              </div>
-            ),
-          )}
-        </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        <div className="font-semibold text-slate-800">Flexible package setup</div>
+        <p className="mt-1">Hours and prices are fully customizable. Discount defaults to 0% and is never forced; use it only when you choose to offer one. You can create multiple packages with the same number of hours.</p>
       </div>
 
       {/* MESSAGES */}
@@ -826,8 +734,7 @@ export default function MeetingRoomPackagesAdmin({
               </div>
 
               <div className="text-xs text-slate-500 mt-1">
-                The server will enforce the
-                package discount rules.
+                Create a package with your own number of hours and price. Discount is optional and defaults to 0%.
               </div>
             </div>
 
@@ -868,7 +775,7 @@ export default function MeetingRoomPackagesAdmin({
                       .value,
                   )
                 }
-                placeholder="e.g. Meeting Room 10 Hours"
+                placeholder="e.g. Meeting Room — 12 Hours"
                 disabled={
                   saving
                 }
@@ -876,45 +783,17 @@ export default function MeetingRoomPackagesAdmin({
             </div>
 
             <div>
-              <label className="label">
-                Hours
-              </label>
-
-              <select
+              <label className="label">Package hours</label>
+              <input
                 className="input"
-                value={
-                  form.totalHours
-                }
-                onChange={(
-                  event,
-                ) =>
-                  updateForm(
-                    "totalHours",
-                    event.target
-                      .value,
-                  )
-                }
-                disabled={
-                  saving
-                }
-              >
-                {PACKAGE_OPTIONS.map(
-                  (option) => (
-                    <option
-                      key={
-                        option.hours
-                      }
-                      value={
-                        option.hours
-                      }
-                    >
-                      {option.hours} hours
-                      {" "}
-                      ({option.discount}% discount)
-                    </option>
-                  ),
-                )}
-              </select>
+                type="number"
+                min={1}
+                step={1}
+                value={form.totalHours}
+                onChange={(event) => updateForm("totalHours", event.target.value)}
+                placeholder="e.g. 6, 12, 25"
+                disabled={saving}
+              />
             </div>
 
             <div>
@@ -946,6 +825,22 @@ export default function MeetingRoomPackagesAdmin({
                   saving
                 }
               />
+            </div>
+
+            <div>
+              <label className="label">Optional discount (%)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={form.discountPercent}
+                onChange={(event) => updateForm("discountPercent", event.target.value)}
+                placeholder="0"
+                disabled={saving}
+              />
+              <p className="text-xs text-slate-500 mt-1">Keep it at 0 if the package has no discount.</p>
             </div>
 
             <div>
@@ -1053,8 +948,7 @@ export default function MeetingRoomPackagesAdmin({
             </div>
 
             <div className="text-sm text-slate-500 mt-1">
-              Create the 10, 20 and 40 hour
-              packages with their selling prices.
+              Create a package with any whole-hour amount and your own selling price.
             </div>
           </div>
         ) : (
@@ -1181,45 +1075,15 @@ export default function MeetingRoomPackagesAdmin({
                       <td className="py-4 pr-4 min-w-28">
                         {editing &&
                         edit ? (
-                          <select
-                            className="input !py-1"
-                            value={
-                              edit.totalHours
-                            }
-                            onChange={(
-                              event,
-                            ) =>
-                              updateEditingForm(
-                                pkg.id,
-                                "totalHours",
-                                event
-                                  .target
-                                  .value,
-                              )
-                            }
-                            disabled={
-                              saving
-                            }
-                          >
-                            {PACKAGE_OPTIONS.map(
-                              (
-                                option,
-                              ) => (
-                                <option
-                                  key={
-                                    option.hours
-                                  }
-                                  value={
-                                    option.hours
-                                  }
-                                >
-                                  {
-                                    option.hours
-                                  }
-                                </option>
-                              ),
-                            )}
-                          </select>
+                          <input
+                            className="input !py-1 w-24"
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={edit.totalHours}
+                            onChange={(event) => updateEditingForm(pkg.id, "totalHours", event.target.value)}
+                            disabled={saving}
+                          />
                         ) : (
                           <span>
                             {
@@ -1232,16 +1096,24 @@ export default function MeetingRoomPackagesAdmin({
                         )}
                       </td>
 
-                      {/* DISCOUNT */}
+                      {/* OPTIONAL DISCOUNT */}
                       <td className="py-4 pr-4 min-w-28">
-                        <span className="font-semibold text-emerald-700">
-                          {
-                            Number(
-                              pkg.discountPercent,
-                            )
-                          }
-                          %
-                        </span>
+                        {editing && edit ? (
+                          <input
+                            className="input !py-1 w-24"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={edit.discountPercent}
+                            onChange={(event) => updateEditingForm(pkg.id, "discountPercent", event.target.value)}
+                            disabled={saving}
+                          />
+                        ) : (
+                          <span className={Number(pkg.discountPercent) > 0 ? "font-semibold text-emerald-700" : "text-slate-400"}>
+                            {Number(pkg.discountPercent) > 0 ? `${Number(pkg.discountPercent)}%` : "None"}
+                          </span>
+                        )}
                       </td>
 
                       {/* PRICE */}

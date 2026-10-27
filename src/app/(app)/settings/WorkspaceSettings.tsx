@@ -19,6 +19,7 @@ export default function WorkspaceSettings({
   calendarEndHour,
   maxBookingHours,
   timezone,
+  weekStartsOn,
 }: {
   workspaceName: string;
   workspaceAddress: string;
@@ -31,6 +32,7 @@ export default function WorkspaceSettings({
   calendarEndHour: string;
   maxBookingHours: string;
   timezone: string;
+  weekStartsOn: string;
 }) {
   const router = useRouter();
 
@@ -45,6 +47,7 @@ export default function WorkspaceSettings({
   const [calEnd, setCalEnd] = useState(calendarEndHour);
   const [maxBook, setMaxBook] = useState(maxBookingHours);
   const [tz, setTz] = useState(timezone);
+  const [weekStart, setWeekStart] = useState(weekStartsOn);
 
   const [loading, setLoading] = useState(false);
 
@@ -144,6 +147,7 @@ export default function WorkspaceSettings({
           currency: normalizedCurrency,
           invoice_footer: normalizedFooter,
           timezone: tz.trim(),
+          calendar_week_starts_on: String(Math.max(0, Math.min(6, Math.floor(Number(weekStart) || 0)))),
           calendar_start_hour: String(Math.max(0, Math.min(23, Math.floor(Number(calStart) || 0)))),
           calendar_end_hour: String(Math.max(1, Math.min(24, Math.floor(Number(calEnd) || 24)))),
           meeting_room_max_booking_hours: String(Math.max(1, Math.min(24, Math.floor(Number(maxBook) || 8)))),
@@ -394,6 +398,16 @@ export default function WorkspaceSettings({
             <option key={z} value={z} />
           ))}
         </datalist>
+      </div>
+
+      <div>
+        <label htmlFor="week-start" className="label">Calendar week starts on</label>
+        <select id="week-start" className="select" value={weekStart} disabled={loading}
+          onChange={(e) => { setWeekStart(e.target.value); setMsg(null); }}>
+          {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
+            <option key={d} value={String(i)}>{d}</option>
+          ))}
+        </select>
       </div>
 
       {/* MEETING ROOM CALENDAR */}

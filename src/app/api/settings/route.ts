@@ -23,6 +23,7 @@ const ALLOWED_KEYS: SettingKey[] = [
   "meeting_room_early_checkin_minutes",
   "stale_session_hours",
   "timezone",
+  "calendar_week_starts_on",
   "calendar_start_hour",
   "calendar_end_hour",
   "meeting_room_max_booking_hours",
@@ -103,6 +104,7 @@ export async function PATCH(req: Request) {
     }
 
     const INT_RANGES: Partial<Record<string, [number, number, string]>> = {
+      calendar_week_starts_on: [0, 6, "Week start must be 0 (Sunday) to 6 (Saturday)."],
       calendar_start_hour: [0, 23, "Calendar start hour must be 0–23."],
       calendar_end_hour: [1, 24, "Calendar end hour must be 1–24."],
       meeting_room_max_booking_hours: [1, 24, "Max booking hours must be 1–24."],

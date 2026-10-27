@@ -1,3 +1,4 @@
+import { bookingAccessCondition } from "@/lib/customer-session";
 import { NextResponse } from "next/server";
 
 import crypto from "crypto";
@@ -502,10 +503,7 @@ export async function POST(
               )
               .where(
                 and(
-                  eq(
-                    bookings.accessTokenHash,
-                    tokenHash,
-                  ),
+                  bookingAccessCondition(tokenHash),
 
                   eq(
                     bookings.status,
@@ -576,10 +574,7 @@ export async function POST(
                     booking.id,
                   ),
 
-                  eq(
-                    bookings.accessTokenHash,
-                    tokenHash,
-                  ),
+                  bookingAccessCondition(tokenHash),
                 ),
               )
               .limit(1);
@@ -831,6 +826,8 @@ export async function POST(
            * ---------------------------------------------------------------
            */
 
+          // Sorted so every concurrent order locks product rows in the same
+          // order — two orders with the same items can never deadlock.
           const productIds =
             [
               ...new Set(
@@ -841,7 +838,7 @@ export async function POST(
                     line.productId,
                 ),
               ),
-            ];
+            ].sort((a, b) => a - b);
 
           if (
             productIds.length ===
@@ -873,6 +870,9 @@ export async function POST(
 
                 active:
                   products.active,
+
+                orderEnabled:
+                  products.orderEnabled,
 
                 stockQuantity:
                   products.stockQuantity,
@@ -953,6 +953,17 @@ export async function POST(
               );
             }
 
+            // The manager can pause ordering for a product that is still
+            // visible on the menu. Enforced here, not just in the UI.
+            if (
+              !product.orderEnabled
+            ) {
+              throw new OrderError(
+                `${product.name} can't be ordered right now.`,
+                409,
+              );
+            }
+
             parsePrice(
               product.price,
             );
@@ -966,8 +977,9 @@ export async function POST(
               requestedQuantity >
               product.stockQuantity
             ) {
+              // Never tell the customer how much stock exists.
               throw new OrderError(
-                `${product.name} is out of stock or does not have enough stock. Available: ${product.stockQuantity}.`,
+                `${product.name} can't be ordered right now.`,
                 409,
               );
             }
@@ -1020,6 +1032,10 @@ export async function POST(
                       products.active,
                       true,
                     ),
+                    eq(
+                      products.orderEnabled,
+                      true,
+                    ),
                     sql`${products.stockQuantity} >= ${requestedQuantity}`,
                   ),
                 )
@@ -1059,7 +1075,7 @@ export async function POST(
               }
 
               throw new OrderError(
-                `${currentProduct.name} is out of stock or does not have enough stock. Available: ${currentProduct.stockQuantity}.`,
+                `${currentProduct.name} can't be ordered right now.`,
                 409,
               );
             }

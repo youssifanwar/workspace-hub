@@ -43,3 +43,5 @@ dist/
 
 # Archives
 *.zip
+# Safe template for isolated local database testing
+!/.env.local.example

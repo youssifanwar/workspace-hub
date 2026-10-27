@@ -40,7 +40,7 @@ export default function ExpenseForm({
   categories?: string[];
 }) {
   const isIncome = kind === "income";
-  const [incomeMethod, setIncomeMethod] = useState<"cash" | "visa" | "instapay">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "visa" | "instapay">("cash");
   const categoryOptions = Array.from(
     new Set([...(categories ?? []), ...CATEGORIES]),
   );
@@ -126,7 +126,7 @@ export default function ExpenseForm({
           body: JSON.stringify({
             amount: numericAmount,
             category: category.trim(),
-            ...(isIncome ? { paymentMethod: incomeMethod } : {}),
+            paymentMethod,
             note: trimmedNote,
           }),
         },
@@ -143,8 +143,7 @@ export default function ExpenseForm({
 
       if (!res.ok) {
         setError(
-          data?.error ||
-            isIncome ? "Failed to record the income." : "Failed to record the expense.",
+          data?.error || (isIncome ? "Failed to record the income." : "Failed to record the expense."),
         );
         return;
       }
@@ -244,28 +243,32 @@ export default function ExpenseForm({
         </datalist>
       </div>
 
-      {isIncome && (
-        <div>
-          <label className="label">Received by</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["cash", "visa", "instapay"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setIncomeMethod(m)}
-                disabled={loading}
-                className={`p-2.5 rounded-xl border font-semibold text-sm capitalize ${
-                  incomeMethod === m
+      <div>
+        <label className="label">{isIncome ? "Received by" : "Paid by"}</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(["cash", "visa", "instapay"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setPaymentMethod(m)}
+              disabled={loading}
+              aria-pressed={paymentMethod === m}
+              className={`p-2.5 rounded-xl border font-semibold text-sm capitalize transition-colors ${
+                paymentMethod === m
+                  ? isIncome
                     ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                {m === "instapay" ? "InstaPay" : m}
-              </button>
-            ))}
-          </div>
+                    : "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-slate-200 hover:border-indigo-300 bg-white"
+              }`}
+            >
+              {m === "instapay" ? "InstaPay" : m}
+            </button>
+          ))}
         </div>
-      )}
+        {!isIncome && (
+          <p className="text-xs text-slate-500 mt-1.5">Only cash expenses reduce the cash drawer. Visa and InstaPay are recorded as non-cash expenses.</p>
+        )}
+      </div>
 
       {/* NOTE */}
       <div>

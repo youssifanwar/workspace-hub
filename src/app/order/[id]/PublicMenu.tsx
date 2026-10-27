@@ -26,7 +26,9 @@ type Product = {
   price: string;
   icon: string;
   imageUrl: string | null;
-  stockQuantity: number;
+  // false when the manager has paused ordering for this product.
+  // (Stock levels are internal and never sent to customers.)
+  orderable: boolean;
 };
 
 type Booking = {
@@ -352,18 +354,8 @@ export default function PublicMenu({
       return;
     }
 
-    if (product.stockQuantity <= 0) {
-      setError(`${product.name} is currently out of stock.`);
-      return;
-    }
-
-    const currentQuantity =
-      cart[product.id]?.quantity || 0;
-
-    if (currentQuantity >= product.stockQuantity) {
-      setError(
-        `Only ${product.stockQuantity} of ${product.name} are available.`,
-      );
+    if (!product.orderable) {
+      setError(`${product.name} can't be ordered right now.`);
       return;
     }
 
@@ -409,13 +401,6 @@ export default function PublicMenu({
 
       const quantity =
         current.quantity + delta;
-
-      if (quantity > current.product.stockQuantity) {
-        setError(
-          `Only ${current.product.stockQuantity} of ${current.product.name} are available.`,
-        );
-        return prev;
-      }
 
       if (quantity <= 0) {
         const next = {
@@ -552,8 +537,8 @@ export default function PublicMenu({
             "Could not place order",
         );
 
-        // Stock may have changed while the cart was open. Refresh the menu
-        // so the customer sees the latest stock immediately.
+        // Availability may have changed while the cart was open. Refresh the
+        // menu so the customer sees the latest state immediately.
         if (res.status === 409) {
           setReloadKey((key) => key + 1);
         }
@@ -822,8 +807,7 @@ export default function PublicMenu({
                 disabled={
                   placing ||
                   !booking ||
-                  product.stockQuantity <= 0 ||
-                  inCart >= product.stockQuantity
+                  !product.orderable
                 }
                 className="text-left bg-white rounded-2xl overflow-hidden border border-slate-200 active:scale-[.98] transition disabled:opacity-60"
               >
@@ -848,24 +832,18 @@ export default function PublicMenu({
                     </div>
                   )}
 
-                  {product.stockQuantity <= 0 ? (
-                    <div className="absolute inset-0 bg-black/45 grid place-items-center">
-                      <span className="px-3 py-1.5 rounded-full bg-red-600 text-white text-sm font-bold shadow">
-                        Out of Stock
+                  {!product.orderable ? (
+                    <div className="absolute inset-0 bg-black/40 grid place-items-center">
+                      <span className="px-3 py-1.5 rounded-full bg-slate-800 text-white text-sm font-semibold shadow">
+                        Not available right now
                       </span>
                     </div>
                   ) : (
-                    <>
-                      {inCart > 0 && (
-                        <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center shadow">
-                          {inCart}
-                        </div>
-                      )}
-
-                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold">
-                        {product.stockQuantity} left
+                    inCart > 0 && (
+                      <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center shadow">
+                        {inCart}
                       </div>
-                    </>
+                    )
                   )}
 
                 </div>
@@ -881,23 +859,21 @@ export default function PublicMenu({
                   <div className="flex items-center justify-between mt-1">
 
                     <div className={
-                      product.stockQuantity <= 0
+                      !product.orderable
                         ? "text-slate-400 font-bold text-sm"
                         : "text-indigo-600 font-bold text-sm"
                     }>
-                      {product.stockQuantity <= 0
-                        ? "Out of Stock"
-                        : parseFloat(product.price).toFixed(2)}
+                      {parseFloat(product.price).toFixed(2)}
                     </div>
 
                     <div className={
                       `w-7 h-7 rounded-full grid place-items-center text-sm font-bold ${
-                        product.stockQuantity <= 0
+                        !product.orderable
                           ? "bg-slate-300 text-slate-500"
                           : "bg-indigo-600 text-white"
                       }`
                     }>
-                      {product.stockQuantity <= 0 ? "×" : "+"}
+                      {!product.orderable ? "×" : "+"}
                     </div>
 
                   </div>
@@ -1128,11 +1104,7 @@ export default function PublicMenu({
                             1,
                           )
                         }
-                        disabled={
-                          placing ||
-                          item.quantity >=
-                            item.product.stockQuantity
-                        }
+                        disabled={placing}
                         className="w-8 h-8 rounded-lg bg-slate-100 font-bold disabled:opacity-50"
                       >
                         +

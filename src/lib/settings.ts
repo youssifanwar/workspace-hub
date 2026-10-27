@@ -21,6 +21,7 @@ export type SettingKey =
   | "meeting_room_early_checkin_minutes"
   | "stale_session_hours"
   | "timezone"
+  | "calendar_week_starts_on"
   | "calendar_start_hour"
   | "calendar_end_hour"
   | "meeting_room_max_booking_hours";
@@ -90,6 +91,9 @@ export const DEFAULTS: Record<
   /* IANA timezone used to display every date/time (e.g. Africa/Cairo). */
   timezone:
     "Africa/Cairo",
+  /* First day of the calendar week: 0 = Sunday ... 6 = Saturday. */
+  calendar_week_starts_on:
+    "0",
   calendar_start_hour:
     "8",
   calendar_end_hour:

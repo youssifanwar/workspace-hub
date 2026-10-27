@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  and,
   desc,
   eq,
   sql,
@@ -18,7 +17,6 @@ import {
 } from "@/lib/auth";
 
 import {
-  getMeetingRoomPackageDiscountPercent,
   validateMeetingRoomPackageDefinition,
 } from "@/lib/meeting-room-billing";
 
@@ -94,6 +92,13 @@ function parsePositiveNumber(
     return null;
   }
 
+  return parsed;
+}
+
+function parseDiscountPercent(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return 0;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) return null;
   return parsed;
 }
 
@@ -229,14 +234,6 @@ async function requireManager() {
  * BUSINESS VALIDATION
  * ========================================================================== */
 
-function getRequiredDiscount(
-  totalHours: number,
-): number {
-  return getMeetingRoomPackageDiscountPercent(
-    totalHours,
-  );
-}
-
 function validatePackageDefinition(
   params: {
     totalHours: number;
@@ -244,9 +241,7 @@ function validatePackageDefinition(
     price: number;
   },
 ): void {
-  validateMeetingRoomPackageDefinition(
-    params,
-  );
+  validateMeetingRoomPackageDefinition(params);
 }
 
 /* ============================================================================
@@ -258,11 +253,12 @@ function validatePackageDefinition(
 
 export async function GET() {
   try {
-    const auth =
-      await requireManager();
-
-    if ("response" in auth) {
-      return auth.response;
+    // Staff need to see active package definitions when selling a package
+    // directly from a meeting-room reservation/start dialog. Mutation routes
+    // remain manager-only.
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const packages =
@@ -440,63 +436,14 @@ export async function POST(
     }
 
     /* ------------------------------------------------------------------------
-     * DISCOUNT
-     *
-     * Never trust the client.
+     * OPTIONAL DISCOUNT — custom 0–100%, default 0.
      * ---------------------------------------------------------------------- */
 
-    let requiredDiscount: number;
-
-    try {
-      requiredDiscount =
-        getRequiredDiscount(
-          totalHours,
-        );
-    } catch (error) {
+    const discountPercent = parseDiscountPercent(body.discountPercent);
+    if (discountPercent === null) {
       return NextResponse.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Invalid meeting room package hours.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const suppliedDiscount =
-      parsePositiveNumber(
-        body.discountPercent,
-      );
-
-    if (
-      suppliedDiscount === null
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Discount percent is required.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    if (
-      suppliedDiscount !==
-      requiredDiscount
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            `A ${totalHours}-hour meeting room package must use a ${requiredDiscount}% discount.`,
-        },
-        {
-          status: 400,
-        },
+        { error: "Discount must be between 0 and 100 percent." },
+        { status: 400 },
       );
     }
 
@@ -570,8 +517,7 @@ export async function POST(
     try {
       validatePackageDefinition({
         totalHours,
-        discountPercent:
-          requiredDiscount,
+        discountPercent,
         price,
       });
     } catch (error) {
@@ -591,8 +537,8 @@ export async function POST(
     /* ------------------------------------------------------------------------
      * TRANSACTION + ADVISORY LOCK
      *
-     * This prevents concurrent POST/PATCH requests from creating or activating
-     * duplicate package definitions for the same package size.
+     * Serialize package-definition changes so simultaneous admin actions stay
+     * consistent. Different packages may intentionally share the same hours.
      * ---------------------------------------------------------------------- */
 
     try {
@@ -602,33 +548,6 @@ export async function POST(
             await acquirePackageDefinitionsLock(
               tx,
             );
-
-            const [existing] =
-              await tx
-                .select({
-                  id:
-                    meetingRoomPackages.id,
-                  name:
-                    meetingRoomPackages.name,
-                  status:
-                    meetingRoomPackages.status,
-                })
-                .from(
-                  meetingRoomPackages,
-                )
-                .where(
-                  eq(
-                    meetingRoomPackages.totalHours,
-                    totalHours.toFixed(2),
-                  ),
-                )
-                .limit(1);
-
-            if (existing) {
-              throw new Error(
-                `DUPLICATE:${existing.id}:${existing.status}`,
-              );
-            }
 
             const [inserted] =
               await tx
@@ -641,10 +560,7 @@ export async function POST(
                   totalHours:
                     totalHours.toFixed(2),
 
-                  discountPercent:
-                    requiredDiscount.toFixed(
-                      2,
-                    ),
+                  discountPercent: discountPercent.toFixed(2),
 
                   price:
                     price.toFixed(2),
@@ -686,23 +602,6 @@ export async function POST(
         },
       );
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.startsWith(
-          "DUPLICATE:",
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              `A ${totalHours}-hour meeting room package already exists.`,
-          },
-          {
-            status: 409,
-          },
-        );
-      }
-
       if (
         isPgUniqueViolation(
           error,
@@ -885,22 +784,16 @@ export async function PATCH(
             }
 
             /* ------------------------------------------------------------------
-             * REQUIRED DISCOUNT
+             * OPTIONAL CUSTOM DISCOUNT
              * ---------------------------------------------------------------- */
 
-            let requiredDiscount: number;
+            const discountPercent =
+              body.discountPercent !== undefined
+                ? parseDiscountPercent(body.discountPercent)
+                : Number(current.discountPercent);
 
-            try {
-              requiredDiscount =
-                getRequiredDiscount(
-                  totalHours,
-                );
-            } catch (error) {
-              throw new Error(
-                error instanceof Error
-                  ? error.message
-                  : "Invalid meeting room package hours.",
-              );
+            if (discountPercent === null) {
+              throw new Error("Discount must be between 0 and 100 percent.");
             }
 
             /* ------------------------------------------------------------------
@@ -996,8 +889,7 @@ export async function PATCH(
             try {
               validatePackageDefinition({
                 totalHours,
-                discountPercent:
-                  requiredDiscount,
+                discountPercent,
                 price,
               });
             } catch (error) {
@@ -1005,48 +897,6 @@ export async function PATCH(
                 error instanceof Error
                   ? error.message
                   : "Invalid meeting room package.",
-              );
-            }
-
-            /* ------------------------------------------------------------------
-             * DUPLICATE HOURS
-             *
-             * Only another ACTIVE package blocks activation/change.
-             * ---------------------------------------------------------------- */
-
-            const [duplicate] =
-              await tx
-                .select({
-                  id:
-                    meetingRoomPackages.id,
-                })
-                .from(
-                  meetingRoomPackages,
-                )
-                .where(
-                  and(
-                    eq(
-                      meetingRoomPackages.totalHours,
-                      totalHours.toFixed(
-                        2,
-                      ),
-                    ),
-                    eq(
-                      meetingRoomPackages.status,
-                      "active",
-                    ),
-                  ),
-                )
-                .limit(1);
-
-            if (
-              duplicate &&
-              duplicate.id !==
-                packageId &&
-              status === "active"
-            ) {
-              throw new Error(
-                `DUPLICATE_ACTIVE:${totalHours}`,
               );
             }
 
@@ -1067,10 +917,7 @@ export async function PATCH(
                       2,
                     ),
 
-                  discountPercent:
-                    requiredDiscount.toFixed(
-                      2,
-                    ),
+                  discountPercent: discountPercent.toFixed(2),
 
                   price:
                     price.toFixed(
@@ -1125,28 +972,6 @@ export async function PATCH(
           },
           {
             status: 404,
-          },
-        );
-      }
-
-      if (
-        error instanceof Error &&
-        error.message.startsWith(
-          "DUPLICATE_ACTIVE:",
-        )
-      ) {
-        const hours =
-          error.message.split(
-            ":",
-          )[1];
-
-        return NextResponse.json(
-          {
-            error:
-              `Another active ${hours}-hour meeting room package already exists.`,
-          },
-          {
-            status: 409,
           },
         );
       }

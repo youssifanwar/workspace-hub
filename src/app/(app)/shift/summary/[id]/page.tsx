@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getSetting, formatMoney } from "@/lib/settings";
+import { getShiftExtraCash } from "@/lib/shift-cash";
 
 import PrintButton from "./PrintButton";
 
@@ -198,6 +199,7 @@ export default async function ShiftSummary({
       .select({
         id: expenses.id,
         amount: expenses.amount,
+        paymentMethod: expenses.paymentMethod,
         category: expenses.category,
         note: expenses.note,
         createdAt: expenses.createdAt,
@@ -285,6 +287,32 @@ export default async function ShiftSummary({
     `),
   ]);
 
+  const [otherRevenueRows, otherPaymentRows] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        COALESCE((SELECT SUM(price_snapshot) FROM customer_subscriptions WHERE shift_id = ${shiftId} AND status <> 'cancelled'), 0)
+        + COALESCE((SELECT SUM(price_snapshot) FROM customer_meeting_room_packages WHERE shift_id = ${shiftId} AND status <> 'cancelled'), 0) AS package_total,
+        COALESCE((SELECT SUM(amount) FROM manual_incomes WHERE shift_id = ${shiftId}), 0) AS manual_income
+    `),
+    db.execute(sql`
+      SELECT method, COALESCE(SUM(amount), 0) AS total
+      FROM (
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_subscriptions
+        WHERE shift_id = ${shiftId} AND status <> 'cancelled'
+        UNION ALL
+        SELECT payment_method AS method, price_snapshot AS amount
+        FROM customer_meeting_room_packages
+        WHERE shift_id = ${shiftId} AND status <> 'cancelled'
+        UNION ALL
+        SELECT payment_method AS method, amount
+        FROM manual_incomes
+        WHERE shift_id = ${shiftId}
+      ) other_sources
+      GROUP BY method
+    `),
+  ]);
+
   const bookingRevenue = safeMoney(
     totalsRow[0]?.revenue,
   );
@@ -304,8 +332,13 @@ export default async function ShiftSummary({
     directFnbTotalsRow?.total,
   );
 
+  const otherRevenueRow =
+    (otherRevenueRows as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? {};
+  const packageSalesTotal = safeMoney(otherRevenueRow.package_total);
+  const manualIncomeTotal = safeMoney(otherRevenueRow.manual_income);
+
   const revenue = Math.round(
-    (bookingRevenue + directFnbTotal) * 100,
+    (bookingRevenue + directFnbTotal + packageSalesTotal + manualIncomeTotal) * 100,
   ) / 100;
 
   const ordersTotal = Math.round(
@@ -342,37 +375,26 @@ export default async function ShiftSummary({
 
   const directFnbMethodRows =
     ((fnbMethodRows as { rows?: Array<Record<string, unknown>> }).rows ?? []);
+  const otherMethodRows =
+    ((otherPaymentRows as { rows?: Array<Record<string, unknown>> }).rows ?? []);
 
-  const directFnbPaymentTotal = (method: string) =>
-    safeMoney(
-      directFnbMethodRows.find(
-        (row) => String(row.payment_method ?? "") === method,
-      )?.total,
+  const methodAmount = (method: string) => {
+    const bookingValue = safeMoney(
+      methodRows.find((row) => row.method === method)?.total,
     );
+    const fnbValue = safeMoney(
+      directFnbMethodRows.find((row) => String(row.payment_method ?? "") === method)?.total,
+    );
+    const otherValue = safeMoney(
+      otherMethodRows.find((row) => String(row.method ?? "") === method)?.total,
+    );
+    return Math.round((bookingValue + fnbValue + otherValue) * 100) / 100;
+  };
 
-  const cashTotal = Math.round(
-    (safeMoney(
-      methodRows.find(
-        (method) => method.method === "cash",
-      )?.total,
-    ) + directFnbPaymentTotal("cash")) * 100,
-  ) / 100;
-
-  const visaTotal = Math.round(
-    (safeMoney(
-      methodRows.find(
-        (method) => method.method === "visa",
-      )?.total,
-    ) + directFnbPaymentTotal("visa")) * 100,
-  ) / 100;
-
-  const instapayTotal = Math.round(
-    (safeMoney(
-      methodRows.find(
-        (method) => method.method === "instapay",
-      )?.total,
-    ) + directFnbPaymentTotal("instapay")) * 100,
-  ) / 100;
+  const cashTotal = methodAmount("cash");
+  const visaTotal = methodAmount("visa");
+  const instapayTotal = methodAmount("instapay");
+  const balanceTotal = methodAmount("balance");
 
   const openingCash = safeMoney(
     shiftRow.openingCash,
@@ -383,11 +405,17 @@ export default async function ShiftSummary({
       ? safeMoney(shiftRow.closingCash)
       : null;
 
+  const cashExpensesTotal = expensesRows
+    .filter((expense) => expense.paymentMethod === "cash")
+    .reduce((sum, expense) => sum + safeMoney(expense.amount), 0);
+  const extraCash = await getShiftExtraCash(db, shiftId);
+
   const expectedCash = Math.round(
     (
       openingCash +
-      cashTotal -
-      expensesTotal -
+      cashTotal +
+      extraCash.balanceDeposits -
+      cashExpensesTotal -
       bankDeposits +
       bankWithdrawals
     ) * 100,
@@ -489,11 +517,9 @@ export default async function ShiftSummary({
         />
 
         <Kpi
-          label="F&B sales"
-          value={formatMoney(
-            ordersTotal,
-            currency,
-          )}
+          label="F&B sales · session + direct POS"
+          value={formatMoney(ordersTotal, currency)}
+          sub={`Direct POS included: ${formatMoney(directFnbTotal, currency)}`}
           grad="from-orange-500 to-pink-500"
         />
 
@@ -537,6 +563,11 @@ export default async function ShiftSummary({
             )}
           />
 
+          <Row
+            label="👛 Customer balance"
+            value={formatMoney(balanceTotal, currency)}
+          />
+
           <div className="h-px bg-slate-100 my-3" />
 
           <Row
@@ -578,9 +609,14 @@ export default async function ShiftSummary({
           />
 
           <Row
+            label="+ Cash balance top-ups"
+            value={formatMoney(extraCash.balanceDeposits, currency)}
+          />
+
+          <Row
             label="− Cash expenses"
             value={formatMoney(
-              expensesTotal,
+              cashExpensesTotal,
               currency,
             )}
           />
@@ -890,10 +926,12 @@ function Kpi({
   label,
   value,
   grad,
+  sub,
 }: {
   label: string;
   value: string;
   grad: string;
+  sub?: string;
 }) {
   return (
     <div
@@ -906,6 +944,7 @@ function Kpi({
       <div className="text-2xl font-bold mt-2 tabular-nums">
         {value}
       </div>
+      {sub && <div className="text-[11px] text-white/80 mt-1">{sub}</div>}
     </div>
   );
 }

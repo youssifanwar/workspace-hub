@@ -129,6 +129,7 @@ export async function PATCH(
       icon?: string;
 
       imageUrl?: string | null;
+      orderEnabled?: boolean;
     };
 
     try {
@@ -143,6 +144,7 @@ export async function PATCH(
           icon?: string;
 
           imageUrl?: string | null;
+          orderEnabled?: boolean;
         };
     } catch {
       return NextResponse.json(
@@ -170,6 +172,7 @@ export async function PATCH(
       icon?: string;
 
       imageUrl?: string | null;
+      orderEnabled?: boolean;
     } = {};
 
     /* ---------------------------------------------------------------------- */
@@ -387,6 +390,33 @@ export async function PATCH(
           imageUrl ||
           null;
       }
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* ALLOW ORDERING (QR menu) — independent of menu visibility              */
+    /* ---------------------------------------------------------------------- */
+
+    if (
+      body.orderEnabled !==
+      undefined
+    ) {
+      if (
+        typeof body.orderEnabled !==
+        "boolean"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "orderEnabled must be true or false",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      update.orderEnabled =
+        body.orderEnabled;
     }
 
     /* ---------------------------------------------------------------------- */

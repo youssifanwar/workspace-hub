@@ -17,9 +17,13 @@
     "dist": "npm run electron:build && electron-builder",
     "dist:win": "npm run electron:build && electron-builder --win --x64",
     "dist:mac": "npm run electron:build && electron-builder --mac",
-    "dist:linux": "npm run electron:build && electron-builder --linux"
+    "dist:linux": "npm run electron:build && electron-builder --linux",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans-arabic": "^5.3.0",
+    "@fontsource/fira-code": "^5.3.0",
+    "@fontsource/fira-sans": "^5.3.0",
     "@types/qrcode": "^1.5.5",
     "cross-env": "^7.0.3",
     "dotenv": "17.3.1",

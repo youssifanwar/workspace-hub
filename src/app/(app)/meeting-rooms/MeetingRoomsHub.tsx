@@ -23,6 +23,21 @@ export type HubRoom = {
   }>;
 };
 
+export type MeetingMenuCategory = {
+  id: number;
+  name: string;
+  icon: string;
+};
+
+export type MeetingMenuProduct = {
+  id: number;
+  categoryId: number;
+  name: string;
+  price: string;
+  imageUrl: string | null;
+  icon: string;
+};
+
 export type HubReservation = {
   id: number;
   deskId: number;
@@ -49,6 +64,8 @@ export default function MeetingRoomsHub({
   rooms,
   reservations,
   currency,
+  menuCategories,
+  menuProducts,
   timeZone,
   earlyCheckinMinutes,
   maxBookingHours,
@@ -56,6 +73,8 @@ export default function MeetingRoomsHub({
   rooms: HubRoom[];
   reservations: HubReservation[];
   currency: string;
+  menuCategories: MeetingMenuCategory[];
+  menuProducts: MeetingMenuProduct[];
   timeZone: string;
   earlyCheckinMinutes: number;
   maxBookingHours: number;
@@ -238,39 +257,57 @@ export default function MeetingRoomsHub({
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-            Meeting Rooms
-          </h1>
-          <p className="text-slate-500 mt-1">
-            Reserve rooms, check customers in, and manage today&apos;s schedule.
-          </p>
+    <div className="space-y-8 meeting-room-workspace">
+      {/* Premium room operations hero */}
+      <section className="meeting-rooms-hero" aria-labelledby="meeting-rooms-title">
+        <div className="meeting-hero-ambient" aria-hidden="true">
+          <span className="meeting-hero-orb meeting-hero-orb-a" />
+          <span className="meeting-hero-orb meeting-hero-orb-b" />
+          <span className="meeting-hero-grid" />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/meeting-rooms/calendar" className="btn btn-ghost">
-            📅 Calendar
-          </Link>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={rooms.length === 0}
-            onClick={() => setStartNow({ roomId: null })}
-          >
-            ⚡ Walk-in
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={rooms.length === 0}
-            onClick={() => setBooking({ roomId: null, start: nextSlotStart() })}
-          >
-            + New reservation
-          </button>
+        <div className="meeting-hero-content">
+          <div className="meeting-hero-eyebrow">
+            <span className="meeting-hero-live-dot" />
+            <span>WORKSPACE HUB</span>
+            <span className="meeting-hero-separator">/</span>
+            <span>ROOM CONTROL</span>
+            <span className="meeting-hero-live-pill">LIVE OPERATIONS</span>
+          </div>
+          <h1 id="meeting-rooms-title">Meeting rooms<span className="meeting-hero-title-stop">.</span></h1>
+          <p>One clear view of room availability, customer check-ins and the schedule ahead.</p>
+          <div className="meeting-hero-metrics" aria-label="Current room summary">
+            <span><strong>{rooms.length.toString().padStart(2, "0")}</strong> rooms</span>
+            <i aria-hidden="true" />
+            <span><strong>{inUse.toString().padStart(2, "0")}</strong> in use</span>
+            <i aria-hidden="true" />
+            <span><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong> available</span>
+          </div>
+          <div className="meeting-hero-actions">
+            <Link href="/meeting-rooms/calendar" className="btn btn-ghost meeting-hero-secondary">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.6"/><path d="M7.5 3v4M16.5 3v4M4 9.5h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              Calendar
+            </Link>
+            <button type="button" className="btn btn-ghost meeting-hero-secondary" disabled={rooms.length === 0} onClick={() => setStartNow({ roomId: null })}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><path d="m13.2 2.8-8 10.1h5.6l-.9 8.3 8-11h-5.5l.8-7.4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
+              Walk-in
+            </button>
+            <button type="button" className="btn btn-primary meeting-hero-primary" disabled={rooms.length === 0} onClick={() => setBooking({ roomId: null, start: nextSlotStart() })}>
+              <span aria-hidden="true">＋</span> New reservation
+            </button>
+          </div>
         </div>
-      </div>
+        <div className="meeting-hero-visual" aria-hidden="true">
+          <div className="meeting-hero-orbit meeting-hero-orbit-one" />
+          <div className="meeting-hero-orbit meeting-hero-orbit-two" />
+          <div className="meeting-hero-core">
+            <svg viewBox="0 0 64 64" width="44" height="44" fill="none"><path d="M9 28 32 10l23 18v25a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3V28Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"/><path d="M20 56V34h24v22M27 34v22M9 28h46" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M22 22h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            <span>HUB</span>
+          </div>
+          <div className="meeting-hero-float-card meeting-hero-float-a"><span className="meeting-hero-float-icon is-blue">⌂</span><span><small>ROOMS ONLINE</small><strong>{rooms.length.toString().padStart(2, "0")}</strong></span><i /></div>
+          <div className="meeting-hero-float-card meeting-hero-float-b"><span className="meeting-hero-float-icon is-green">↗</span><span><small>AVAILABLE NOW</small><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong></span><i /></div>
+          <div className="meeting-hero-orbit-caption"><span /> CAPACITY MONITORING</div>
+        </div>
+      </section>
 
       {notice && (
         <div
@@ -294,20 +331,19 @@ export default function MeetingRoomsHub({
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Rooms" value={rooms.length} />
-        <Stat label="In use now" value={inUse} tone="indigo" />
-        <Stat
-          label="Available now"
-          value={Math.max(0, rooms.length - inUse)}
-          tone="green"
-        />
-        <Stat label="Upcoming today" value={todayCount} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 meeting-room-stat-grid">
+        <Stat icon="▦" label="Rooms" value={rooms.length} tone="blue" />
+        <Stat icon="◉" label="In use now" value={inUse} tone="indigo" />
+        <Stat icon="↗" label="Available now" value={Math.max(0, rooms.length - inUse)} tone="green" />
+        <Stat icon="◷" label="Upcoming today" value={todayCount} tone="cyan" />
       </div>
 
       {/* Rooms */}
-      <section>
-        <h2 className="text-lg font-bold text-slate-900 mb-3">Rooms</h2>
+      <section className="meeting-rooms-section">
+        <div className="meeting-section-heading">
+          <div><span className="meeting-section-kicker">SPACE AVAILABILITY</span><h2 className="text-lg font-bold text-slate-900">Your rooms</h2></div>
+          <span className="meeting-section-count">{rooms.length} spaces</span>
+        </div>
         {rooms.length === 0 ? (
           <div className="card p-10 text-center text-slate-500">
             No meeting rooms yet. Add one in Settings → Desks.
@@ -319,19 +355,23 @@ export default function MeetingRoomsHub({
               return (
                 <article
                   key={room.id}
-                  className="card p-5 flex flex-col gap-4"
+                  className={`card meeting-room-card p-5 flex flex-col gap-4 ${busy ? "is-busy" : "is-available"}`}
                 >
+                  <div className="meeting-room-card-accent" aria-hidden="true" />
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-bold text-slate-900 truncate">
-                        {room.name}
-                      </h3>
-                      <p className="text-sm text-slate-500">
-                        Up to {room.capacity} people
-                        {fromRate !== null
-                          ? ` · from ${fromRate.toFixed(0)} ${currency}/h`
-                          : ""}
-                      </p>
+                    <div className="meeting-room-title-wrap min-w-0">
+                      <span className="meeting-room-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M8 21v-7h8v7M12 14v7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg></span>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-slate-900 truncate">
+                          {room.name}
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          Up to {room.capacity} people
+                          {fromRate !== null
+                            ? ` · from ${fromRate.toFixed(0)} ${currency}/h`
+                            : ""}
+                        </p>
+                      </div>
                     </div>
                     <span
                       className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -400,13 +440,18 @@ export default function MeetingRoomsHub({
       </section>
 
       {/* In the room now */}
-      <ActiveMeetingRooms currency={currency} />
+      <ActiveMeetingRooms
+        currency={currency}
+        categories={menuCategories}
+        products={menuProducts}
+      />
 
       {/* Upcoming */}
-      <section>
-        <h2 className="text-lg font-bold text-slate-900 mb-3">
-          Upcoming reservations
-        </h2>
+      <section className="meeting-rooms-section meeting-upcoming-section">
+        <div className="meeting-section-heading">
+          <div><span className="meeting-section-kicker">SCHEDULE</span><h2 className="text-lg font-bold text-slate-900">Upcoming reservations</h2></div>
+          <span className="meeting-section-count">{upcoming.length} bookings</span>
+        </div>
         {grouped.length === 0 ? (
           <div className="card p-10 text-center text-slate-500">
             No upcoming reservations.
@@ -552,28 +597,25 @@ export default function MeetingRoomsHub({
 }
 
 function Stat({
+  icon,
   label,
   value,
-  tone,
+  tone = "blue",
 }: {
+  icon: string;
   label: string;
   value: number;
-  tone?: "indigo" | "green";
+  tone?: "blue" | "indigo" | "green" | "cyan";
 }) {
-  const color =
-    tone === "indigo"
-      ? "text-indigo-600"
-      : tone === "green"
-        ? "text-emerald-600"
-        : "text-slate-900";
   return (
-    <div className="card p-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {label}
+    <div className={`card meeting-room-stat tone-${tone}`}>
+      <div className="meeting-room-stat-icon" aria-hidden="true">{icon}</div>
+      <div className="meeting-room-stat-copy">
+        <div className="meeting-room-stat-label">{label}</div>
+        <div className="meeting-room-stat-value tabular-nums">{value.toString().padStart(2, "0")}</div>
+        <div className="meeting-room-stat-foot"><span /> LIVE STATUS</div>
       </div>
-      <div className={`text-3xl font-extrabold mt-1 tabular-nums ${color}`}>
-        {value}
-      </div>
+      <span className="meeting-room-stat-orb" aria-hidden="true" />
     </div>
   );
 }

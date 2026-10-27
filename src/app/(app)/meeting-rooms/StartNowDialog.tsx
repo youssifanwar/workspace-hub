@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import CustomerSearchField from "./CustomerSearchField";
+import MeetingPackagePurchase from "./MeetingPackagePurchase";
 import type { DialogRoom } from "./ReservationDialog";
 
 type Busy = {
@@ -72,6 +73,7 @@ export default function StartNowDialog({
   const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [packages, setPackages] = useState<OwnedPackage[]>([]);
   const [packageId, setPackageId] = useState<number | null>(null);
@@ -119,6 +121,7 @@ export default function StartNowDialog({
           { signal: controller.signal, cache: "no-store" },
         );
         const data = await res.json().catch(() => ({}));
+        setSelectedCustomerId(data?.customer?.id ? Number(data.customer.id) : null);
         setPackages(
           (data?.packages ?? []).filter(
             (p: OwnedPackage) =>
@@ -325,8 +328,12 @@ export default function StartNowDialog({
                 phone={phone}
                 disabled={saving}
                 onNameChange={setName}
-                onPhoneChange={setPhone}
+                onPhoneChange={(value) => {
+                  setPhone(value);
+                  setSelectedCustomerId(null);
+                }}
                 onPick={(c) => {
+                  setSelectedCustomerId(c.id);
                   setName(c.name);
                   setPhone(c.phone);
                 }}
@@ -355,6 +362,17 @@ export default function StartNowDialog({
                   </select>
                 </div>
               )}
+
+              <MeetingPackagePurchase
+                customerId={selectedCustomerId}
+                phone={phone}
+                currency={currency}
+                disabled={saving}
+                onPurchased={(purchaseId, owned) => {
+                  setPackages(owned);
+                  setPackageId(purchaseId);
+                }}
+              />
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">

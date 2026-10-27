@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import {
+  categories,
   customers,
   desks,
   meetingRoomPricing,
   meetingRoomReservations,
+  products,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getSetting } from "@/lib/settings";
@@ -33,7 +35,7 @@ export default async function MeetingRoomsPage() {
   const now = new Date();
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [currency, earlyRaw, maxRaw, rooms, pricingRows, reservationRows] =
+  const [currency, earlyRaw, maxRaw, rooms, pricingRows, reservationRows, menuCategories, menuProducts] =
     await Promise.all([
       getSetting("currency"),
       getSetting("meeting_room_early_checkin_minutes"),
@@ -90,6 +92,26 @@ export default async function MeetingRoomsPage() {
         )
         .orderBy(asc(meetingRoomReservations.startAt))
         .limit(200),
+      db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          icon: categories.icon,
+        })
+        .from(categories)
+        .orderBy(asc(categories.sortOrder), asc(categories.name)),
+      db
+        .select({
+          id: products.id,
+          categoryId: products.categoryId,
+          name: products.name,
+          price: products.price,
+          imageUrl: products.imageUrl,
+          icon: products.icon,
+        })
+        .from(products)
+        .where(eq(products.active, true))
+        .orderBy(asc(products.name)),
     ]);
 
   return (
@@ -119,6 +141,8 @@ export default async function MeetingRoomsPage() {
         usesPackage: r.packagePurchaseId !== null,
       }))}
       currency={currency}
+      menuCategories={menuCategories}
+      menuProducts={menuProducts}
       timeZone={timeZone}
       earlyCheckinMinutes={intSetting(earlyRaw, 30, 0, 1440)}
       maxBookingHours={intSetting(maxRaw, 8, 1, 24)}

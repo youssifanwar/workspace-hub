@@ -6,8 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 import { getSetting } from "@/lib/settings";
 
-import Sidebar from "./_components/Sidebar";
-import Topbar from "./_components/Topbar";
+import AppShell from "./_components/AppShell";
 import GlobalOrderAlerts from "./GlobalOrderAlerts";
 
 export const dynamic = "force-dynamic";
@@ -29,33 +28,26 @@ export default async function AppLayout({
   ]);
 
   return (
-    <div className="min-h-screen flex">
-      <Sidebar
+    <>
+      <AppShell
         role={user.role}
         hasShift={activeShift !== null}
         workspaceName={workspaceName}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar
-          user={user}
-          activeShift={
-            activeShift
-              ? {
-                  id: activeShift.id,
-                  openedAt: activeShift.openedAt.toISOString(),
-                }
-              : null
-          }
-        />
-
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-          {children}
-        </main>
-      </div>
+        user={user}
+        activeShift={
+          activeShift
+            ? {
+                id: activeShift.id,
+                openedAt: activeShift.openedAt.toISOString(),
+              }
+            : null
+        }
+      >
+        {children}
+      </AppShell>
 
       <GlobalOrderAlerts />
-    </div>
+    </>
   );
 }
 

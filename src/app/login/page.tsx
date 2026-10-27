@@ -25,19 +25,19 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen grid lg:grid-cols-2">
+    <main className="login-page min-h-screen grid lg:grid-cols-2">
       <section
         aria-hidden="true"
-        className="hidden lg:flex relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 text-white p-12 items-center justify-center"
+        className="login-showcase hidden lg:flex relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 text-white p-12 items-center justify-center"
       >
-        <div className="absolute -top-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        <div className="login-showcase-orb login-showcase-orb-one absolute -top-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        <div className="login-showcase-orb login-showcase-orb-two absolute -bottom-20 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        <div className="login-showcase-grid" aria-hidden="true" />
 
-        <div className="relative z-10 max-w-md">
-          <div className="text-5xl mb-6" aria-hidden="true">
-            🏢
-          </div>
+        <div className="login-brand-content relative z-10 max-w-md">
+          <div className="login-brand-mark mb-6" aria-hidden="true"><svg viewBox="0 0 36 36" width="34" height="34" fill="none"><path d="M6 28V13.5L18 6l12 7.5V28H6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 28V18h12v10M18 18v10M6 13.5h24" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M11 11l7 4 7-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
 
+          <div className="login-showcase-eyebrow">THE WORKSPACE OPERATING SYSTEM</div>
           <h1 className="text-4xl font-bold mb-4">
             WorkSpace Hub
           </h1>
@@ -64,23 +64,23 @@ export default async function LoginPage() {
         </div>
       </section>
 
-      <section className="flex items-center justify-center p-8">
-        <div className="w-full max-w-md card p-8">
+      <section className="login-form-panel flex items-center justify-center p-8">
+        <div className="login-card w-full max-w-md card p-8">
           <div className="mb-6">
-            <div className="text-3xl mb-2" aria-hidden="true">
-              👋
-            </div>
+            <div className="login-form-mark mb-4" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 3v18M3 12h18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.4"/></svg></div>
+            <div className="login-form-eyebrow">SECURE WORKSPACE ACCESS</div>
 
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 mt-2">
               Welcome back
             </h2>
 
             <p className="text-sm text-slate-500 mt-1">
-              Sign in to start your shift
+              Sign in to continue to your operations console.
             </p>
           </div>
 
           <LoginForm />
+          <div className="login-card-footer"><span className="login-footer-shield" aria-hidden="true">✓</span> Protected workspace · Authorized team members only</div>
         </div>
       </section>
     </main>

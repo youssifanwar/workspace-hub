@@ -73,7 +73,9 @@ export default function StartNowDialog({
   const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
+    null,
+  );
   const [notes, setNotes] = useState("");
   const [packages, setPackages] = useState<OwnedPackage[]>([]);
   const [packageId, setPackageId] = useState<number | null>(null);
@@ -121,7 +123,9 @@ export default function StartNowDialog({
           { signal: controller.signal, cache: "no-store" },
         );
         const data = await res.json().catch(() => ({}));
-        setSelectedCustomerId(data?.customer?.id ? Number(data.customer.id) : null);
+        setSelectedCustomerId(
+          data?.customer?.id ? Number(data.customer.id) : null,
+        );
         setPackages(
           (data?.packages ?? []).filter(
             (p: OwnedPackage) =>
@@ -223,6 +227,7 @@ export default function StartNowDialog({
         cache: "no-store",
         body: JSON.stringify({
           deskId: room.id,
+          customerId: selectedCustomerId,
           customerName: name.trim(),
           customerPhone: phone.trim(),
           attendeeCount: people,
@@ -233,12 +238,14 @@ export default function StartNowDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(message(data, `Could not start the session (HTTP ${res.status}).`));
+        setError(
+          message(data, `Could not start the session (HTTP ${res.status}).`),
+        );
         return;
       }
       onStarted(`${room.name} started for ${name.trim()} (${hours}h).`);
-      onClose();
       router.refresh();
+      onClose();
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -259,7 +266,10 @@ export default function StartNowDialog({
         <div className="card w-full max-w-3xl overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <div>
-              <h2 id="start-now-title" className="text-xl font-bold text-slate-900">
+              <h2
+                id="start-now-title"
+                className="text-xl font-bold text-slate-900"
+              >
                 Start now
               </h2>
               <p className="text-sm text-slate-500">
@@ -349,14 +359,18 @@ export default function StartNowDialog({
                     value={packageId ?? ""}
                     disabled={saving}
                     onChange={(e) =>
-                      setPackageId(e.target.value ? Number(e.target.value) : null)
+                      setPackageId(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
                     }
                   >
                     <option value="">Pay normally</option>
                     {packages.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.packageNameSnapshot ?? p.packageName ?? `Package #${p.id}`} ·{" "}
-                        {Number(p.remainingHours).toFixed(2)}h left
+                        {p.packageNameSnapshot ??
+                          p.packageName ??
+                          `Package #${p.id}`}{" "}
+                        · {Number(p.remainingHours).toFixed(2)}h left
                       </option>
                     ))}
                   </select>
@@ -407,7 +421,8 @@ export default function StartNowDialog({
                 )}
                 {!overCapacity && conflict && (
                   <Note tone="red">
-                    This room is {conflict.status === "active" ? "in use" : "booked"}{" "}
+                    This room is{" "}
+                    {conflict.status === "active" ? "in use" : "booked"}{" "}
                     {fmt(conflict.startAt)}–{fmt(conflict.endAt)}. Choose another
                     room or fewer hours.
                   </Note>
@@ -525,7 +540,9 @@ function Stepper({
         >
           −
         </button>
-        <div className="flex-1 text-center font-semibold tabular-nums">{value}</div>
+        <div className="flex-1 text-center font-semibold tabular-nums">
+          {value}
+        </div>
         <button
           type="button"
           className="btn btn-ghost !px-3"

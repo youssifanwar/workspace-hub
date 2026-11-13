@@ -103,7 +103,9 @@ export default function ReservationDialog({
   const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
+    null,
+  );
   const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly">(
     "none",
   );
@@ -158,7 +160,9 @@ export default function ReservationDialog({
           { signal: controller.signal, cache: "no-store" },
         );
         const data = await res.json().catch(() => ({}));
-        setSelectedCustomerId(data?.customer?.id ? Number(data.customer.id) : null);
+        setSelectedCustomerId(
+          data?.customer?.id ? Number(data.customer.id) : null,
+        );
         setPackages(
           (data?.packages ?? []).filter(
             (p: OwnedPackage) =>
@@ -298,6 +302,7 @@ export default function ReservationDialog({
         cache: "no-store",
         body: JSON.stringify({
           deskId: room.id,
+          customerId: selectedCustomerId,
           customerName: name.trim(),
           customerPhone: phone.trim(),
           attendeeCount: people,
@@ -314,8 +319,8 @@ export default function ReservationDialog({
         setError(message(data, "Could not create the reservation."));
         return;
       }
-      onClose();
       router.refresh();
+      onClose();
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -623,7 +628,9 @@ export default function ReservationDialog({
                     </div>
                   </>
                 ) : (
-                  <div className="text-sm text-slate-400">Pick a date and time</div>
+                  <div className="text-sm text-slate-400">
+                    Pick a date and time
+                  </div>
                 )}
                 {occurrences > 1 && (
                   <div className="text-xs text-indigo-600 font-semibold pt-1">

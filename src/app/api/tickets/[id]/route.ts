@@ -199,7 +199,6 @@ export async function PATCH(
       printedAt: orderTickets.printedAt,
       servedAt: orderTickets.servedAt,
       bookingId: orderTickets.bookingId,
-      shiftId: bookings.shiftId,
       checkedOutAt: bookings.checkedOutAt,
     })
     .from(orderTickets)
@@ -211,13 +210,6 @@ export async function PATCH(
     return NextResponse.json(
       { error: "Ticket not found" },
       { status: 404 },
-    );
-  }
-
-  if (ticket.shiftId !== activeShift.id && ticket.checkedOutAt !== null) {
-    return NextResponse.json(
-      { error: "This ticket belongs to a closed session" },
-      { status: 403 },
     );
   }
 
@@ -287,14 +279,9 @@ export async function PATCH(
     );
   }
 
-  // Cancel order: remove items from customer's booking bill & restore stock
+  // Cancel order: restore stock, and remove from bill if session is still open
   if (requestedStatus === "cancelled") {
-    if (ticket.checkedOutAt !== null) {
-      return NextResponse.json(
-        { error: "Cannot cancel an order after the session has checked out" },
-        { status: 409 },
-      );
-    }
+    const isSessionClosed = ticket.checkedOutAt !== null;
 
     await db.transaction(async (tx) => {
       const ticketItems = await tx
@@ -313,9 +300,11 @@ export async function PATCH(
         }
       }
 
-      await tx
-        .delete(bookingItems)
-        .where(eq(bookingItems.ticketId, ticketId));
+      if (!isSessionClosed) {
+        await tx
+          .delete(bookingItems)
+          .where(eq(bookingItems.ticketId, ticketId));
+      }
 
       await tx
         .update(orderTickets)
@@ -331,6 +320,7 @@ export async function PATCH(
           ticketId,
           ticketNumber: ticket.ticketNumber,
           bookingId: ticket.bookingId,
+          sessionWasClosed: isSessionClosed,
           removedItems: ticketItems.map((item) => ({
             productId: item.productId,
             name: item.nameSnapshot,

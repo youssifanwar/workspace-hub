@@ -7,7 +7,7 @@ import {
   desks,
   bookingItems,
 } from "@/db/schema";
-import { desc, eq, inArray, ne } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     url.searchParams.get("pending") === "1";
 
   const where = onlyPending
-    ? ne(orderTickets.status, "served")
+    ? inArray(orderTickets.status, ["pending", "printed"])
     : undefined;
 
   const ticketRows = await db
@@ -78,7 +78,6 @@ export async function GET(req: Request) {
     });
   }
 
-  // Get the exact items belonging to these tickets
   const ticketIds = ticketRows.map(
     (ticket) => ticket.id,
   );

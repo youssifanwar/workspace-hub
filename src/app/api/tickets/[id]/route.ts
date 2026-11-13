@@ -6,9 +6,11 @@ import {
   customers,
   desks,
   bookingItems,
+  products,
+  auditLogs,
 } from "@/db/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
-import { canManage, getCurrentUser } from "@/lib/auth";
+import { desc, eq, inArray, sql } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +45,6 @@ export async function GET(req: Request) {
   const onlyPending =
     url.searchParams.get("pending") === "1";
 
-  // "Pending" means work that still needs kitchen/front-of-house action.
-  // Cancelled tickets must never be returned by this filter.
   const where = onlyPending
     ? inArray(orderTickets.status, ["pending", "printed"])
     : undefined;
@@ -194,11 +194,13 @@ export async function PATCH(
   const [ticket] = await db
     .select({
       id: orderTickets.id,
+      ticketNumber: orderTickets.ticketNumber,
       status: orderTickets.status,
       printedAt: orderTickets.printedAt,
       servedAt: orderTickets.servedAt,
       bookingId: orderTickets.bookingId,
       shiftId: bookings.shiftId,
+      checkedOutAt: bookings.checkedOutAt,
     })
     .from(orderTickets)
     .innerJoin(bookings, eq(bookings.id, orderTickets.bookingId))
@@ -212,9 +214,9 @@ export async function PATCH(
     );
   }
 
-  if (ticket.shiftId !== activeShift.id) {
+  if (ticket.shiftId !== activeShift.id && ticket.checkedOutAt !== null) {
     return NextResponse.json(
-      { error: "This ticket does not belong to your active shift" },
+      { error: "This ticket belongs to a closed session" },
       { status: 403 },
     );
   }
@@ -232,18 +234,6 @@ export async function PATCH(
     );
   }
 
-  // Cancelling an order changes operational state and should be restricted
-  // to management roles. Employees can still print and serve orders.
-  if (
-    requestedStatus === "cancelled" &&
-    !canManage(user.role)
-  ) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403 },
-    );
-  }
-
   if (
     requestedStatus === "pending" &&
     ticket.status !== "pending"
@@ -254,7 +244,6 @@ export async function PATCH(
     );
   }
 
-  // Served/cancelled are terminal states. Avoid accidental reopening.
   if (
     (ticket.status === "served" ||
       ticket.status === "cancelled") &&
@@ -267,8 +256,6 @@ export async function PATCH(
     );
   }
 
-  // Do not allow skipping backwards from printed to pending, or reopening a
-  // printed/served ticket. Forward operational transitions remain allowed.
   if (
     requestedStatus === "printed" &&
     ticket.status !== "pending" &&
@@ -300,6 +287,63 @@ export async function PATCH(
     );
   }
 
+  // Cancel order: remove items from customer's booking bill & restore stock
+  if (requestedStatus === "cancelled") {
+    if (ticket.checkedOutAt !== null) {
+      return NextResponse.json(
+        { error: "Cannot cancel an order after the session has checked out" },
+        { status: 409 },
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const ticketItems = await tx
+        .select()
+        .from(bookingItems)
+        .where(eq(bookingItems.ticketId, ticketId));
+
+      for (const item of ticketItems) {
+        if (item.productId) {
+          await tx
+            .update(products)
+            .set({
+              stockQuantity: sql`${products.stockQuantity} + ${item.quantity}`,
+            })
+            .where(eq(products.id, item.productId));
+        }
+      }
+
+      await tx
+        .delete(bookingItems)
+        .where(eq(bookingItems.ticketId, ticketId));
+
+      await tx
+        .update(orderTickets)
+        .set({ status: "cancelled" })
+        .where(eq(orderTickets.id, ticketId));
+
+      await tx.insert(auditLogs).values({
+        userId: user.id,
+        action: "order_ticket_cancelled",
+        entityType: "order_ticket",
+        entityId: ticketId,
+        details: {
+          ticketId,
+          ticketNumber: ticket.ticketNumber,
+          bookingId: ticket.bookingId,
+          removedItems: ticketItems.map((item) => ({
+            productId: item.productId,
+            name: item.nameSnapshot,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+        },
+      });
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   const update: {
     status?: TicketStatus;
     printedAt?: Date;
@@ -322,8 +366,6 @@ export async function PATCH(
   }
 
   if (markPrinted) {
-    // Printed timestamp is idempotent: calling markPrinted twice does not
-    // rewrite the original timestamp or reopen a completed ticket.
     if (ticket.status === "cancelled") {
       return NextResponse.json(
         { error: "Cancelled ticket cannot be printed" },

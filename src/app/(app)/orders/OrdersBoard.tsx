@@ -77,6 +77,12 @@ export default function OrdersBoard({
   const [alerts, setAlerts] =
     useState<OrderAlert[]>([]);
 
+  const [busyTicketId, setBusyTicketId] =
+    useState<number | null>(null);
+
+  const [actionError, setActionError] =
+    useState<string | null>(null);
+
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>(
       typeof window !== "undefined" && "Notification" in window
@@ -103,7 +109,7 @@ export default function OrdersBoard({
     useRef(false);
 
   /* ---------------------------------------------------------------------- */
-  /* LIVE TICKET SYNC                                                        */
+  /* LIVE TICKET SYNC                                                       */
   /* ---------------------------------------------------------------------- */
 
   async function syncTickets() {
@@ -197,7 +203,7 @@ export default function OrdersBoard({
   }, []);
 
   /* ---------------------------------------------------------------------- */
-  /* FAST LIVE EVENT FALLBACK                                                */
+  /* FAST LIVE EVENT FALLBACK                                               */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -208,8 +214,6 @@ export default function OrdersBoard({
         source = new EventSource("/api/events");
 
         source.onmessage = () => {
-          // The event stream wakes the board immediately; polling remains
-          // as a safety net in case the stream disconnects.
           void syncTickets();
         };
       }
@@ -237,7 +241,11 @@ export default function OrdersBoard({
 
     (async () => {
       for (const ticket of tickets) {
-        if (ticket.printedAt) {
+        if (
+          ticket.printedAt ||
+          ticket.status === "cancelled" ||
+          ticket.status === "served"
+        ) {
           continue;
         }
 
@@ -322,9 +330,6 @@ export default function OrdersBoard({
 
   async function enableAlerts() {
     await unlockAudio();
-
-    // Play a real test beep from the user's click so the browser
-    // treats this page as having an allowed audio interaction.
     await playBeep();
 
     if (
@@ -345,8 +350,6 @@ export default function OrdersBoard({
   }
 
   async function handleAlertsClick() {
-    // The alerts button must always run from the user's click.
-    // Do not toggle sound off before trying to unlock audio/notifications.
     if (!soundOnRef.current) {
       soundOnRef.current = true;
       setSoundOn(true);
@@ -449,8 +452,6 @@ export default function OrdersBoard({
     ticketNumber: number,
     count: number,
   ) {
-    // Always show an in-app top notification. This works even when
-    // browser notifications are blocked.
     showTopAlert(
       ticketId,
       desk,
@@ -458,8 +459,6 @@ export default function OrdersBoard({
       count,
     );
 
-    // Also show the operating-system/browser notification when this
-    // current origin has permission.
     try {
       if (
         "Notification" in window &&
@@ -474,7 +473,6 @@ export default function OrdersBoard({
             tag: `wsh-order-${ticketId}`,
             silent: false,
             requireInteraction: true,
-            
           },
         );
 
@@ -493,14 +491,25 @@ export default function OrdersBoard({
   }, [soundOn]);
 
   /* ---------------------------------------------------------------------- */
-  /* SERVE                                                                  */
+  /* SERVE & CANCEL                                                         */
   /* ---------------------------------------------------------------------- */
+
+  async function reloadTicketsNow() {
+    const res = await fetch("/api/tickets", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+    }
+  }
 
   async function markServed(
     ticket: Ticket,
   ) {
+    if (busyTicketId !== null) return;
+    setBusyTicketId(ticket.id);
+    setActionError(null);
     try {
-      await fetch(
+      const res = await fetch(
         `/api/tickets/${ticket.id}`,
         {
           method: "PATCH",
@@ -514,29 +523,57 @@ export default function OrdersBoard({
         },
       );
 
-      const res =
-        await fetch(
-          "/api/tickets",
-          {
-            cache:
-              "no-store",
-          },
-        );
-
-      if (res.ok) {
-        const data =
-          await res.json();
-
-        setTickets(
-          Array.isArray(
-            data.tickets,
-          )
-            ? data.tickets
-            : [],
-        );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err?.error || "Could not mark order as served.");
+        return;
       }
+
+      await reloadTicketsNow();
     } catch {
-      /* ignore */
+      setActionError("Network error while updating order.");
+    } finally {
+      setBusyTicketId(null);
+    }
+  }
+
+  async function cancelTicket(
+    ticket: Ticket,
+  ) {
+    if (busyTicketId !== null) return;
+    const confirmed = window.confirm(
+      `Cancel Ticket #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) and remove its items from the customer's bill?`,
+    );
+    if (!confirmed) return;
+
+    setBusyTicketId(ticket.id);
+    setActionError(null);
+    try {
+      const res = await fetch(
+        `/api/tickets/${ticket.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            status: "cancelled",
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err?.error || "Could not cancel order.");
+        return;
+      }
+
+      await reloadTicketsNow();
+    } catch {
+      setActionError("Network error while cancelling order.");
+    } finally {
+      setBusyTicketId(null);
     }
   }
 
@@ -565,6 +602,12 @@ export default function OrdersBoard({
         ticket.status !==
           "cancelled",
     );
+
+  const servedCount =
+    tickets.filter(
+      (ticket) =>
+        ticket.status === "served",
+    ).length;
 
   const done =
     tickets.filter(
@@ -669,6 +712,22 @@ export default function OrdersBoard({
         </div>
       </div>
 
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 flex items-center justify-between"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="text-xs underline ml-4"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* STAT BOXES */}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -693,7 +752,7 @@ export default function OrdersBoard({
 
         <StatBox
           label="Served today"
-          value={done.length}
+          value={servedCount}
           icon="✅"
           color="from-emerald-500 to-teal-500"
         />
@@ -742,8 +801,14 @@ export default function OrdersBoard({
                   allTickets={
                     tickets
                   }
+                  busy={busyTicketId === ticket.id}
                   onServed={() =>
                     markServed(
+                      ticket,
+                    )
+                  }
+                  onCancel={() =>
+                    cancelTicket(
                       ticket,
                     )
                   }
@@ -759,12 +824,12 @@ export default function OrdersBoard({
         )}
       </div>
 
-      {/* RECENTLY SERVED */}
+      {/* RECENTLY SERVED & CANCELLED */}
 
       {done.length > 0 && (
         <div>
           <h2 className="text-lg font-bold mb-3">
-            Recently served
+            Recently served & cancelled
           </h2>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -784,6 +849,7 @@ export default function OrdersBoard({
                       tickets
                     }
                     onServed={() => {}}
+                    onCancel={() => {}}
                     onReprint={() =>
                       reprint(
                         ticket,
@@ -842,16 +908,6 @@ function StatBox({
 /* TICKET DISPLAY NUMBER                                                    */
 /* ------------------------------------------------------------------------ */
 
-/*
- * The actual ticketNumber comes from the database.
- *
- * For old/broken data where multiple tickets have the
- * same ticketNumber on the same day, use the unique
- * database id for the visual ticket number.
- *
- * This does NOT modify the database.
- */
-
 function getDisplayTicketNumber(
   ticket: Ticket,
   allTickets: Ticket[],
@@ -880,14 +936,18 @@ function TicketCard({
   ticket,
   currency,
   allTickets,
+  busy,
   onServed,
+  onCancel,
   onReprint,
   muted,
 }: {
   ticket: Ticket;
   currency: string;
   allTickets: Ticket[];
+  busy?: boolean;
   onServed: () => void;
+  onCancel: () => void;
   onReprint: () => void;
   muted?: boolean;
 }) {
@@ -897,6 +957,8 @@ function TicketCard({
       allTickets,
     );
 
+  const isCancelled = ticket.status === "cancelled";
+
   return (
     <div
       className={`card p-4 ${
@@ -904,7 +966,7 @@ function TicketCard({
           ? "opacity-60"
           : ""
       } ${
-        !ticket.printedAt
+        !ticket.printedAt && !isCancelled
           ? "border-amber-300 ring-2 ring-amber-100"
           : ""
       }`}
@@ -958,6 +1020,9 @@ function TicketCard({
               "served"
                 ? "badge-green"
                 : ticket.status ===
+                    "cancelled"
+                ? "bg-rose-100 text-rose-700"
+                : ticket.status ===
                     "printed"
                 ? "badge-blue"
                 : "badge-amber"
@@ -971,41 +1036,47 @@ function TicketCard({
       {/* ITEMS */}
 
       <div className="border-t border-slate-100 pt-2 divide-soft">
-        {ticket.items.map(
-          (item) => (
-            <div
-              key={item.id}
-              className="py-1.5 flex items-start justify-between text-sm"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-indigo-600 tabular-nums">
-                    {item.quantity}×
-                  </span>
+        {isCancelled && ticket.items.length === 0 ? (
+          <div className="py-2 text-xs text-rose-600 font-medium">
+            Cancelled · Items removed from customer's bill
+          </div>
+        ) : (
+          ticket.items.map(
+            (item) => (
+              <div
+                key={item.id}
+                className="py-1.5 flex items-start justify-between text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-indigo-600 tabular-nums">
+                      {item.quantity}×
+                    </span>
 
-                  <span className="font-semibold truncate">
-                    {item.name}
-                  </span>
+                    <span className="font-semibold truncate">
+                      {item.name}
+                    </span>
+                  </div>
+
+                  {item.note && (
+                    <div className="text-xs text-slate-500 italic pl-6">
+                      ✎{" "}
+                      {item.note}
+                    </div>
+                  )}
                 </div>
 
-                {item.note && (
-                  <div className="text-xs text-slate-500 italic pl-6">
-                    ✎{" "}
-                    {item.note}
-                  </div>
-                )}
+                <div className="tabular-nums text-slate-600 text-sm">
+                  {(
+                    item.quantity *
+                    Number(
+                      item.unitPrice,
+                    )
+                  ).toFixed(2)}
+                </div>
               </div>
-
-              <div className="tabular-nums text-slate-600 text-sm">
-                {(
-                  item.quantity *
-                  Number(
-                    item.unitPrice,
-                  )
-                ).toFixed(2)}
-              </div>
-            </div>
-          ),
+            ),
+          )
         )}
       </div>
 
@@ -1022,7 +1093,7 @@ function TicketCard({
 
       {/* FOOTER */}
 
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
         <div className="font-bold text-slate-800 tabular-nums">
           {ticket.total.toFixed(
             2,
@@ -1030,27 +1101,48 @@ function TicketCard({
           {currency}
         </div>
 
-        <div className="flex gap-1">
-          <button
-            className="btn btn-ghost !py-1.5 !px-3 text-xs"
-            onClick={
-              onReprint
-            }
-          >
-            🖨 Reprint
-          </button>
-
-          {ticket.status !==
-            "served" && (
+        <div className="flex items-center gap-1 flex-wrap justify-end">
+          {!isCancelled && (
             <button
-              className="btn btn-success !py-1.5 !px-3 text-xs"
+              type="button"
+              className="btn btn-ghost !py-1.5 !px-3 text-xs"
+              disabled={busy}
               onClick={
-                onServed
+                onReprint
               }
             >
-              ✓ Served
+              🖨 Reprint
             </button>
           )}
+
+          {ticket.status !==
+            "served" &&
+            ticket.status !==
+              "cancelled" && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost !py-1.5 !px-3 text-xs text-rose-600 hover:bg-rose-50"
+                  disabled={busy}
+                  onClick={
+                    onCancel
+                  }
+                >
+                  {busy ? "…" : "✕ Cancel"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-success !py-1.5 !px-3 text-xs"
+                  disabled={busy}
+                  onClick={
+                    onServed
+                  }
+                >
+                  ✓ Served
+                </button>
+              </>
+            )}
         </div>
       </div>
     </div>
@@ -1251,19 +1343,19 @@ function escapeHtml(
   return value
     .replace(
       /&/g,
-      "&amp;",
+      "&",
     )
     .replace(
       /</g,
-      "&lt;",
+      "<",
     )
     .replace(
       />/g,
-      "&gt;",
+      ">",
     )
     .replace(
       /"/g,
-      "&quot;",
+      """,
     );
 }
 
@@ -1275,18 +1367,8 @@ async function printTicket(
   ticket: Ticket,
   printerName: string,
 ) {
-  /*
-   * This function doesn't receive the whole ticket list,
-   * so printing uses the database ticketNumber unless
-   * the ticket itself is already unique.
-   *
-   * The displayed card uses the fixed number above.
-   */
-
   const html =
     ticketHtml(ticket);
-
-  /* Electron silent print */
 
   if (
     typeof window !==
@@ -1309,8 +1391,6 @@ async function printTicket(
       /* fall through */
     }
   }
-
-  /* Browser print fallback */
 
   const iframe =
     document.createElement(

@@ -1337,26 +1337,14 @@ ${
 /* ESCAPE HTML                                                              */
 /* ------------------------------------------------------------------------ */
 
-function escapeHtml(
-  value: string,
-): string {
-  return value
-    .replace(
-      /&/g,
-      "&",
-    )
-    .replace(
-      /</g,
-      "<",
-    )
-    .replace(
-      />/g,
-      ">",
-    )
-    .replace(
-      /"/g,
-      """,
-    );
+function escapeHtml(value: string): string {
+  const map: Record<string, string> = {
+    "&": "\u0026amp;",
+    "<": "\u0026lt;",
+    ">": "\u0026gt;",
+    '"': "\u0026quot;",
+  };
+  return value.replace(/[&<>"]/g, (ch) => map[ch] || ch);
 }
 
 /* ------------------------------------------------------------------------ */

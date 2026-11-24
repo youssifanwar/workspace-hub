@@ -1130,7 +1130,7 @@ function ProductModal({
                 htmlFor="product-price"
                 className="label"
               >
-                {tx("Price")} ({currency})
+                {tx("Price")} ({f.cur})
               </label>
 
               <input

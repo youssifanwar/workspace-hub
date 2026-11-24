@@ -278,7 +278,7 @@ export default function CustomerSessionPricingAdmin({
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-500">
-                  {tx("Price")} ({currency})
+                  {tx("Price")} ({f.cur})
                 </label>
                 <input
                   type="number"

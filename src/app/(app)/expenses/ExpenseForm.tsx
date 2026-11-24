@@ -183,7 +183,7 @@ export default function ExpenseForm({
           htmlFor="expense-amount"
           className="label"
         >
-          {f.en ? "Amount" : "المبلغ"} ({currency})
+          {f.en ? "Amount" : "المبلغ"} ({f.cur})
         </label>
 
         <input

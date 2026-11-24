@@ -102,7 +102,7 @@ export default function HandoverForm({
 
       <div>
         <label className="label">
-          {tx("Counted cash in drawer")} ({currency})
+          {tx("Counted cash in drawer")} ({f.cur})
         </label>
         <input
           className="input"

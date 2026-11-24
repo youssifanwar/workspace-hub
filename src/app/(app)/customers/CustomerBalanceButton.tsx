@@ -111,7 +111,7 @@ export default function CustomerBalanceButton({
       }
       setSuccess(
         mode === "deposit"
-          ? (f.en ? `Added ${value.toFixed(2)} ${currency}.` : `تمت إضافة ${value.toFixed(2)} ${currency}.`)
+          ? (f.en ? `Added ${f.money(value)}.` : `تمت إضافة ${f.money(value)}.`)
           : tx("Balance adjusted."),
       );
       setAmount("");
@@ -162,7 +162,7 @@ export default function CustomerBalanceButton({
                   {tx("Available balance")}
                 </div>
                 <div className="text-3xl font-bold tabular-nums mt-1">
-                  {current.toFixed(2)} {currency}
+                  {f.money(current)}
                 </div>
                 <div className="text-xs text-white/80 mt-1">
                   {tx("Can be used to pay for sessions and packages.")}
@@ -192,8 +192,8 @@ export default function CustomerBalanceButton({
                 <div>
                   <label className="label">
                     {mode === "deposit"
-                      ? (f.en ? `Amount received (${currency})` : `المبلغ المستلم (${currency})`)
-                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${currency}، بالسالب للخصم)`)}
+                      ? (f.en ? `Amount received (${f.cur})` : `المبلغ المستلم (${f.cur})`)
+                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${f.cur}، بالسالب للخصم)`)}
                   </label>
                   <input
                     className="input"
@@ -222,7 +222,7 @@ export default function CustomerBalanceButton({
                           }`}
                         >
                           {m === "cash" ? "💵" : m === "visa" ? "💳" : "📱"}{" "}
-                          {m === "instapay" ? tx("InstaPay") : m}
+                          {f.pay(m)}
                         </button>
                       ))}
                     </div>

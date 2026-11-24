@@ -316,7 +316,7 @@ export default function CustomerSubscriptionButton({
                   </div>
 
                   <div className="font-bold text-slate-900">
-                    {subscription.remainingHours.toFixed(2)} h
+                    {subscription.remainingHours.toFixed(2)} {f.en ? "h" : "س"}
                   </div>
                 </div>
 

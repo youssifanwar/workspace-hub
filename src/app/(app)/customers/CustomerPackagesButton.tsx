@@ -306,10 +306,10 @@ export default function CustomerPackagesButton({
                         <div className="text-right">
                           <div className="font-bold tabular-nums">
                             {o.remainingHours.toFixed(2)} /{" "}
-                            {o.totalHours.toFixed(2)} h
+                            {o.totalHours.toFixed(2)} {f.en ? "h" : "س"}
                           </div>
                           <div className="text-slate-500">
-                            {o.price.toFixed(2)} {currency} · {o.status}
+                            {f.money(o.price)} · {tx(({ active: "شغالة", expired: "منتهية", exhausted: "خلصت", cancelled: "ملغية", voided: "ملغية" } as Record<string,string>)[o.status] ?? o.status)}
                           </div>
                           {canVoid && o.status === "active" && (
                             <button
@@ -391,11 +391,9 @@ export default function CustomerPackagesButton({
                               : "border-slate-200 hover:border-slate-300"
                           }`}
                         >
-                          {m === "instapay"
-                            ? tx("InstaPay")
-                            : m === "balance"
-                              ? `${tx("Balance")} · ${balance.toFixed(2)}`
-                              : m}
+                          {m === "balance"
+                            ? `${tx("Balance")} · ${f.money(balance)}`
+                            : f.pay(m)}
                         </button>
                       ),
                     )}

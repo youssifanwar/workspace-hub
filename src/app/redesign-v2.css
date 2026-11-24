@@ -256,7 +256,7 @@ input[data-v2search]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0
 @keyframes v2-shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
 
 /* page entrance: bar, strip, panels rise in sequence */
-.v2-bar, .v2-strip, .v2-panel, .v2-room, .v2-pkg, .v2-empty, .v2-alert { animation: v2-rise .38s cubic-bezier(.2,.7,.2,1) both; }
+.v2-bar, .v2-strip, .v2-panel, .v2-room, .v2-pkg, .v2-empty, .v2-alert { animation: v2-rise .38s cubic-bezier(.2,.7,.2,1) backwards; }
 .v2-strip { animation-delay: .05s; }
 .v2-panel:nth-of-type(2), .v2-room:nth-child(2), .v2-pkg:nth-child(2) { animation-delay: .08s; }
 .v2-panel:nth-of-type(3), .v2-room:nth-child(3), .v2-pkg:nth-child(3) { animation-delay: .12s; }

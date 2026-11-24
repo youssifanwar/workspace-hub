@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useFmt } from "@/lib/lang-context";
 
@@ -52,8 +53,8 @@ export default function AddCustomerButton() {
       >
         {tx("+ عميل جديد")}
       </button>
-      {open && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">
           <div className="card w-full max-w-md p-6 space-y-4">
             <h2 className="text-xl font-bold">{tx("New customer")}</h2>
             <div>
@@ -114,7 +115,8 @@ export default function AddCustomerButton() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

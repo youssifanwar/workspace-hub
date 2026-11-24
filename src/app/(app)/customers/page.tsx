@@ -219,7 +219,7 @@ export default async function CustomersPage({
                   <tr key={c.id}>
                     <td>
                       <Link href={`/customers/${c.id}`} className="v2-prod" style={{ textDecoration: "none" }}>
-                        <span className="v2-prod-ico" style={{ background: "#eef0ff", color: "#4f46e5", fontWeight: 800, fontSize: 15 }}>{c.name.charAt(0)}</span>
+                        <span className="v2-prod-ico" style={{ background: "var(--v2-brand-soft)", color: "var(--v2-brand)", fontWeight: 800, fontSize: 15 }}>{c.name.charAt(0)}</span>
                         <span>
                           <b style={{ color: "#111827", display: "block" }}>{c.name}</b>
                           <span style={{ color: "#6b7280", fontSize: 12 }}>

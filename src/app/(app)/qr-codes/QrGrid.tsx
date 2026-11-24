@@ -268,7 +268,7 @@ export default function QrGrid({
                     : ""
                 }`}
               >
-                {isSelected && <span style={{ position: "absolute", top: 8, insetInlineEnd: 8, width: 24, height: 24, borderRadius: 999, background: "#4f46e5", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800, zIndex: 1 }}>✓</span>}
+                {isSelected && <span style={{ position: "absolute", top: 8, insetInlineEnd: 8, width: 24, height: 24, borderRadius: 999, background: "var(--v2-brand)", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800, zIndex: 1 }}>✓</span>}
                 {/* QR */}
                 <div className="aspect-square bg-white grid place-items-center overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

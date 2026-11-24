@@ -369,7 +369,7 @@ function SessionRow({
     <tr>
       <td>
         <Link href={`/bookings/${session.id}`} className="v2-prod" style={{ textDecoration: "none" }}>
-          <span className="v2-prod-ico" style={{ background: "#eef0ff", color: "#4f46e5", fontWeight: 800, fontSize: 15 }}>
+          <span className="v2-prod-ico" style={{ background: "var(--v2-brand-soft)", color: "var(--v2-brand)", fontWeight: 800, fontSize: 15 }}>
             {initials}
           </span>
           <span>
@@ -396,7 +396,7 @@ function SessionRow({
       </td>
       <td className="num">{c.seatCharge.toFixed(2)} {currency}</td>
       <td className="num">{c.ordersTotal.toFixed(2)} {currency}</td>
-      <td className="num" style={{ color: "#4f46e5", fontSize: 15 }}>
+      <td className="num" style={{ color: "var(--v2-brand)", fontSize: 15 }}>
         {c.currentTotal.toFixed(2)} {currency}
         {c.discount > 0 && (
           <div style={{ color: "#b91c1c", fontSize: 11 }}>-{c.discount.toFixed(2)}</div>

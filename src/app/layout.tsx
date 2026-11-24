@@ -38,7 +38,7 @@ export default async function RootLayout({
   children: ReactNode;
 }) {
   const lang = await getLang();
-  let brand = "#4f46e5";
+  let brand = "#4f2f1a";
   try {
     const raw = (await getSetting("brand_color")).trim();
     if (/^#[0-9a-fA-F]{6}$/.test(raw)) brand = raw;
@@ -52,7 +52,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="antialiased">
-        {brand !== "#4f46e5" && (
+        {brand !== "#4f2f1a" && (
           <style>{`:root{--v2-brand:${brand};--v2-brand-soft:color-mix(in srgb, ${brand} 12%, white);}`}</style>
         )}
         <LangProvider lang={lang}>{children}</LangProvider>

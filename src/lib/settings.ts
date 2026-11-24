@@ -115,7 +115,7 @@ export const DEFAULTS: Record<
     "100",
   /* Accent color of the app (hex). */
   brand_color:
-    "#4f46e5",
+    "#4f2f1a",
 };
 
 /* ============================================================================

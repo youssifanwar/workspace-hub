@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type AccountResponse = {
   error?: string;
@@ -14,6 +15,8 @@ export default function AccountSettings({
   username: string;
   fullName: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [uname, setUname] = useState(username);
@@ -43,7 +46,7 @@ export default function AccountSettings({
     if (!normalizedUsername) {
       setMsg({
         type: "err",
-        text: "Username is required.",
+        text: tx("Username is required."),
       });
       return;
     }
@@ -51,7 +54,7 @@ export default function AccountSettings({
     if (!/^[A-Za-z0-9._-]{1,100}$/.test(normalizedUsername)) {
       setMsg({
         type: "err",
-        text: "Username may contain only letters, numbers, dots, underscores, and hyphens.",
+        text: tx("Username may contain only letters, numbers, dots, underscores, and hyphens."),
       });
       return;
     }
@@ -59,7 +62,7 @@ export default function AccountSettings({
     if (!normalizedFullName) {
       setMsg({
         type: "err",
-        text: "Full name is required.",
+        text: tx("Full name is required."),
       });
       return;
     }
@@ -67,7 +70,7 @@ export default function AccountSettings({
     if (normalizedFullName.length > 200) {
       setMsg({
         type: "err",
-        text: "Full name is too long.",
+        text: tx("Full name is too long."),
       });
       return;
     }
@@ -75,7 +78,7 @@ export default function AccountSettings({
     if (newPassword && !currentPassword) {
       setMsg({
         type: "err",
-        text: "Enter your current password before choosing a new password.",
+        text: tx("Enter your current password before choosing a new password."),
       });
       return;
     }
@@ -83,7 +86,7 @@ export default function AccountSettings({
     if (newPassword && newPassword.length < 6) {
       setMsg({
         type: "err",
-        text: "New password must be at least 6 characters.",
+        text: tx("New password must be at least 6 characters."),
       });
       return;
     }
@@ -91,7 +94,7 @@ export default function AccountSettings({
     if (newPassword.length > 128) {
       setMsg({
         type: "err",
-        text: "New password is too long.",
+        text: tx("New password is too long."),
       });
       return;
     }
@@ -99,7 +102,7 @@ export default function AccountSettings({
     if (currentPassword.length > 128) {
       setMsg({
         type: "err",
-        text: "Current password is invalid.",
+        text: tx("Current password is invalid."),
       });
       return;
     }
@@ -131,14 +134,14 @@ export default function AccountSettings({
           type: "err",
           text:
             data?.error ||
-            "Failed to update your account.",
+            tx("Failed to update your account."),
         });
         return;
       }
 
       setMsg({
         type: "ok",
-        text: "Account updated ✓",
+        text: tx("Account updated ✓"),
       });
 
       setUname(normalizedUsername);
@@ -153,7 +156,7 @@ export default function AccountSettings({
       setMsg({
         type: "err",
         text:
-          "Could not connect to the server. Please try again.",
+          tx("Could not connect to the server. Please try again."),
       });
     } finally {
       setLoading(false);
@@ -173,7 +176,7 @@ export default function AccountSettings({
             htmlFor="account-username"
             className="label"
           >
-            Username
+            {tx("Username")}
           </label>
 
           <input
@@ -200,7 +203,7 @@ export default function AccountSettings({
             htmlFor="account-full-name"
             className="label"
           >
-            Full name
+            {tx("Full name")}
           </label>
 
           <input
@@ -223,7 +226,7 @@ export default function AccountSettings({
       {/* PASSWORD */}
       <div className="pt-3 border-t border-slate-100">
         <div className="text-xs font-semibold text-slate-500 mb-2">
-          🔐 Change password (optional)
+          {tx("🔐 Change password (optional)")}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -232,7 +235,7 @@ export default function AccountSettings({
               htmlFor="current-password"
               className="label"
             >
-              Current password
+              {tx("Current password")}
             </label>
 
             <input
@@ -256,7 +259,7 @@ export default function AccountSettings({
               htmlFor="new-password"
               className="label"
             >
-              New password
+              {tx("New password")}
             </label>
 
             <input
@@ -300,7 +303,7 @@ export default function AccountSettings({
         disabled={loading}
         aria-busy={loading}
       >
-        {loading ? "Saving…" : "Save changes"}
+        {loading ? tx("Saving…") : tx("Save changes")}
       </button>
     </form>
   );

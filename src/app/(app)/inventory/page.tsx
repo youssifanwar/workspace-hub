@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type Product = {
   id: number;
@@ -20,6 +21,8 @@ function money(value: string | number): string {
 }
 
 export default function InventoryPage() {
+  const f = useFmt();
+  const tx = f.t;
   const [products, setProducts] = useState<Product[]>([]);
   const [draft, setDraft] = useState<Record<number, string>>({});
   const [search, setSearch] = useState("");
@@ -42,7 +45,7 @@ export default function InventoryPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data?.error || `Could not load inventory (HTTP ${response.status}).`);
+        throw new Error(data?.error || (f.en ? `Could not load inventory (HTTP ${response.status}).` : `مقدرناش نحمّل المخزون (HTTP ${response.status}).`));
       }
 
       const nextProducts = Array.isArray(data?.products) ? (data.products as Product[]) : [];
@@ -53,7 +56,7 @@ export default function InventoryPage() {
         ),
       );
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load inventory.");
+      setError(loadError instanceof Error ? loadError.message : tx("Could not load inventory."));
     } finally {
       setLoading(false);
     }
@@ -84,7 +87,7 @@ export default function InventoryPage() {
     const value = Number(draft[product.id]);
 
     if (!Number.isSafeInteger(value) || value < 0) {
-      setError(`Invalid stock quantity for ${product.name}.`);
+      setError((f.en ? `Invalid stock quantity for ${product.name}.` : `كمية مخزون غير صحيحة لـ ${product.name}.`));
       return;
     }
 
@@ -108,7 +111,7 @@ export default function InventoryPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data?.error || `Could not update stock (HTTP ${response.status}).`);
+        throw new Error(data?.error || (f.en ? `Could not update stock (HTTP ${response.status}).` : `مقدرناش نحدّث المخزون (HTTP ${response.status}).`));
       }
 
       const updated = data?.product as { id?: number; stockQuantity?: number } | undefined;
@@ -122,22 +125,22 @@ export default function InventoryPage() {
         ),
       );
       setDraft((current) => ({ ...current, [product.id]: String(nextStock) }));
-      setMessage(`Stock updated: ${product.name}`);
+      setMessage((f.en ? `Stock updated: ${product.name}` : `تم تحديث المخزون: ${product.name}`));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not update stock.");
+      setError(saveError instanceof Error ? saveError.message : tx("Could not update stock."));
     } finally {
       setSavingId(null);
     }
   }
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center text-slate-500">Loading inventory…</div>;
+    return <div className="min-h-screen grid place-items-center text-slate-500">{tx("Loading inventory…")}</div>;
   }
 
   return (
     <main className="p-4 lg:p-6 space-y-6">
       <div>
-        <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">Inventory</div>
+        <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("Inventory")}</div>
         <h1 className="text-3xl font-black text-slate-900 mt-1">F&amp;B Stock</h1>
         <p className="text-sm text-slate-500 mt-1">
           Set the real quantity available for each food and drink. QR orders and direct F&amp;B sales use this stock.
@@ -158,14 +161,14 @@ export default function InventoryPage() {
             className="input flex-1"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search product…"
+            placeholder={tx("Search product…")}
           />
           <select
             className="input lg:w-64"
             value={category === null ? "all" : String(category)}
             onChange={(event) => setCategory(event.target.value === "all" ? null : Number(event.target.value))}
           >
-            <option value="all">All categories</option>
+            <option value="all">{tx("All categories")}</option>
             {categories.map((item) => (
               <option key={item.id} value={item.id}>{item.name}</option>
             ))}
@@ -176,11 +179,11 @@ export default function InventoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-3 pr-4">Product</th>
-                <th className="py-3 pr-4">Category</th>
-                <th className="py-3 pr-4">Price</th>
-                <th className="py-3 pr-4">Stock</th>
-                <th className="py-3">Action</th>
+                <th className="py-3 pr-4">{tx("Product")}</th>
+                <th className="py-3 pr-4">{tx("Category")}</th>
+                <th className="py-3 pr-4">{tx("Price")}</th>
+                <th className="py-3 pr-4">{tx("Stock")}</th>
+                <th className="py-3">{tx("Action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -213,7 +216,7 @@ export default function InventoryPage() {
                       disabled={savingId === product.id}
                       onClick={() => void saveStock(product)}
                     >
-                      {savingId === product.id ? "Saving…" : "Save"}
+                      {savingId === product.id ? tx("Saving…") : tx("Save")}
                     </button>
                   </td>
                 </tr>
@@ -222,7 +225,7 @@ export default function InventoryPage() {
           </table>
 
           {filteredProducts.length === 0 && (
-            <div className="py-10 text-center text-slate-500">No products found.</div>
+            <div className="py-10 text-center text-slate-500">{tx("No products found.")}</div>
           )}
         </div>
       </div>

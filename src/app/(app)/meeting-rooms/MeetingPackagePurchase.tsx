@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 export type OwnedMeetingPackage = {
   id: number;
@@ -50,6 +51,8 @@ export default function MeetingPackagePurchase({
   disabled?: boolean;
   onPurchased: (purchaseId: number, packages: OwnedMeetingPackage[]) => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loadingPackages, setLoadingPackages] = useState(false);
@@ -71,15 +74,15 @@ export default function MeetingPackagePurchase({
     try {
       const res = await fetch("/api/meeting-rooms/packages", { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(getError(data, "Couldn't load meeting packages."));
+      if (!res.ok) throw new Error(getError(data, tx("Couldn't load meeting packages.")));
       const active = (data.packages ?? []).filter(
         (pkg: MeetingPackageDefinition) => pkg.status === "active",
       );
       setCatalog(active);
       if (active.length) setPackageId(String(active[0].id));
-      if (!active.length) setError("No active meeting packages are available for sale.");
+      if (!active.length) setError(tx("No active meeting packages are available for sale."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load meeting packages.");
+      setError(e instanceof Error ? e.message : tx("Couldn't load meeting packages."));
     } finally {
       setLoadingPackages(false);
     }
@@ -104,7 +107,7 @@ export default function MeetingPackagePurchase({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.purchase?.id) {
-        throw new Error(getError(data, "Couldn't sell the meeting package."));
+        throw new Error(getError(data, tx("Couldn't sell the meeting package.")));
       }
 
       let owned: OwnedMeetingPackage[] = [];
@@ -121,11 +124,11 @@ export default function MeetingPackagePurchase({
       const purchaseId = Number(data.purchase.id);
       onPurchased(purchaseId, owned);
       const chosen = catalog.find((pkg) => pkg.id === Number(packageId));
-      setSuccess(`${chosen?.name ?? "Meeting package"} sold successfully. It is now selected for this booking.`);
+      setSuccess(`${chosen?.name ?? tx("Meeting package")} sold successfully. It is now selected for this booking.`);
       setOpen(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't sell the meeting package.");
+      setError(e instanceof Error ? e.message : tx("Couldn't sell the meeting package."));
     } finally {
       setSaving(false);
     }
@@ -139,24 +142,24 @@ export default function MeetingPackagePurchase({
         disabled={disabled || !customerId || !phone.trim() || saving}
         onClick={openPanel}
       >
-        {open ? "− Hide package sale" : "+ Sell meeting package to customer"}
+        {open ? tx("− Hide package sale") : tx("+ Sell meeting package to customer")}
       </button>
       {!customerId && (
-        <p className="text-xs text-slate-500">Search for an existing customer first to sell a package to their account.</p>
+        <p className="text-xs text-slate-500">{tx("Search for an existing customer first to sell a package to their account.")}</p>
       )}
       {success && <p role="status" className="text-xs font-medium text-emerald-700">{success}</p>}
       {open && (
         <div className="meeting-package-purchase-panel rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-4 space-y-3">
           <div>
-            <p className="font-semibold text-slate-900">New meeting package</p>
-            <p className="mt-0.5 text-xs text-slate-500">The sale will be recorded in this shift's revenue and cash reconciliation.</p>
+            <p className="font-semibold text-slate-900">{tx("New meeting package")}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{tx("The sale will be recorded in this shift's revenue and cash reconciliation.")}</p>
           </div>
           {loadingPackages ? (
-            <p className="text-sm text-slate-500">Loading available packages…</p>
+            <p className="text-sm text-slate-500">{tx("Loading available packages…")}</p>
           ) : (
             <>
               <div>
-                <label className="label" htmlFor="meeting-package-to-sell">Package</label>
+                <label className="label" htmlFor="meeting-package-to-sell">{tx("Package")}</label>
                 <select
                   id="meeting-package-to-sell"
                   className="select w-full"
@@ -164,7 +167,7 @@ export default function MeetingPackagePurchase({
                   disabled={saving || catalog.length === 0}
                   onChange={(e) => setPackageId(e.target.value)}
                 >
-                  {catalog.length === 0 && <option value="">No active packages</option>}
+                  {catalog.length === 0 && <option value="">{tx("No active packages")}</option>}
                   {catalog.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.name} · {Number(pkg.totalHours)}h · {money(pkg.price, currency)}
@@ -185,7 +188,7 @@ export default function MeetingPackagePurchase({
                 ) : null;
               })()}
               <div>
-                <label className="label" htmlFor="meeting-package-payment">Payment method</label>
+                <label className="label" htmlFor="meeting-package-payment">{tx("Payment method")}</label>
                 <select
                   id="meeting-package-payment"
                   className="select w-full"
@@ -193,10 +196,10 @@ export default function MeetingPackagePurchase({
                   disabled={saving}
                   onChange={(e) => setPaymentMethod(e.target.value as PayMethod)}
                 >
-                  <option value="cash">Cash</option>
-                  <option value="visa">Visa</option>
-                  <option value="instapay">InstaPay</option>
-                  <option value="balance">Customer balance</option>
+                  <option value="cash">{tx("Cash")}</option>
+                  <option value="visa">{tx("Visa")}</option>
+                  <option value="instapay">{tx("InstaPay")}</option>
+                  <option value="balance">{tx("Customer balance")}</option>
                 </select>
               </div>
               <button
@@ -205,7 +208,7 @@ export default function MeetingPackagePurchase({
                 onClick={sellPackage}
                 disabled={saving || loadingPackages || !packageId || catalog.length === 0}
               >
-                {saving ? "Selling package…" : "Confirm package sale"}
+                {saving ? tx("Selling package…") : tx("Confirm package sale")}
               </button>
             </>
           )}

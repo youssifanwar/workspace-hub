@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import CustomerSearchField from "./CustomerSearchField";
+import { useFmt } from "@/lib/lang-context";
 
 type PricingTier = {
   id: number;
@@ -159,6 +160,8 @@ export default function WalkInRoomModal({
   currency,
   onClose,
 }: Props) {
+  const f = useFmt();
+  const tx = f.t;
   const [
     customerName,
     setCustomerName,
@@ -299,7 +302,7 @@ export default function WalkInRoomModal({
 
     if (!phone) {
       setPackageError(
-        "Enter the customer phone number first.",
+        tx("Enter the customer phone number first."),
       );
       return;
     }
@@ -332,7 +335,7 @@ export default function WalkInRoomModal({
         setPackageError(
           getErrorMessage(
             data,
-            `Could not load customer packages (HTTP ${response.status}).`,
+            (f.en ? `Could not load customer packages (HTTP ${response.status}).` : `مقدرناش نحمّل باقات العميل (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -355,7 +358,7 @@ export default function WalkInRoomModal({
       );
     } catch {
       setPackageError(
-        "Could not connect to the customer package service.",
+        tx("Could not connect to the customer package service."),
       );
     } finally {
       setLoadingPackages(false);
@@ -382,7 +385,7 @@ export default function WalkInRoomModal({
       room.capacity !== undefined &&
       people > room.capacity
     ) {
-      return `This room can accommodate up to ${room.capacity} people.`;
+      return (f.en ? `This room can accommodate up to ${room.capacity} people.` : `الغرفة دي بتسع لحد ${room.capacity} أشخاص.`);
     }
 
     if (
@@ -483,7 +486,7 @@ export default function WalkInRoomModal({
         setError(
           getErrorMessage(
             data,
-            `Could not calculate price (HTTP ${response.status}).`,
+            (f.en ? `Could not calculate price (HTTP ${response.status}).` : `مقدرناش نحسب السعر (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -491,7 +494,7 @@ export default function WalkInRoomModal({
 
       if (!isRecord(data)) {
         setError(
-          "The pricing service returned an invalid response.",
+          tx("The pricing service returned an invalid response."),
         );
         return;
       }
@@ -557,7 +560,7 @@ export default function WalkInRoomModal({
       });
     } catch {
       setError(
-        "Could not calculate the session price.",
+        tx("Could not calculate the session price."),
       );
     } finally {
       setLoadingPrice(false);
@@ -577,7 +580,7 @@ export default function WalkInRoomModal({
 
     if (!pricePreview) {
       setError(
-        "Calculate the price before starting the session.",
+        tx("Calculate the price before starting the session."),
       );
       return;
     }
@@ -621,7 +624,7 @@ export default function WalkInRoomModal({
         setError(
           getErrorMessage(
             data,
-            `Could not start the meeting room session (HTTP ${response.status}).`,
+            (f.en ? `Could not start the meeting room session (HTTP ${response.status}).` : `مقدرناش نبدأ جلسة الغرفة (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -629,7 +632,7 @@ export default function WalkInRoomModal({
 
       if (!isRecord(data)) {
         setError(
-          "The walk-in service returned an invalid response.",
+          tx("The walk-in service returned an invalid response."),
         );
         return;
       }
@@ -649,7 +652,7 @@ export default function WalkInRoomModal({
         billing?.packageRemainingHours;
 
       setSuccess(
-        `${room.name} started now for ${hours} hour(s). Total: ${total} ${currency}. Session is active.`,
+        (f.en ? `${room.name} started now for ${hours} hour(s). Total: ${total} ${currency}. Session is active.` : `${room.name} بدأت دلوقتي لمدة ${hours} ساعة. الإجمالي: ${total} ${currency}. الجلسة نشطة.`),
       );
 
       if (
@@ -678,7 +681,7 @@ export default function WalkInRoomModal({
       onClose();
     } catch {
       setError(
-        "Could not start the meeting room session.",
+        tx("Could not start the meeting room session."),
       );
     } finally {
       setLoadingStart(false);
@@ -690,13 +693,13 @@ export default function WalkInRoomModal({
       className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`Start ${room.name} now`}
+      aria-label={(f.en ? `Start ${room.name} now` : `ابدأ ${room.name} دلوقتي`)}
     >
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
         <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
           <div>
             <div className="text-xs font-bold tracking-wider text-emerald-600">
-              WALK-IN SESSION
+              {tx("WALK-IN SESSION")}
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 mt-1">
@@ -704,9 +707,7 @@ export default function WalkInRoomModal({
             </h2>
 
             <div className="text-sm text-slate-500 mt-1">
-              The session starts immediately and
-              is stored as an active meeting-room
-              session.
+              {tx("The session starts immediately and is stored as an active meeting-room session.")}
             </div>
           </div>
 
@@ -714,7 +715,7 @@ export default function WalkInRoomModal({
             type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 text-2xl"
-            aria-label="Close walk-in dialog"
+            aria-label={tx("Close walk-in dialog")}
             disabled={isBusy}
           >
             ×
@@ -724,19 +725,17 @@ export default function WalkInRoomModal({
         <div className="p-6 space-y-5">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <div className="font-bold text-emerald-950">
-              🟢 Starting now
+              {tx("🟢 Starting now")}
             </div>
 
             <div className="text-sm text-emerald-800 mt-1">
-              Availability is checked on the server
-              for the current time before the room is
-              opened.
+              {tx("Availability is checked on the server for the current time before the room is opened.")}
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
-              Customer
+              {tx("Customer")}
             </div>
 
             <div className="mb-4">
@@ -776,7 +775,7 @@ export default function WalkInRoomModal({
                   htmlFor="walk-in-customer-name"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Customer name
+                  {tx("Customer name")}
                 </label>
 
                 <input
@@ -793,7 +792,7 @@ export default function WalkInRoomModal({
                     resetMessages();
                     resetPrice();
                   }}
-                  placeholder="e.g. Ahmed Ali"
+                  placeholder={tx("e.g. Ahmed Ali")}
                   disabled={isBusy}
                 />
               </div>
@@ -803,7 +802,7 @@ export default function WalkInRoomModal({
                   htmlFor="walk-in-customer-phone"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Phone number
+                  {tx("Phone number")}
                 </label>
 
                 <div className="flex gap-2">
@@ -818,7 +817,7 @@ export default function WalkInRoomModal({
                       resetMessages();
                       resetPrice();
                     }}
-                    placeholder="e.g. 0100 000 0000"
+                    placeholder={tx("e.g. 0100 000 0000")}
                     disabled={isBusy}
                   />
 
@@ -831,8 +830,8 @@ export default function WalkInRoomModal({
                     disabled={isBusy}
                   >
                     {loadingPackages
-                      ? "Loading..."
-                      : "Load packages"}
+                      ? tx("Loading...")
+                      : tx("Load packages")}
                   </button>
                 </div>
 
@@ -854,7 +853,7 @@ export default function WalkInRoomModal({
                 htmlFor="walk-in-attendees"
                 className="block text-sm font-semibold text-slate-700 mb-1"
               >
-                Number of people
+                {tx("Number of people")}
               </label>
 
               <input
@@ -881,7 +880,7 @@ export default function WalkInRoomModal({
               {selectedTier && (
                 <div className="mt-3 rounded-xl bg-indigo-50 border border-indigo-100 p-3">
                   <div className="text-xs text-indigo-700">
-                    Current rate
+                    {tx("Current rate")}
                   </div>
 
                   <div className="font-bold text-indigo-950 mt-1">
@@ -897,7 +896,7 @@ export default function WalkInRoomModal({
                 htmlFor="walk-in-duration"
                 className="block text-sm font-semibold text-slate-700 mb-1"
               >
-                Duration
+                {tx("Duration")}
               </label>
 
               <input
@@ -918,8 +917,7 @@ export default function WalkInRoomModal({
               />
 
               <div className="text-xs text-slate-500 mt-2">
-                Whole hours only. The session starts
-                immediately.
+                {tx("Whole hours only. The session starts immediately.")}
               </div>
             </div>
           </div>
@@ -928,12 +926,11 @@ export default function WalkInRoomModal({
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <div className="font-bold text-slate-900">
-                  Meeting Room Package
+                  {tx("Meeting Room Package")}
                 </div>
 
                 <div className="text-xs text-slate-600 mt-1">
-                  Package sessions consume room hours
-                  and keep their saved discount.
+                  {tx("Package sessions consume room hours and keep their saved discount.")}
                 </div>
               </div>
 
@@ -947,7 +944,7 @@ export default function WalkInRoomModal({
                   }
                   disabled={isBusy}
                 >
-                  Refresh
+                  {tx("Refresh")}
                 </button>
               )}
             </div>
@@ -984,7 +981,7 @@ export default function WalkInRoomModal({
               disabled={isBusy}
             >
               <option value="">
-                Regular walk-in
+                {tx("Regular walk-in")}
               </option>
 
               {customerPackages
@@ -1015,7 +1012,7 @@ export default function WalkInRoomModal({
               <div className="mt-3 grid sm:grid-cols-3 gap-3">
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Remaining
+                    {tx("Remaining")}
                   </div>
 
                   <div className="font-bold text-slate-900 mt-1">
@@ -1028,7 +1025,7 @@ export default function WalkInRoomModal({
 
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Discount
+                    {tx("Discount")}
                   </div>
 
                   <div className="font-bold text-emerald-700 mt-1">
@@ -1041,7 +1038,7 @@ export default function WalkInRoomModal({
 
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Package
+                    {tx("Package")}
                   </div>
 
                   <div className="font-bold text-slate-900 mt-1">
@@ -1058,9 +1055,7 @@ export default function WalkInRoomModal({
               0 &&
               !loadingPackages && (
                 <div className="text-xs text-slate-500 mt-2">
-                  Load customer packages using the
-                  phone number above. Regular walk-in
-                  remains available.
+                  {tx("Load customer packages using the phone number above. Regular walk-in remains available.")}
                 </div>
               )}
           </div>
@@ -1069,12 +1064,11 @@ export default function WalkInRoomModal({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-bold text-indigo-950">
-                  Price preview
+                  {tx("Price preview")}
                 </div>
 
                 <div className="text-xs text-indigo-700 mt-1">
-                  The server recalculates the final
-                  amount when the session starts.
+                  {tx("The server recalculates the final amount when the session starts.")}
                 </div>
               </div>
 
@@ -1087,8 +1081,8 @@ export default function WalkInRoomModal({
                 disabled={isBusy}
               >
                 {loadingPrice
-                  ? "Calculating..."
-                  : "Calculate price"}
+                  ? tx("Calculating...")
+                  : tx("Calculate price")}
               </button>
             </div>
 
@@ -1096,7 +1090,7 @@ export default function WalkInRoomModal({
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Hourly rate
+                    {tx("Hourly rate")}
                   </span>
                   <strong>
                     {
@@ -1108,7 +1102,7 @@ export default function WalkInRoomModal({
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Duration
+                    {tx("Duration")}
                   </span>
                   <strong>
                     {
@@ -1120,7 +1114,7 @@ export default function WalkInRoomModal({
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Subtotal
+                    {tx("Subtotal")}
                   </span>
                   <strong>
                     {
@@ -1135,7 +1129,7 @@ export default function WalkInRoomModal({
                 ) > 0 && (
                   <div className="flex justify-between gap-4 text-emerald-700">
                     <span>
-                      Package discount (
+                      {tx("Package discount")} (
                       {
                         pricePreview.packageDiscountPercent
                       }
@@ -1154,7 +1148,7 @@ export default function WalkInRoomModal({
 
                 <div className="border-t border-indigo-200 pt-3 mt-3 flex justify-between gap-4 text-lg">
                   <span className="font-bold text-indigo-950">
-                    Total
+                    {tx("Total")}
                   </span>
 
                   <strong className="text-indigo-950">
@@ -1167,8 +1161,7 @@ export default function WalkInRoomModal({
               </div>
             ) : (
               <div className="mt-4 text-sm text-indigo-700">
-                Choose the attendees, duration and
-                package, then calculate the price.
+                {tx("Choose the attendees, duration and package, then calculate the price.")}
               </div>
             )}
           </div>
@@ -1178,7 +1171,7 @@ export default function WalkInRoomModal({
               htmlFor="walk-in-notes"
               className="block text-sm font-semibold text-slate-700 mb-1"
             >
-              Notes
+              {tx("Notes")}
             </label>
 
             <textarea
@@ -1191,7 +1184,7 @@ export default function WalkInRoomModal({
                 );
                 resetMessages();
               }}
-              placeholder="Optional notes"
+              placeholder={tx("Optional notes")}
               maxLength={1000}
               disabled={isBusy}
             />
@@ -1227,7 +1220,7 @@ export default function WalkInRoomModal({
             onClick={onClose}
             disabled={isBusy}
           >
-            Close
+            {tx("Close")}
           </button>
 
           <button
@@ -1239,8 +1232,8 @@ export default function WalkInRoomModal({
             disabled={isBusy}
           >
             {loadingPrice
-              ? "Calculating..."
-              : "Calculate price"}
+              ? tx("Calculating...")
+              : tx("Calculate price")}
           </button>
 
           <button
@@ -1255,7 +1248,7 @@ export default function WalkInRoomModal({
             }
           >
             {loadingStart
-              ? "Starting..."
+              ? tx("Starting...")
               : "🟢 Start session now"}
           </button>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type OrderAlert = {
   id: number;
@@ -63,6 +64,8 @@ export default function OrdersBoard({
   autoPrint: boolean;
   kitchenPrinter: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [tickets, setTickets] =
     useState<Ticket[]>([]);
 
@@ -525,13 +528,13 @@ export default function OrdersBoard({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setActionError(err?.error || "Could not mark order as served.");
+        setActionError(err?.error || tx("Could not mark order as served."));
         return;
       }
 
       await reloadTicketsNow();
     } catch {
-      setActionError("Network error while updating order.");
+      setActionError(tx("Network error while updating order."));
     } finally {
       setBusyTicketId(null);
     }
@@ -542,7 +545,7 @@ export default function OrdersBoard({
   ) {
     if (busyTicketId !== null) return;
     const confirmed = window.confirm(
-      `Cancel Ticket #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) and remove its items from the customer's bill?`,
+      f.en ? `Cancel ticket #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) and remove its items from the customer's bill?` : `إلغاء تذكرة #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) وشيل أصنافها من فاتورة العميل؟`,
     );
     if (!confirmed) return;
 
@@ -565,13 +568,13 @@ export default function OrdersBoard({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setActionError(err?.error || "Could not cancel order.");
+        setActionError(err?.error || tx("Could not cancel order."));
         return;
       }
 
       await reloadTicketsNow();
     } catch {
-      setActionError("Network error while cancelling order.");
+      setActionError(tx("Network error while cancelling order."));
     } finally {
       setBusyTicketId(null);
     }
@@ -591,316 +594,135 @@ export default function OrdersBoard({
   }
 
   /* ---------------------------------------------------------------------- */
-  /* COUNTS                                                                 */
+  /* START PREPARING (pending -> printed, uses the existing status flow)     */
   /* ---------------------------------------------------------------------- */
 
-  const pending =
-    tickets.filter(
-      (ticket) =>
-        ticket.status !==
-          "served" &&
-        ticket.status !==
-          "cancelled",
-    );
+  async function startPreparing(ticket: Ticket) {
+    if (busyTicketId !== null) return;
+    setBusyTicketId(ticket.id);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "printed" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err?.error || tx("مقدرناش نبدأ التحضير."));
+        return;
+      }
+      await reloadTicketsNow();
+    } catch {
+      setActionError(tx("مشكلة في الاتصال أثناء تحديث الطلب."));
+    } finally {
+      setBusyTicketId(null);
+    }
+  }
 
-  const servedCount =
-    tickets.filter(
-      (ticket) =>
-        ticket.status === "served",
-    ).length;
+  /* ---------------------------------------------------------------------- */
+  /* COLUMNS                                                                */
+  /* ---------------------------------------------------------------------- */
 
-  const done =
-    tickets.filter(
-      (ticket) =>
-        ticket.status ===
-          "served" ||
-        ticket.status ===
-          "cancelled",
-    );
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setTick(Date.now()), 15000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const fresh = tickets.filter((t) => t.status === "pending");
+  const preparing = tickets.filter((t) => t.status === "printed");
+  const finished = tickets.filter((t) => t.status === "served" || t.status === "cancelled").slice(0, 6);
+  const newest = fresh[0];
+  const servedCount = tickets.filter((t) => t.status === "served").length;
 
   /* ---------------------------------------------------------------------- */
   /* MAIN UI                                                                */
   /* ---------------------------------------------------------------------- */
 
   return (
-    <div className="space-y-6">
+    <div className="x-page">
       {/* TOP ORDER ALERTS */}
-      <div className="fixed top-4 right-4 z-[9999] w-[min(380px,calc(100vw-2rem))] space-y-3 pointer-events-none">
+      <div className="fixed top-4 left-4 z-[9999] w-[min(380px,calc(100vw-2rem))] space-y-3 pointer-events-none">
         {alerts.map((alert) => (
-          <div
-            key={alert.id}
-            className="pointer-events-auto rounded-2xl border border-emerald-200 bg-white shadow-2xl ring-2 ring-emerald-100 px-4 py-3 animate-in slide-in-from-top-4 fade-in duration-200"
-          >
-            <div className="flex items-start gap-3">
-              <div className="text-2xl leading-none">🔔</div>
-              <div className="min-w-0 flex-1">
-                <div className="font-extrabold text-emerald-700">
-                  New order received
-                </div>
-                <div className="text-sm font-bold text-slate-900 mt-0.5">
-                  Ticket #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">
-                  {alert.count} item(s) · Live Orders
-                </div>
-              </div>
-            </div>
+          <div key={alert.id} className="pointer-events-auto x-card" style={{ borderColor: "#a7f3d0" }}>
+            <div className="font-bold" style={{ color: "#047857" }}>{tx("🔔 وصل طلب جديد")}</div>
+            <div className="x-row-title mt-1">{tx("تذكرة")} #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}</div>
+            <div className="x-row-sub">{alert.count} {tx("أصناف")}</div>
           </div>
         ))}
       </div>
 
-      {/* HEADER */}
-
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="x-head">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Live Orders
-          </h1>
-
-          <p className="text-slate-500">
-            QR orders arrive here
-            in real-time (every 2 seconds) and print
-            automatically.
-          </p>
+          <h1>{tx("طلبات المشروبات")}</h1>
+          <p>{tx("الطلبات بتتحدث لحظياً من الـ QR والكاشير")}</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              void handleAlertsClick();
-            }}
-            title={
-              notificationPermission === "denied"
-                ? "Browser notifications are blocked for this site. Allow notifications for this domain from the browser address-bar site settings."
-                : "Click once to unlock the order sound and allow desktop notifications on this domain."
-            }
-            className="btn btn-primary"
-          >
-            {notificationPermission === "granted"
-              ? "🔊 Alerts on"
-              : "🔔 Enable alerts"}
+        <div className="x-actions">
+          <span className={`x-chip ${status === "live" ? "green" : status === "connecting" ? "amber" : ""}`} style={status === "offline" ? { background: "#fee2e2", color: "#991b1b" } : undefined}>
+            <span className="x-dot" style={status === "live" ? undefined : { background: status === "offline" ? "#dc2626" : "#f59e0b", boxShadow: "none" }} />
+            {status === "live" ? tx("مباشر") : status === "connecting" ? tx("بيتصل…") : tx("مفيش اتصال")}
+          </span>
+          <span className="x-chip">{autoPrint ? tx("الطباعة التلقائية شغالة") : tx("الطباعة التلقائية مقفولة")}</span>
+          <button onClick={() => { void handleAlertsClick(); }} className="x-btn dark" title={notificationPermission === "denied" ? tx("إشعارات المتصفح متقفلة لهذا الموقع. فعّلها من إعدادات الموقع.") : tx("اضغط مرة عشان يشتغل الصوت والإشعارات.")}>
+            {notificationPermission === "granted" ? tx("🔊 التنبيهات شغالة") : tx("🔔 فعّل التنبيهات")}
           </button>
-
-          <div
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${
-              status === "live"
-                ? "bg-emerald-50 text-emerald-800"
-                : status ===
-                    "connecting"
-                ? "bg-amber-50 text-amber-800"
-                : "bg-red-50 text-red-800"
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                status === "live"
-                  ? "bg-emerald-500 animate-pulse"
-                  : status ===
-                      "connecting"
-                  ? "bg-amber-500"
-                  : "bg-red-500"
-              }`}
-            />
-
-            {status === "live"
-              ? "Live"
-              : status ===
-                  "connecting"
-              ? "Connecting…"
-              : "Offline"}
-          </div>
         </div>
       </div>
 
       {actionError && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 flex items-center justify-between"
-        >
+        <div role="alert" className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
           <span>{actionError}</span>
-          <button
-            type="button"
-            className="text-xs underline ml-4"
-            onClick={() => setActionError(null)}
-          >
-            Dismiss
-          </button>
+          <button type="button" className="underline" onClick={() => setActionError(null)}>{tx("إغلاق")}</button>
         </div>
       )}
 
-      {/* STAT BOXES */}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatBox
-          label="Pending"
-          value={pending.length}
-          icon="⏳"
-          color="from-amber-500 to-orange-500"
-        />
-
-        <StatBox
-          label="Printed"
-          value={
-            pending.filter(
-              (ticket) =>
-                ticket.printedAt,
-            ).length
-          }
-          icon="🧾"
-          color="from-cyan-500 to-blue-500"
-        />
-
-        <StatBox
-          label="Served today"
-          value={servedCount}
-          icon="✅"
-          color="from-emerald-500 to-teal-500"
-        />
-
-        <StatBox
-          label="Auto-print"
-          value={
-            autoPrint
-              ? "ON"
-              : "OFF"
-          }
-          icon="🖨️"
-          color={
-            autoPrint
-              ? "from-indigo-500 to-purple-500"
-              : "from-slate-500 to-slate-600"
-          }
-        />
-      </div>
-
-      {/* PENDING */}
-
-      <div>
-        <h2 className="text-lg font-bold mb-3">
-          Pending ({pending.length})
-        </h2>
-
-        {pending.length === 0 ? (
-          <div className="card p-10 text-center text-slate-400">
-            <div className="text-4xl mb-2">
-              🎉
-            </div>
-
-            All orders served!
+      {newest && (
+        <div className="x-banner" role="status">
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>{tx("طلب جديد! تذكرة")} #{String(newest.ticketNumber).padStart(3, "0")} {tx("من")} {newest.deskName}</div>
+            <div style={{ opacity: 0.9, fontSize: 13, marginTop: 4 }}>{newest.items.reduce((n, i) => n + i.quantity, 0)} {tx("أصناف")} · {newest.source === "qr" ? tx("من الـ QR") : tx("من الكاشير")}</div>
           </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pending.map(
-              (ticket) => (
-                <TicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  currency={
-                    currency
-                  }
-                  allTickets={
-                    tickets
-                  }
-                  busy={busyTicketId === ticket.id}
-                  onServed={() =>
-                    markServed(
-                      ticket,
-                    )
-                  }
-                  onCancel={() =>
-                    cancelTicket(
-                      ticket,
-                    )
-                  }
-                  onReprint={() =>
-                    reprint(
-                      ticket,
-                    )
-                  }
-                />
-              ),
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* RECENTLY SERVED & CANCELLED */}
-
-      {done.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold mb-3">
-            Recently served & cancelled
-          </h2>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {done
-              .slice(0, 6)
-              .map(
-                (ticket) => (
-                  <TicketCard
-                    key={ticket.id}
-                    ticket={
-                      ticket
-                    }
-                    currency={
-                      currency
-                    }
-                    allTickets={
-                      tickets
-                    }
-                    onServed={() => {}}
-                    onCancel={() => {}}
-                    onReprint={() =>
-                      reprint(
-                        ticket,
-                      )
-                    }
-                    muted
-                  />
-                ),
-              )}
-          </div>
+          <button type="button" className="x-btn" disabled={busyTicketId !== null} onClick={() => void startPreparing(newest)}>{tx("ابدأ التحضير")}</button>
         </div>
       )}
+
+      <div className="x-board">
+        <Column title={tx("طلبات جديدة")} count={fresh.length} tone="amber">
+          {fresh.length === 0 ? <div className="x-card x-empty">{tx("مفيش طلبات جديدة 🎉")}</div> : fresh.map((t) => (
+            <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} busy={busyTicketId === t.id}
+              primary={{ label: tx("ابدأ التحضير"), tone: "primary", onClick: () => void startPreparing(t) }}
+              onCancel={() => cancelTicket(t)} onReprint={() => reprint(t)} />
+          ))}
+        </Column>
+        <Column title={tx("بيتحضّر")} count={preparing.length} tone="blue">
+          {preparing.length === 0 ? <div className="x-card x-empty">{tx("مفيش حاجة بتتحضّر.")}</div> : preparing.map((t) => (
+            <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} busy={busyTicketId === t.id}
+              primary={{ label: tx("✓ تم التقديم"), tone: "success", onClick: () => markServed(t) }}
+              onCancel={() => cancelTicket(t)} onReprint={() => reprint(t)} />
+          ))}
+        </Column>
+        <Column title={tx("اتقدّمت النهارده")} count={servedCount} tone="green">
+          {finished.length === 0 ? <div className="x-card x-empty">{tx("لسه مفيش طلبات اتقدّمت.")}</div> : finished.map((t) => (
+            <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} done />
+          ))}
+        </Column>
+      </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/* STAT BOX                                                                 */
-/* ------------------------------------------------------------------------ */
-
-function StatBox({
-  label,
-  value,
-  icon,
-  color,
-}: {
-  label: string;
-  value:
-    | number
-    | string;
-  icon: string;
-  color: string;
-}) {
+function Column({ title, count, tone, children }: { title: string; count: number; tone: "amber" | "blue" | "green"; children: React.ReactNode }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
-    <div
-      className={`kpi bg-gradient-to-br ${color}`}
-    >
-      <div className="text-xs uppercase text-white/80 font-semibold">
-        {label}
+    <section>
+      <div className="x-col-head">
+        <span>{title}</span>
+        <span className={`x-count tone-${tone}`}>{count}</span>
       </div>
-
-      <div className="flex items-end justify-between mt-2">
-        <div className="text-2xl font-bold tabular-nums">
-          {value}
-        </div>
-
-        <div className="text-3xl">
-          {icon}
-        </div>
-      </div>
-    </div>
+      {children}
+    </section>
   );
 }
 
@@ -908,24 +730,17 @@ function StatBox({
 /* TICKET DISPLAY NUMBER                                                    */
 /* ------------------------------------------------------------------------ */
 
-function getDisplayTicketNumber(
-  ticket: Ticket,
-  allTickets: Ticket[],
-): number {
-  const sameNumberCount =
-    allTickets.filter(
-      (item) =>
-        item.ticketNumber ===
-        ticket.ticketNumber,
-    ).length;
-
-  if (
-    sameNumberCount <= 1
-  ) {
-    return ticket.ticketNumber;
-  }
-
+function getDisplayTicketNumber(ticket: Ticket, allTickets: Ticket[]): number {
+  const sameNumberCount = allTickets.filter((item) => item.ticketNumber === ticket.ticketNumber).length;
+  if (sameNumberCount <= 1) return ticket.ticketNumber;
   return ticket.id;
+}
+
+function elapsedLabel(createdAt: string, now: number): { text: string; tone: "green" | "amber" | "red" } {
+  const secs = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000));
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return { text: `${m}:${String(s).padStart(2, "0")}`, tone: m < 3 ? "green" : m < 8 ? "amber" : "red" };
 }
 
 /* ------------------------------------------------------------------------ */
@@ -936,215 +751,74 @@ function TicketCard({
   ticket,
   currency,
   allTickets,
+  now,
   busy,
-  onServed,
+  primary,
   onCancel,
   onReprint,
-  muted,
+  done,
 }: {
   ticket: Ticket;
   currency: string;
   allTickets: Ticket[];
+  now: number;
   busy?: boolean;
-  onServed: () => void;
-  onCancel: () => void;
-  onReprint: () => void;
-  muted?: boolean;
+  primary?: { label: string; tone: "primary" | "success"; onClick: () => void };
+  onCancel?: () => void;
+  onReprint?: () => void;
+  done?: boolean;
 }) {
-  const displayNumber =
-    getDisplayTicketNumber(
-      ticket,
-      allTickets,
-    );
-
+  const f = useFmt();
+  const tx = f.t;
+  const displayNumber = getDisplayTicketNumber(ticket, allTickets);
   const isCancelled = ticket.status === "cancelled";
+  const isNew = ticket.status === "pending";
+  const el = elapsedLabel(ticket.createdAt, now);
+  const time = new Date(ticket.createdAt).toLocaleTimeString(f.en ? "en-GB" : "ar-EG-u-nu-latn", { hour: "numeric", minute: "2-digit" });
 
   return (
-    <div
-      className={`card p-4 ${
-        muted
-          ? "opacity-60"
-          : ""
-      } ${
-        !ticket.printedAt && !isCancelled
-          ? "border-amber-300 ring-2 ring-amber-100"
-          : ""
-      }`}
-    >
-      {/* TOP */}
-
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="text-xs uppercase text-slate-500 font-semibold">
-            Ticket #
-            {String(
-              displayNumber,
-            ).padStart(
-              3,
-              "0",
-            )}
-          </div>
-
-          <div className="font-bold text-lg">
-            {ticket.deskName}
-          </div>
-
-          <div className="text-xs text-slate-500">
-            👤{" "}
-            {ticket.customerName}{" "}
-            ·{" "}
-            {new Date(
-              ticket.createdAt,
-            ).toLocaleTimeString()}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-1">
-          <span
-            className={`badge ${
-              ticket.source ===
-              "qr"
-                ? "badge-blue"
-                : "badge-slate"
-            }`}
-          >
-            {ticket.source ===
-            "qr"
-              ? "📱 QR"
-              : "🧑‍💼 Staff"}
-          </span>
-
-          <span
-            className={`badge ${
-              ticket.status ===
-              "served"
-                ? "badge-green"
-                : ticket.status ===
-                    "cancelled"
-                ? "bg-rose-100 text-rose-700"
-                : ticket.status ===
-                    "printed"
-                ? "badge-blue"
-                : "badge-amber"
-            }`}
-          >
-            {ticket.status}
-          </span>
-        </div>
-      </div>
-
-      {/* ITEMS */}
-
-      <div className="border-t border-slate-100 pt-2 divide-soft">
-        {isCancelled && ticket.items.length === 0 ? (
-          <div className="py-2 text-xs text-rose-600 font-medium">
-            Cancelled · Items removed from customer's bill
-          </div>
+    <div className={`x-ticket ${isNew ? "new" : ""} ${done ? "done" : ""}`}>
+      <div className="x-ticket-top">
+        <span className="x-ticket-no x-num">#{String(displayNumber).padStart(3, "0")}</span>
+        <span className="x-pill">{ticket.deskName}</span>
+        <span className={`x-pill ${ticket.source === "qr" ? "violet" : "teal"}`}>{ticket.source === "qr" ? "QR" : tx("كاشير")}</span>
+        <span className="flex-1" />
+        {done ? (
+          <span className={`x-pill ${isCancelled ? "red" : "green"} x-num`}>{isCancelled ? tx("اتلغى") : time}</span>
         ) : (
-          ticket.items.map(
-            (item) => (
-              <div
-                key={item.id}
-                className="py-1.5 flex items-start justify-between text-sm"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-indigo-600 tabular-nums">
-                      {item.quantity}×
-                    </span>
-
-                    <span className="font-semibold truncate">
-                      {item.name}
-                    </span>
-                  </div>
-
-                  {item.note && (
-                    <div className="text-xs text-slate-500 italic pl-6">
-                      ✎{" "}
-                      {item.note}
-                    </div>
-                  )}
-                </div>
-
-                <div className="tabular-nums text-slate-600 text-sm">
-                  {(
-                    item.quantity *
-                    Number(
-                      item.unitPrice,
-                    )
-                  ).toFixed(2)}
-                </div>
-              </div>
-            ),
-          )
+          <span className={`x-pill ${el.tone} x-num`} dir="ltr">⏱ {el.text}</span>
         )}
       </div>
 
-      {/* CUSTOMER NOTE */}
+      <div>
+        {isCancelled && ticket.items.length === 0 ? (
+          <div className="x-row-sub" style={{ color: "#dc2626" }}>{tx("اتلغى · الأصناف اتشالت من فاتورة العميل")}</div>
+        ) : (
+          ticket.items.map((item) => (
+            <div key={item.id}>
+              <div className="x-item">
+                <span className="x-qty x-num">×{item.quantity}</span>
+                <span className="flex-1 min-w-0 truncate">{item.name}</span>
+              </div>
+              {item.note && <div className="x-row-sub" style={{ paddingInlineStart: 44 }}>✎ {item.note}</div>}
+            </div>
+          ))
+        )}
+      </div>
 
-      {ticket.customerNote && (
-        <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs">
-          <b>
-            Customer note:
-          </b>{" "}
-          {ticket.customerNote}
+      {ticket.customerNote && <div className="x-note">📝 {ticket.customerNote}</div>}
+
+      {done ? (
+        <div className="x-row-sub" style={{ marginTop: 10 }}>{ticket.customerName} · <span className="x-num">{ticket.total.toFixed(2)} {currency}</span></div>
+      ) : (
+        <div className="flex items-center gap-2" style={{ marginTop: 12 }}>
+          {primary && (
+            <button type="button" className={`x-btn ${primary.tone} flex-1`} disabled={busy} onClick={primary.onClick}>{busy ? "…" : primary.label}</button>
+          )}
+          {onCancel && <button type="button" className="x-btn danger" disabled={busy} onClick={onCancel}>{tx("إلغاء")}</button>}
+          {onReprint && <button type="button" className="x-btn" disabled={busy} onClick={onReprint} title={tx("طباعة")}>🖨</button>}
         </div>
       )}
-
-      {/* FOOTER */}
-
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
-        <div className="font-bold text-slate-800 tabular-nums">
-          {ticket.total.toFixed(
-            2,
-          )}{" "}
-          {currency}
-        </div>
-
-        <div className="flex items-center gap-1 flex-wrap justify-end">
-          {!isCancelled && (
-            <button
-              type="button"
-              className="btn btn-ghost !py-1.5 !px-3 text-xs"
-              disabled={busy}
-              onClick={
-                onReprint
-              }
-            >
-              🖨 Reprint
-            </button>
-          )}
-
-          {ticket.status !==
-            "served" &&
-            ticket.status !==
-              "cancelled" && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-ghost !py-1.5 !px-3 text-xs text-rose-600 hover:bg-rose-50"
-                  disabled={busy}
-                  onClick={
-                    onCancel
-                  }
-                >
-                  {busy ? "…" : "✕ Cancel"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-success !py-1.5 !px-3 text-xs"
-                  disabled={busy}
-                  onClick={
-                    onServed
-                  }
-                >
-                  ✓ Served
-                </button>
-              </>
-            )}
-        </div>
-      </div>
     </div>
   );
 }

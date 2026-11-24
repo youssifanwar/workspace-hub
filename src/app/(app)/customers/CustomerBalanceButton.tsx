@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Tx = {
   id: number;
@@ -34,6 +35,8 @@ export default function CustomerBalanceButton({
   currency: string;
   canAdjust: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState(balance);
@@ -78,15 +81,15 @@ export default function CustomerBalanceButton({
     setSuccess(null);
     const value = Number(amount);
     if (!Number.isFinite(value) || value === 0) {
-      setError("Enter a valid amount.");
+      setError(tx("Enter a valid amount."));
       return;
     }
     if (mode === "deposit" && value < 0) {
-      setError("Top-up must be a positive amount.");
+      setError(tx("Top-up must be a positive amount."));
       return;
     }
     if (mode === "adjustment" && !note.trim()) {
-      setError("Write a note explaining the adjustment.");
+      setError(tx("Write a note explaining the adjustment."));
       return;
     }
     setSaving(true);
@@ -103,20 +106,20 @@ export default function CustomerBalanceButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not update the balance.");
+        setError(data?.error || tx("Could not update the balance."));
         return;
       }
       setSuccess(
         mode === "deposit"
-          ? `Added ${value.toFixed(2)} ${currency}.`
-          : "Balance adjusted.",
+          ? (f.en ? `Added ${value.toFixed(2)} ${currency}.` : `تمت إضافة ${value.toFixed(2)} ${currency}.`)
+          : tx("Balance adjusted."),
       );
       setAmount("");
       setNote("");
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -129,7 +132,7 @@ export default function CustomerBalanceButton({
         className="btn btn-ghost text-indigo-700"
         onClick={() => setOpen(true)}
       >
-        👛 Balance
+        {tx("👛 الرصيد")}
       </button>
 
       {open &&
@@ -139,7 +142,7 @@ export default function CustomerBalanceButton({
             <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold">Account balance</h2>
+                  <h2 className="text-xl font-bold">{tx("Account balance")}</h2>
                   <p className="text-sm text-slate-500">{customerName}</p>
                 </div>
                 <button
@@ -156,13 +159,13 @@ export default function CustomerBalanceButton({
 
               <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-5">
                 <div className="text-xs uppercase tracking-wide text-white/80">
-                  Available balance
+                  {tx("Available balance")}
                 </div>
                 <div className="text-3xl font-bold tabular-nums mt-1">
                   {current.toFixed(2)} {currency}
                 </div>
                 <div className="text-xs text-white/80 mt-1">
-                  Can be used to pay for sessions and packages.
+                  {tx("Can be used to pay for sessions and packages.")}
                 </div>
               </div>
 
@@ -174,14 +177,14 @@ export default function CustomerBalanceButton({
                       className={`btn flex-1 ${mode === "deposit" ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => setMode("deposit")}
                     >
-                      Add money
+                      {tx("Add money")}
                     </button>
                     <button
                       type="button"
                       className={`btn flex-1 ${mode === "adjustment" ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => setMode("adjustment")}
                     >
-                      Manual adjustment
+                      {tx("Manual adjustment")}
                     </button>
                   </div>
                 )}
@@ -189,8 +192,8 @@ export default function CustomerBalanceButton({
                 <div>
                   <label className="label">
                     {mode === "deposit"
-                      ? `Amount received (${currency})`
-                      : `Adjustment (${currency}, negative to deduct)`}
+                      ? (f.en ? `Amount received (${currency})` : `المبلغ المستلم (${currency})`)
+                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${currency}، بالسالب للخصم)`)}
                   </label>
                   <input
                     className="input"
@@ -205,7 +208,7 @@ export default function CustomerBalanceButton({
 
                 {mode === "deposit" && (
                   <div>
-                    <label className="label">Paid by</label>
+                    <label className="label">{tx("Paid by")}</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(["cash", "visa", "instapay"] as const).map((m) => (
                         <button
@@ -219,7 +222,7 @@ export default function CustomerBalanceButton({
                           }`}
                         >
                           {m === "cash" ? "💵" : m === "visa" ? "💳" : "📱"}{" "}
-                          {m === "instapay" ? "InstaPay" : m}
+                          {m === "instapay" ? tx("InstaPay") : m}
                         </button>
                       ))}
                     </div>
@@ -228,7 +231,7 @@ export default function CustomerBalanceButton({
 
                 <div>
                   <label className="label">
-                    Note {mode === "adjustment" ? "(required)" : "(optional)"}
+                    {tx("Note")} {mode === "adjustment" ? tx("(required)") : tx("(optional)")}
                   </label>
                   <input
                     className="input"
@@ -263,19 +266,19 @@ export default function CustomerBalanceButton({
                   onClick={submit}
                 >
                   {saving
-                    ? "Saving…"
+                    ? tx("Saving…")
                     : mode === "deposit"
-                      ? "Add to balance"
-                      : "Apply adjustment"}
+                      ? tx("Add to balance")
+                      : tx("Apply adjustment")}
                 </button>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">History</h3>
+                <h3 className="font-semibold mb-2">{tx("History")}</h3>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">{tx("Loading…")}</p>
                 ) : history.length === 0 ? (
-                  <p className="text-sm text-slate-400">No transactions yet.</p>
+                  <p className="text-sm text-slate-400">{tx("No transactions yet.")}</p>
                 ) : (
                   <div className="divide-soft">
                     {history.map((t) => (
@@ -285,7 +288,7 @@ export default function CustomerBalanceButton({
                       >
                         <div className="min-w-0">
                           <div className="font-medium">
-                            {TYPE_LABEL[t.type] ?? t.type}
+                            {tx(TYPE_LABEL[t.type] ?? t.type)}
                             {t.paymentMethod ? ` · ${t.paymentMethod}` : ""}
                           </div>
                           <div className="text-xs text-slate-500 truncate">

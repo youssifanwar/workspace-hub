@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 export default function PrintButton() {
+  const f = useFmt();
+  const tx = f.t;
   const [printing, setPrinting] = useState(false);
 
   function handlePrint() {
@@ -27,9 +30,9 @@ export default function PrintButton() {
       onClick={handlePrint}
       className="btn btn-ghost"
       disabled={printing}
-      aria-label="Print shift summary"
+      aria-label={tx("Print shift summary")}
     >
-      🖨️ {printing ? "Preparing…" : "Print"}
+      🖨️ {printing ? tx("Preparing…") : tx("Print")}
     </button>
   );
 }

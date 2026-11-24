@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import type { Role } from "@/lib/auth";
 
+import type { Lang } from "@/lib/i18n-shared";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import PageMotion from "./PageMotion";
@@ -18,17 +19,23 @@ type SessionUserProp = React.ComponentProps<typeof Topbar>["user"];
  */
 export default function AppShell({
   role,
+  isOwner = false,
   hasShift,
   workspaceName,
   user,
   activeShift,
+  pendingOrders = 0,
+  lang = "ar",
   children,
 }: {
+  lang?: Lang;
   role: Role;
+  isOwner?: boolean;
   hasShift: boolean;
   workspaceName: string;
   user: SessionUserProp;
   activeShift: { id: number; openedAt: string } | null;
+  pendingOrders?: number;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,11 +62,15 @@ export default function AppShell({
   }, [open]);
 
   return (
-    <div className="app-frame min-h-screen flex">
+    <div className="x-shell">
       <Sidebar
         role={role}
+        isOwner={isOwner}
         hasShift={hasShift}
         workspaceName={workspaceName}
+        pendingOrders={pendingOrders}
+        activeShift={activeShift}
+        lang={lang}
         open={open}
         onClose={() => setOpen(false)}
       />
@@ -68,11 +79,12 @@ export default function AppShell({
         <Topbar
           user={user}
           activeShift={activeShift}
+          lang={lang}
           menuOpen={open}
           onMenuClick={() => setOpen((v) => !v)}
         />
 
-        <main className="app-main flex-1 min-w-0 p-4 sm:p-6 xl:p-8">
+        <main className="x-main">
           <PageMotion>{children}</PageMotion>
         </main>
       </div>

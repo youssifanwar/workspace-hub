@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Customer = {
   id: number;
@@ -37,6 +38,8 @@ export default function CustomerEditButton({
   customer: Customer;
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
@@ -125,7 +128,7 @@ export default function CustomerEditButton({
           setSubscriptionError(
             loadError instanceof Error
               ? loadError.message
-              : "Could not load the customer package.",
+              : tx("Could not load the customer package."),
           );
         }
       } finally {
@@ -147,12 +150,12 @@ export default function CustomerEditButton({
     const trimmedPhone = phone.trim();
 
     if (!trimmedName) {
-      setError("Customer name is required.");
+      setError(tx("Customer name is required."));
       return;
     }
 
     if (!trimmedPhone) {
-      setError("Customer phone is required.");
+      setError(tx("Customer phone is required."));
       return;
     }
 
@@ -184,13 +187,13 @@ export default function CustomerEditButton({
         );
       }
 
-      setSuccess("Customer information updated successfully.");
+      setSuccess(tx("Customer information updated successfully."));
       router.refresh();
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Could not update customer.",
+          : tx("Could not update customer."),
       );
     } finally {
       setSaving(false);
@@ -205,13 +208,13 @@ export default function CustomerEditButton({
     const amount = Number(refundAmount);
 
     if (!Number.isFinite(amount) || amount < 0) {
-      setError("Refund amount must be a valid non-negative number.");
+      setError(tx("Refund amount must be a valid non-negative number."));
       return;
     }
 
     if (amount > subscription.price) {
       setError(
-        `Refund cannot be greater than ${money(subscription.price)} ${currency}.`,
+        (f.en ? `Refund cannot be greater than ${money(subscription.price)} ${currency}.` : `الاسترداد ما ينفعش يزيد عن ${money(subscription.price)} ${currency}.`),
       );
       return;
     }
@@ -264,7 +267,7 @@ export default function CustomerEditButton({
       setError(
         refundError instanceof Error
           ? refundError.message
-          : "Could not refund the package.",
+          : tx("Could not refund the package."),
       );
     } finally {
       setRefunding(false);
@@ -278,7 +281,7 @@ export default function CustomerEditButton({
         className="btn btn-ghost text-indigo-600"
         onClick={() => setOpen(true)}
       >
-        ✏️ Edit
+        {tx("✏️ تعديل")}
       </button>
 
       {open &&
@@ -289,14 +292,13 @@ export default function CustomerEditButton({
               <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
-                    Customer
+                    {tx("Customer")}
                   </div>
                   <h3 className="text-2xl font-black text-slate-900 mt-1">
-                    Edit customer
+                    {tx("Edit customer")}
                   </h3>
                   <p className="text-sm text-slate-500 mt-1">
-                    Changes keep the same customer ID, so booking history stays
-                    connected.
+                    {tx("Changes keep the same customer ID, so booking history stays connected.")}
                   </p>
                 </div>
 
@@ -305,7 +307,7 @@ export default function CustomerEditButton({
                   className="btn btn-ghost"
                   onClick={() => setOpen(false)}
                   disabled={saving || refunding}
-                  aria-label="Close"
+                  aria-label={tx("Close")}
                 >
                   ✕
                 </button>
@@ -313,10 +315,10 @@ export default function CustomerEditButton({
 
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Name" value={name} onChange={setName} />
-                  <Field label="Phone" value={phone} onChange={setPhone} />
+                  <Field label={tx("Name")} value={name} onChange={setName} />
+                  <Field label={tx("Phone")} value={phone} onChange={setPhone} />
                   <Field
-                    label="Email"
+                    label={tx("Email")}
                     value={email}
                     onChange={setEmail}
                     type="email"
@@ -325,7 +327,7 @@ export default function CustomerEditButton({
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Notes
+                    {tx("Notes")}
                   </label>
                   <textarea
                     className="input w-full min-h-28"
@@ -337,12 +339,12 @@ export default function CustomerEditButton({
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                   <div className="font-bold text-amber-900">
-                    Package & refund
+                    {tx("Package & refund")}
                   </div>
 
                   {loadingSubscription ? (
                     <div className="text-sm text-amber-800 mt-2">
-                      Loading current package...
+                      {tx("Loading current package...")}
                     </div>
                   ) : subscriptionError ? (
                     <div className="text-sm text-red-700 mt-2">
@@ -352,19 +354,19 @@ export default function CustomerEditButton({
                     <div className="mt-3 space-y-3">
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <Info
-                          label="Package"
+                          label={tx("Package")}
                           value={subscription.packageName}
                         />
                         <Info
-                          label="Price"
+                          label={tx("Price")}
                           value={`${money(subscription.price)} ${currency}`}
                         />
                         <Info
-                          label="Total hours"
+                          label={tx("Total hours")}
                           value={`${subscription.totalHours} h`}
                         />
                         <Info
-                          label="Remaining"
+                          label={tx("Remaining")}
                           value={`${subscription.remainingHours} h`}
                         />
                       </div>
@@ -372,7 +374,7 @@ export default function CustomerEditButton({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-600 mb-1">
-                            Refund amount
+                            {tx("Refund amount")}
                           </label>
                           <input
                             className="input w-full"
@@ -390,7 +392,7 @@ export default function CustomerEditButton({
 
                         <div>
                           <label className="block text-xs font-bold text-slate-600 mb-1">
-                            Refund method
+                            {tx("Refund method")}
                           </label>
                           <select
                             className="input w-full"
@@ -405,15 +407,15 @@ export default function CustomerEditButton({
                             }
                             disabled={refunding}
                           >
-                            <option value="cash">Cash</option>
-                            <option value="visa">Visa</option>
-                            <option value="instapay">InstaPay</option>
+                            <option value="cash">{tx("Cash")}</option>
+                            <option value="visa">{tx("Visa")}</option>
+                            <option value="instapay">{tx("InstaPay")}</option>
                           </select>
                         </div>
 
                         <div>
                           <label className="block text-xs font-bold text-slate-600 mb-1">
-                            Reason
+                            {tx("Reason")}
                           </label>
                           <input
                             className="input w-full"
@@ -433,19 +435,17 @@ export default function CustomerEditButton({
                         disabled={refunding || saving}
                       >
                         {refunding
-                          ? "Processing refund..."
-                          : "↩️ Refund package & cancel"}
+                          ? tx("Processing refund...")
+                          : tx("↩️ Refund package & cancel")}
                       </button>
 
                       <div className="text-xs text-amber-800">
-                        Refunding cancels this package and removes its remaining
-                        hours. Cash refunds are also recorded as a bank
-                        withdrawal for the current shift.
+                        {tx("Refunding cancels this package and removes its remaining hours. Cash refunds are also recorded as a bank withdrawal for the current shift.")}
                       </div>
                     </div>
                   ) : (
                     <div className="text-sm text-slate-600 mt-2">
-                      No active package for this customer.
+                      {tx("No active package for this customer.")}
                     </div>
                   )}
                 </div>
@@ -470,7 +470,7 @@ export default function CustomerEditButton({
                   onClick={() => setOpen(false)}
                   disabled={saving || refunding}
                 >
-                  Close
+                  {tx("Close")}
                 </button>
 
                 <button
@@ -479,7 +479,7 @@ export default function CustomerEditButton({
                   onClick={() => void saveCustomer()}
                   disabled={saving || refunding}
                 >
-                  {saving ? "Saving..." : "Save customer"}
+                  {saving ? tx("Saving...") : tx("Save customer")}
                 </button>
               </div>
             </div>

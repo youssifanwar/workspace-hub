@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type SettingsResponse = {
   error?: string;
@@ -34,6 +35,8 @@ export default function WorkspaceSettings({
   timezone: string;
   weekStartsOn: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [name, setName] = useState(workspaceName);
@@ -74,7 +77,7 @@ export default function WorkspaceSettings({
     if (!normalizedName) {
       setMsg({
         type: "err",
-        text: "Workspace name is required.",
+        text: tx("Workspace name is required."),
       });
       return;
     }
@@ -82,7 +85,7 @@ export default function WorkspaceSettings({
     if (normalizedName.length > 200) {
       setMsg({
         type: "err",
-        text: "Workspace name is too long.",
+        text: tx("Workspace name is too long."),
       });
       return;
     }
@@ -90,7 +93,7 @@ export default function WorkspaceSettings({
     if (normalizedAddress.length > 500) {
       setMsg({
         type: "err",
-        text: "Address is too long.",
+        text: tx("Address is too long."),
       });
       return;
     }
@@ -98,7 +101,7 @@ export default function WorkspaceSettings({
     if (normalizedPhone.length > 50) {
       setMsg({
         type: "err",
-        text: "Phone number is too long.",
+        text: tx("Phone number is too long."),
       });
       return;
     }
@@ -106,7 +109,7 @@ export default function WorkspaceSettings({
     if (!normalizedCurrency) {
       setMsg({
         type: "err",
-        text: "Currency is required.",
+        text: tx("Currency is required."),
       });
       return;
     }
@@ -117,7 +120,7 @@ export default function WorkspaceSettings({
     ) {
       setMsg({
         type: "err",
-        text: "Currency must be between 1 and 5 characters.",
+        text: tx("Currency must be between 1 and 5 characters."),
       });
       return;
     }
@@ -125,7 +128,7 @@ export default function WorkspaceSettings({
     if (normalizedFooter.length > 500) {
       setMsg({
         type: "err",
-        text: "Invoice footer is too long.",
+        text: tx("Invoice footer is too long."),
       });
       return;
     }
@@ -169,7 +172,7 @@ export default function WorkspaceSettings({
           type: "err",
           text:
             data?.error ||
-            "Failed to save workspace settings.",
+            tx("Failed to save workspace settings."),
         });
         return;
       }
@@ -182,7 +185,7 @@ export default function WorkspaceSettings({
 
       setMsg({
         type: "ok",
-        text: "Workspace settings saved ✓",
+        text: tx("Workspace settings saved ✓"),
       });
 
       router.refresh();
@@ -192,7 +195,7 @@ export default function WorkspaceSettings({
       setMsg({
         type: "err",
         text:
-          "Could not connect to the server. Please try again.",
+          tx("Could not connect to the server. Please try again."),
       });
     } finally {
       setLoading(false);
@@ -211,7 +214,7 @@ export default function WorkspaceSettings({
           htmlFor="workspace-name"
           className="label"
         >
-          Workspace name
+          {tx("Workspace name")}
         </label>
 
         <input
@@ -237,7 +240,7 @@ export default function WorkspaceSettings({
             htmlFor="workspace-phone"
             className="label"
           >
-            Phone
+            {tx("Phone")}
           </label>
 
           <input
@@ -262,7 +265,7 @@ export default function WorkspaceSettings({
             htmlFor="workspace-currency"
             className="label"
           >
-            Currency
+            {tx("Currency")}
           </label>
 
           <input
@@ -288,7 +291,7 @@ export default function WorkspaceSettings({
           htmlFor="workspace-address"
           className="label"
         >
-          Address
+          {tx("Address")}
         </label>
 
         <input
@@ -312,7 +315,7 @@ export default function WorkspaceSettings({
           htmlFor="invoice-footer"
           className="label"
         >
-          Invoice footer
+          {tx("Invoice footer")}
         </label>
 
         <input
@@ -336,7 +339,7 @@ export default function WorkspaceSettings({
           htmlFor="early-checkin"
           className="label"
         >
-          Meeting room: allow check-in before start (minutes)
+          {tx("Meeting room: allow check-in before start (minutes)")}
         </label>
 
         <input
@@ -361,7 +364,7 @@ export default function WorkspaceSettings({
           htmlFor="stale-hours"
           className="label"
         >
-          Flag sessions open longer than (hours)
+          {tx("Flag sessions open longer than (hours)")}
         </label>
 
         <input
@@ -383,7 +386,7 @@ export default function WorkspaceSettings({
       {/* TIMEZONE */}
       <div>
         <label htmlFor="workspace-timezone" className="label">
-          Timezone (all dates and times are shown in this zone)
+          {tx("Timezone (all dates and times are shown in this zone)")}
         </label>
         <input
           id="workspace-timezone"
@@ -401,10 +404,10 @@ export default function WorkspaceSettings({
       </div>
 
       <div>
-        <label htmlFor="week-start" className="label">Calendar week starts on</label>
+        <label htmlFor="week-start" className="label">{tx("Calendar week starts on")}</label>
         <select id="week-start" className="select" value={weekStart} disabled={loading}
           onChange={(e) => { setWeekStart(e.target.value); setMsg(null); }}>
-          {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
+          {[tx("Sunday"),tx("Monday"),tx("Tuesday"),tx("Wednesday"),tx("Thursday"),tx("Friday"),tx("Saturday")].map((d, i) => (
             <option key={d} value={String(i)}>{d}</option>
           ))}
         </select>
@@ -413,19 +416,19 @@ export default function WorkspaceSettings({
       {/* MEETING ROOM CALENDAR */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label htmlFor="cal-start" className="label">Calendar starts (hour)</label>
+          <label htmlFor="cal-start" className="label">{tx("Calendar starts (hour)")}</label>
           <input id="cal-start" className="input" type="number" min={0} max={23}
             value={calStart} disabled={loading}
             onChange={(e) => { setCalStart(e.target.value); setMsg(null); }} />
         </div>
         <div>
-          <label htmlFor="cal-end" className="label">Calendar ends (hour)</label>
+          <label htmlFor="cal-end" className="label">{tx("Calendar ends (hour)")}</label>
           <input id="cal-end" className="input" type="number" min={1} max={24}
             value={calEnd} disabled={loading}
             onChange={(e) => { setCalEnd(e.target.value); setMsg(null); }} />
         </div>
         <div>
-          <label htmlFor="max-book" className="label">Longest booking (hours)</label>
+          <label htmlFor="max-book" className="label">{tx("Longest booking (hours)")}</label>
           <input id="max-book" className="input" type="number" min={1} max={24}
             value={maxBook} disabled={loading}
             onChange={(e) => { setMaxBook(e.target.value); setMsg(null); }} />
@@ -455,8 +458,8 @@ export default function WorkspaceSettings({
         aria-busy={loading}
       >
         {loading
-          ? "Saving…"
-          : "Save workspace settings"}
+          ? tx("Saving…")
+          : tx("Save workspace settings")}
       </button>
     </form>
   );

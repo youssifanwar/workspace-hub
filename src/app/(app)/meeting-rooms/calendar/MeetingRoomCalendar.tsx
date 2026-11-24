@@ -10,6 +10,7 @@ import {
 
 import ConfirmDialog from "../ConfirmDialog";
 import ReservationDialog from "../ReservationDialog";
+import { useFmt } from "@/lib/lang-context";
 
 /* ============================================================================
  * TYPES
@@ -79,8 +80,9 @@ function weekday(key: string): number {
 function startOfWeek(key: string, weekStartsOn: number): string {
   return addDays(key, -((weekday(key) - weekStartsOn + 7) % 7));
 }
+let CAL_LOCALE = "en-GB";
 function fmtKey(key: string, opts: Intl.DateTimeFormatOptions): string {
-  return keyToUtc(key).toLocaleDateString("en-GB", {
+  return keyToUtc(key).toLocaleDateString(CAL_LOCALE, {
     ...opts,
     timeZone: "UTC",
   });
@@ -133,6 +135,9 @@ export default function MeetingRoomCalendar({
   weekStartsOn: number;
   earlyCheckinMinutes: number;
 }) {
+  const f = useFmt();
+  const tx = f.t;
+  CAL_LOCALE = f.en ? "en-GB" : "ar-EG";
   const router = useRouter();
   const tz = timeZone;
 
@@ -185,7 +190,7 @@ export default function MeetingRoomCalendar({
     ) as Date;
 
   const fmtTime = (d: Date | string | number) =>
-    new Date(d).toLocaleTimeString("en-GB", {
+    new Date(d).toLocaleTimeString(CAL_LOCALE, {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: tz,
@@ -477,18 +482,18 @@ export default function MeetingRoomCalendar({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setDialogError(
-          data?.error || `Could not check in (HTTP ${res.status}).`,
+          data?.error || (f.en ? `Could not check in (HTTP ${res.status}).` : `مقدرناش نسجل الدخول (HTTP ${res.status}).`),
         );
         return;
       }
       setSelected(null);
       setNotice({
         kind: "success",
-        text: `${r.customerName ?? "Customer"} is checked in to ${r.roomName}.`,
+        text: (f.en ? `${r.customerName ?? tx("Customer")} is checked in to ${r.roomName}.` : `${r.customerName ?? "العميل"} دخل ${r.roomName}.`),
       });
       router.refresh();
     } catch {
-      setDialogError("Network error. Please try again.");
+      setDialogError(tx("Network error. Please try again."));
     } finally {
       setBusy(null);
     }
@@ -506,19 +511,19 @@ export default function MeetingRoomCalendar({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setDialogError(
-          data?.error || `Could not cancel (HTTP ${res.status}).`,
+          data?.error || (f.en ? `Could not cancel (HTTP ${res.status}).` : `مقدرناش نلغي (HTTP ${res.status}).`),
         );
         return;
       }
       setNotice({
         kind: "success",
-        text: `Reservation for ${toCancel.customerName ?? "customer"} was cancelled.`,
+        text: (f.en ? `Reservation for ${toCancel.customerName ?? "customer"} was cancelled.` : `تم إلغاء حجز ${toCancel.customerName ?? "العميل"}.`),
       });
       setToCancel(null);
       setSelected(null);
       router.refresh();
     } catch {
-      setDialogError("Network error. Please try again.");
+      setDialogError(tx("Network error. Please try again."));
     } finally {
       setBusy(null);
     }
@@ -533,21 +538,21 @@ export default function MeetingRoomCalendar({
         <div className="calendar-command-orb calendar-command-orb-two" />
         <div className="calendar-command-grid" />
         <div className="calendar-command-copy">
-          <div className="calendar-command-eyebrow"><span className="calendar-live-dot" /> WORKSPACE HUB <span className="calendar-eyebrow-divider">/</span> MEETING ROOM OPERATIONS</div>
-          <h1>Every room. Every booking. <span>Under control.</span></h1>
-          <p>A live command center for your meeting rooms — see who booked, spot gaps, and manage reservations without digging through the calendar.</p>
+          <div className="calendar-command-eyebrow"><span className="calendar-live-dot" /> {tx("WORKSPACE HUB")} <span className="calendar-eyebrow-divider">/</span> {tx("MEETING ROOM OPERATIONS")}</div>
+          <h1>{tx("Every room. Every booking.")} <span>{tx("Under control.")}</span></h1>
+          <p>{tx("A live command center for your meeting rooms — see who booked, spot gaps, and manage reservations without digging through the calendar.")}</p>
           <div className="calendar-command-trust-row">
-            <span><b>{rooms.length}</b> rooms tracked</span><i />
-            <span><b>{summary.today}</b> bookings today</span><i />
-            <span><b>{summary.inProgress}</b> live sessions</span>
+            <span><b>{rooms.length}</b> {tx("rooms tracked")}</span><i />
+            <span><b>{summary.today}</b> {tx("bookings today")}</span><i />
+            <span><b>{summary.inProgress}</b> {tx("live sessions")}</span>
           </div>
         </div>
         <div className="calendar-command-side">
           <div className="calendar-command-orbit calendar-command-orbit-a" />
           <div className="calendar-command-orbit calendar-command-orbit-b" />
-          <div className="calendar-command-core"><span className="calendar-command-core-icon">▦</span><strong>ROOMS</strong><small>LIVE SCHEDULE</small></div>
-          <div className="calendar-float-badge calendar-float-badge-a"><span className="calendar-badge-icon">↗</span><span><small>UPCOMING</small><strong>{summary.upcoming}</strong></span><i /></div>
-          <div className="calendar-float-badge calendar-float-badge-b"><span className="calendar-badge-icon is-teal">◉</span><span><small>AVAILABLE</small><strong>{summary.availableRooms}</strong></span><i /></div>
+          <div className="calendar-command-core"><span className="calendar-command-core-icon">▦</span><strong>{tx("ROOMS")}</strong><small>{tx("LIVE SCHEDULE")}</small></div>
+          <div className="calendar-float-badge calendar-float-badge-a"><span className="calendar-badge-icon">↗</span><span><small>{tx("UPCOMING")}</small><strong>{summary.upcoming}</strong></span><i /></div>
+          <div className="calendar-float-badge calendar-float-badge-b"><span className="calendar-badge-icon is-teal">◉</span><span><small>{tx("AVAILABLE")}</small><strong>{summary.availableRooms}</strong></span><i /></div>
         </div>
         <button
           type="button"
@@ -555,26 +560,26 @@ export default function MeetingRoomCalendar({
           disabled={rooms.length === 0}
           onClick={() => setBooking(defaultBookingStart())}
         >
-          <span aria-hidden="true">＋</span> Create reservation
+          <span aria-hidden="true">＋</span> {tx("Create reservation")}
         </button>
       </section>
 
-      <section className="calendar-overview-grid" aria-label="Booking overview">
+      <section className="calendar-overview-grid" aria-label={tx("Booking overview")}>
         <article className="calendar-overview-card tone-blue">
           <span className="calendar-overview-icon" aria-hidden="true">▦</span>
-          <div><p>Bookings today</p><strong>{summary.today}</strong><small>Reservations starting today</small></div>
+          <div><p>{tx("Bookings today")}</p><strong>{summary.today}</strong><small>{tx("Reservations starting today")}</small></div>
         </article>
         <article className="calendar-overview-card tone-teal">
           <span className="calendar-overview-icon" aria-hidden="true">◉</span>
-          <div><p>Rooms available now</p><strong>{summary.availableRooms}<em> / {rooms.length}</em></strong><small>Based on scheduled time slots</small></div>
+          <div><p>{tx("Rooms available now")}</p><strong>{summary.availableRooms}<em> / {rooms.length}</em></strong><small>{tx("Based on scheduled time slots")}</small></div>
         </article>
         <article className="calendar-overview-card tone-violet">
           <span className="calendar-overview-icon" aria-hidden="true">◷</span>
-          <div><p>Upcoming today</p><strong>{summary.upcoming}</strong><small>Confirmed reservations ahead</small></div>
+          <div><p>{tx("Upcoming today")}</p><strong>{summary.upcoming}</strong><small>{tx("Confirmed reservations ahead")}</small></div>
         </article>
         <article className="calendar-overview-card tone-green">
           <span className="calendar-overview-icon" aria-hidden="true">↗</span>
-          <div><p>Sessions in progress</p><strong>{summary.inProgress}</strong><small>Currently checked in</small></div>
+          <div><p>{tx("Sessions in progress")}</p><strong>{summary.inProgress}</strong><small>{tx("Currently checked in")}</small></div>
         </article>
       </section>
 
@@ -590,7 +595,7 @@ export default function MeetingRoomCalendar({
           <span>{notice.text}</span>
           <button
             type="button"
-            aria-label="Dismiss"
+            aria-label={tx("Dismiss")}
             className="opacity-60 hover:opacity-100"
             onClick={() => setNotice(null)}
           >
@@ -604,16 +609,16 @@ export default function MeetingRoomCalendar({
         <div className="calendar-control-topline">
           <div className="calendar-date-navigation">
             <div className="calendar-nav-buttons">
-              <button type="button" className="calendar-nav-button" onClick={() => move(-1)} aria-label="Previous date range">‹</button>
-              <button type="button" className="calendar-nav-button" onClick={() => move(1)} aria-label="Next date range">›</button>
+              <button type="button" className="calendar-nav-button" onClick={() => move(-1)} aria-label={tx("Previous date range")}>‹</button>
+              <button type="button" className="calendar-nav-button" onClick={() => move(1)} aria-label={tx("Next date range")}>›</button>
             </div>
-            <button type="button" className="calendar-today-button" onClick={() => setAnchor(todayKey)}>Today</button>
+            <button type="button" className="calendar-today-button" onClick={() => setAnchor(todayKey)}>{tx("Today")}</button>
             <div className="calendar-current-range">
-              <span className="calendar-range-kicker">SCHEDULE WINDOW</span>
+              <span className="calendar-range-kicker">{tx("SCHEDULE WINDOW")}</span>
               <h2>{title}</h2>
             </div>
           </div>
-          <div className="calendar-view-switch" role="tablist" aria-label="Calendar view">
+          <div className="calendar-view-switch" role="tablist" aria-label={tx("Calendar view")}>
             {(["day", "week", "rooms", "month", "list"] as ViewMode[]).map((v) => (
               <button
                 key={v}
@@ -623,7 +628,7 @@ export default function MeetingRoomCalendar({
                 onClick={() => setView(v)}
                 className={view === v ? "is-active" : ""}
               >
-                {v === "list" ? "Agenda" : v === "rooms" ? "Room grid" : v[0].toUpperCase() + v.slice(1)}
+                {v === "list" ? tx("Agenda") : v === "rooms" ? tx("Room grid") : tx(v[0].toUpperCase() + v.slice(1))}
               </button>
             ))}
           </div>
@@ -635,54 +640,54 @@ export default function MeetingRoomCalendar({
               type="search"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search customer, phone, room, notes…"
-              aria-label="Search reservations"
+              placeholder={tx("Search customer, phone, room, notes…")}
+              aria-label={tx("Search reservations")}
             />
-            {searchText && <button type="button" onClick={() => setSearchText("")} aria-label="Clear search">×</button>}
+            {searchText && <button type="button" onClick={() => setSearchText("")} aria-label={tx("Clear search")}>×</button>}
           </label>
           <label className="calendar-filter-select">
-            <span>Room</span>
-            <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value ? Number(e.target.value) : "")} aria-label="Filter by room">
-              <option value="">All rooms</option>
+            <span>{tx("Room")}</span>
+            <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value ? Number(e.target.value) : "")} aria-label={tx("Filter by room")}>
+              <option value="">{tx("All rooms")}</option>
               {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </label>
           <label className="calendar-filter-select">
-            <span>Status</span>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} aria-label="Filter by reservation status">
-              <option value="all">All statuses</option>
-              <option value="confirmed">Reserved</option>
-              <option value="active">In session</option>
-              <option value="closed">Completed</option>
+            <span>{tx("Status")}</span>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} aria-label={tx("Filter by reservation status")}>
+              <option value="all">{tx("All statuses")}</option>
+              <option value="confirmed">{tx("Reserved")}</option>
+              <option value="active">{tx("In session")}</option>
+              <option value="closed">{tx("Completed")}</option>
             </select>
           </label>
           {(searchText || roomFilter !== "" || statusFilter !== "all") && (
-            <button type="button" className="calendar-clear-filters" onClick={() => { setSearchText(""); setRoomFilter(""); setStatusFilter("all"); }}>Clear filters</button>
+            <button type="button" className="calendar-clear-filters" onClick={() => { setSearchText(""); setRoomFilter(""); setStatusFilter("all"); }}>{tx("Clear filters")}</button>
           )}
         </div>
         <div className="calendar-control-footer">
           <div className="calendar-status-legend">
             {Object.entries(STATUS_STYLE).map(([k, v]) => (
-              <span key={k}><i className={v.dot} />{v.label}</span>
+              <span key={k}><i className={v.dot} />{tx(v.label)}</span>
             ))}
           </div>
-          <span className="calendar-results-count"><strong>{rangeReservations.length}</strong> matching bookings</span>
+          <span className="calendar-results-count"><strong>{rangeReservations.length}</strong> {tx("matching bookings")}</span>
         </div>
       </section>
 
       {/* Calendar / agenda */}
       {view === "list" ? (
-        <section className="calendar-agenda-panel" aria-label="Reservation agenda">
+        <section className="calendar-agenda-panel" aria-label={tx("Reservation agenda")}>
           <div className="calendar-agenda-heading">
-            <div><span className="calendar-range-kicker">RESERVATION FEED</span><h2>Bookings at a glance</h2><p>Open any booking for details, check-in, or cancellation.</p></div>
+            <div><span className="calendar-range-kicker">{tx("RESERVATION FEED")}</span><h2>{tx("Bookings at a glance")}</h2><p>{tx("Open any booking for details, check-in, or cancellation.")}</p></div>
             <span className="calendar-agenda-total">{listReservations.length} bookings</span>
           </div>
           {groupedListReservations.length === 0 ? (
             <div className="calendar-empty-state">
               <span className="calendar-empty-icon">⌁</span>
-              <h3>No bookings match this view</h3>
-              <p>Try a different date range or clear one of the filters.</p>
-              <button type="button" className="btn btn-primary" onClick={() => { setSearchText(""); setRoomFilter(""); setStatusFilter("all"); }}>Clear filters</button>
+              <h3>{tx("No bookings match this view")}</h3>
+              <p>{tx("Try a different date range or clear one of the filters.")}</p>
+              <button type="button" className="btn btn-primary" onClick={() => { setSearchText(""); setRoomFilter(""); setStatusFilter("all"); }}>{tx("Clear filters")}</button>
             </div>
           ) : (
             <div className="calendar-agenda-days">
@@ -690,7 +695,7 @@ export default function MeetingRoomCalendar({
                 <section className="calendar-agenda-day" key={dayKey}>
                   <header className={dayKey === todayKey ? "is-today" : ""}>
                     <div className="calendar-agenda-date"><strong>{Number(dayKey.slice(8))}</strong><span>{fmtKey(dayKey, { month: "short" })}</span></div>
-                    <div className="calendar-agenda-day-title"><h3>{dayKey === todayKey ? "Today" : fmtKey(dayKey, { weekday: "long" })}</h3><p>{fmtKey(dayKey, { month: "long", day: "numeric", year: "numeric" })}</p></div>
+                    <div className="calendar-agenda-day-title"><h3>{dayKey === todayKey ? tx("Today") : fmtKey(dayKey, { weekday: "long" })}</h3><p>{fmtKey(dayKey, { month: "long", day: "numeric", year: "numeric" })}</p></div>
                     <span className="calendar-agenda-day-count">{items.length} {items.length === 1 ? "booking" : "bookings"}</span>
                   </header>
                   <div className="calendar-agenda-items">
@@ -701,8 +706,8 @@ export default function MeetingRoomCalendar({
                         <button type="button" key={r.id} className="calendar-agenda-row" onClick={() => { setDialogError(null); setSelected(r); }}>
                           <div className="calendar-agenda-time"><strong>{fmtTime(r.startAt)}</strong><span>{fmtTime(r.endAt)}</span><small>{durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h${durationMinutes % 60 ? ` ${durationMinutes % 60}m` : ""}` : `${durationMinutes}m`}</small></div>
                           <div className={`calendar-agenda-status ${st.dot}`} aria-hidden="true" />
-                          <div className="calendar-agenda-main"><div className="calendar-agenda-person">{r.customerName ?? "Customer"}</div><div className="calendar-agenda-subline"><span>{r.roomName}</span>{r.customerPhone && <span>{r.customerPhone}</span>}<span>{r.attendeeCount} {r.attendeeCount === 1 ? "person" : "people"}</span>{r.usesPackage && <span className="calendar-package-tag">Package</span>}</div>{r.notes && <p className="calendar-agenda-notes">{r.notes}</p>}</div>
-                          <div className="calendar-agenda-row-end"><span className={`calendar-status-pill status-${r.status}`}>{st.label}</span><span className="calendar-agenda-open">View booking <b>↗</b></span></div>
+                          <div className="calendar-agenda-main"><div className="calendar-agenda-person">{r.customerName ?? tx("Customer")}</div><div className="calendar-agenda-subline"><span>{r.roomName}</span>{r.customerPhone && <span>{r.customerPhone}</span>}<span>{r.attendeeCount} {r.attendeeCount === 1 ? tx("person") : tx("people")}</span>{r.usesPackage && <span className="calendar-package-tag">{tx("Package")}</span>}</div>{r.notes && <p className="calendar-agenda-notes">{r.notes}</p>}</div>
+                          <div className="calendar-agenda-row-end"><span className={`calendar-status-pill status-${r.status}`}>{tx(st.label)}</span><span className="calendar-agenda-open">{tx("View booking")} <b>↗</b></span></div>
                         </button>
                       );
                     })}
@@ -715,12 +720,12 @@ export default function MeetingRoomCalendar({
       ) : view === "rooms" ? (
         <section className="calendar-room-grid-panel">
           <div className="calendar-agenda-heading">
-            <div><span className="calendar-range-kicker">SPACE-BY-DATE OVERVIEW</span><h2>Room availability grid</h2><p>Each row is a room. Each column is a day. Bookings are visible at a glance.</p></div>
+            <div><span className="calendar-range-kicker">{tx("SPACE-BY-DATE OVERVIEW")}</span><h2>{tx("Room availability grid")}</h2><p>{tx("Each row is a room. Each column is a day. Bookings are visible at a glance.")}</p></div>
             <span className="calendar-agenda-total">{rooms.filter((room) => roomFilter === "" || room.id === roomFilter).length} rooms · 7 days</span>
           </div>
           <div className="calendar-room-grid-scroll">
             <div className="calendar-room-grid" style={{ gridTemplateColumns: `minmax(184px, 220px) repeat(${days.length}, minmax(128px, 1fr))` }}>
-              <div className="calendar-room-grid-corner"><span>ROOM / DAY</span><strong>Meeting spaces</strong></div>
+              <div className="calendar-room-grid-corner"><span>{tx("ROOM / DAY")}</span><strong>{tx("Meeting spaces")}</strong></div>
               {days.map((key) => (
                 <div key={key} className={`calendar-room-grid-day ${key === todayKey ? "is-today" : ""}`}>
                   <span>{fmtKey(key, { weekday: "short" })}</span>
@@ -743,7 +748,7 @@ export default function MeetingRoomCalendar({
               ))}
             </div>
           </div>
-          <div className="calendar-room-grid-footnote"><span className="calendar-grid-available-key" /> Open cells show the next one-hour slot available within your configured operating hours. The booking form checks availability again before saving.</div>
+          <div className="calendar-room-grid-footnote"><span className="calendar-grid-available-key" /> {tx("Open cells show the next one-hour slot available within your configured operating hours. The booking form checks availability again before saving.")}</div>
         </section>
       ) : view === "month" ? (
         <div className="card overflow-hidden">
@@ -805,7 +810,7 @@ export default function MeetingRoomCalendar({
                         }}
                         className={`w-full truncate rounded-md border border-l-4 px-1.5 py-0.5 text-left text-[11px] font-medium ${styleOf(r.status).box}`}
                       >
-                        {fmtTime(r.startAt)} {r.customerName ?? "Customer"}
+                        {fmtTime(r.startAt)} {r.customerName ?? tx("Customer")}
                       </button>
                     ))}
                     {items.length > 3 && (
@@ -908,7 +913,7 @@ export default function MeetingRoomCalendar({
                             tabIndex={future ? 0 : -1}
                             aria-label={
                               future
-                                ? `Reserve ${fmtKey(k, { weekday: "long", day: "numeric", month: "long" })} at ${pad(h)}:00`
+                                ? (f.en ? `Reserve ${fmtKey(k, { weekday: "long", day: "numeric", month: "long" })} at ${pad(h)}:00` : `احجز ${fmtKey(k, { weekday: "long", day: "numeric", month: "long" })} الساعة ${pad(h)}:00`)
                                 : undefined
                             }
                             onClick={() => future && openBooking(slotStart)}
@@ -974,10 +979,10 @@ export default function MeetingRoomCalendar({
                                 left: `calc(${p.lane * width}% + 2px)`,
                                 width: `calc(${width}% - 4px)`,
                               }}
-                              title={`${p.r.customerName ?? "Customer"} · ${p.r.roomName}`}
+                              title={`${p.r.customerName ?? tx("Customer")} · ${p.r.roomName}`}
                             >
                               <div className="text-xs font-bold truncate">
-                                {p.r.customerName ?? "Customer"}
+                                {p.r.customerName ?? tx("Customer")}
                               </div>
                               {p.height >= 38 && (
                                 <div className="text-[11px] opacity-80 truncate tabular-nums">
@@ -998,10 +1003,9 @@ export default function MeetingRoomCalendar({
 
           {placedByDay.hidden > 0 && (
             <div className="border-t border-slate-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-              {placedByDay.hidden} reservation
-              {placedByDay.hidden === 1 ? " is" : "s are"} outside the visible
-              hours ({pad(startHour)}:00–{pad(endHour % 24)}:00). Change the
-              hours in Settings.
+              {f.en
+                ? `${placedByDay.hidden} reservation${placedByDay.hidden === 1 ? " is" : "s are"} outside the visible hours (${pad(startHour)}:00–${pad(endHour % 24)}:00). Change the hours in Settings.`
+                : `${placedByDay.hidden} حجز خارج الساعات الظاهرة (${pad(startHour)}:00–${pad(endHour % 24)}:00). غيّر الساعات من الإعدادات.`}
             </div>
           )}
         </div>
@@ -1029,23 +1033,23 @@ export default function MeetingRoomCalendar({
         <ConfirmDialog
           title={
             toCancel.status === "active"
-              ? "Cancel this session?"
-              : "Cancel this reservation?"
+              ? tx("Cancel this session?")
+              : tx("Cancel this reservation?")
           }
           message={
             <>
-              <b>{toCancel.customerName ?? "Customer"}</b> · {toCancel.roomName}
+              <b>{toCancel.customerName ?? tx("Customer")}</b> · {toCancel.roomName}
               <br />
               {fmtTime(toCancel.startAt)} – {fmtTime(toCancel.endAt)}
               <br />
               {toCancel.status === "active"
-                ? "The room is freed immediately and nothing is charged."
-                : "The time slot becomes free again."}
+                ? tx("The room is freed immediately and nothing is charged.")
+                : tx("The time slot becomes free again.")}
               {toCancel.usesPackage && " Package hours are returned."}
             </>
           }
           confirmLabel={
-            toCancel.status === "active" ? "Cancel session" : "Cancel reservation"
+            toCancel.status === "active" ? tx("Cancel session") : tx("Cancel reservation")
           }
           busy={busy === "cancel"}
           error={dialogError}
@@ -1092,7 +1096,9 @@ function FragmentRoomRow({
   onOpenReservation: (start: Date) => void;
   onOpenDetails: (reservation: Reservation) => void;
 }) {
-  const formatTime = (value: string) => new Date(value).toLocaleTimeString("en-GB", {
+  const f = useFmt();
+  const tx = f.t;
+  const formatTime = (value: string) => new Date(value).toLocaleTimeString(CAL_LOCALE, {
     hour: "2-digit", minute: "2-digit", timeZone,
   });
   return (
@@ -1109,20 +1115,20 @@ function FragmentRoomRow({
             {items.length > 0 ? (
               <div className="calendar-room-grid-bookings">
                 {items.map((r) => (
-                  <button type="button" key={r.id} className={`calendar-room-grid-booking status-${r.status}`} onClick={() => onOpenDetails(r)} title={`${r.customerName ?? "Customer"} · ${r.roomName} · ${formatTime(r.startAt)}–${formatTime(r.endAt)}`}>
+                  <button type="button" key={r.id} className={`calendar-room-grid-booking status-${r.status}`} onClick={() => onOpenDetails(r)} title={`${r.customerName ?? tx("Customer")} · ${r.roomName} · ${formatTime(r.startAt)}–${formatTime(r.endAt)}`}>
                     <span className="calendar-room-grid-booking-time">{formatTime(r.startAt)}–{formatTime(r.endAt)}</span>
-                    <strong>{r.customerName ?? "Customer"}</strong>
-                    <span className="calendar-room-grid-booking-status">{styleOf(r.status).label}{r.usesPackage ? " · Package" : ""}</span>
+                    <strong>{r.customerName ?? tx("Customer")}</strong>
+                    <span className="calendar-room-grid-booking-status">{tx(styleOf(r.status).label)}{r.usesPackage ? ` · ${tx("Package")}` : ""}</span>
                   </button>
                 ))}
                 {suggested && <button type="button" className="calendar-room-grid-add" onClick={() => onOpenReservation(suggested)}>＋ {formatTime(suggested.toISOString())} available</button>}
               </div>
             ) : suggested ? (
               <button type="button" className="calendar-room-grid-empty" onClick={() => onOpenReservation(suggested)}>
-                <span>＋</span><strong>Available</strong><small>Next slot {formatTime(suggested.toISOString())}</small>
+                <span>＋</span><strong>{tx("Available")}</strong><small>Next slot {formatTime(suggested.toISOString())}</small>
               </button>
             ) : (
-              <div className="calendar-room-grid-unavailable"><span>—</span><small>No free hour</small></div>
+              <div className="calendar-room-grid-unavailable"><span>—</span><small>{tx("No free hour")}</small></div>
             )}
           </div>
         );
@@ -1156,6 +1162,8 @@ function Details({
   onCheckIn: () => void;
   onCancel: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !busy) onClose();
@@ -1179,7 +1187,7 @@ function Details({
     timeZone: tz,
   });
   const time = (d: Date) =>
-    d.toLocaleTimeString("en-GB", {
+    d.toLocaleTimeString(CAL_LOCALE, {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: tz,
@@ -1199,18 +1207,18 @@ function Details({
               id="reservation-details-title"
               className="text-lg font-bold text-slate-900 truncate"
             >
-              {r.customerName ?? "Customer"}
+              {r.customerName ?? tx("Customer")}
             </h2>
             <span
               className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${st.box}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-              {st.label}
+              {tx(st.label)}
             </span>
           </div>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={tx("Close")}
             className="btn btn-ghost !px-3"
             onClick={onClose}
             disabled={!!busy}
@@ -1220,16 +1228,15 @@ function Details({
         </div>
 
         <dl className="px-6 py-5 space-y-3 text-sm">
-          <Row k="Room" v={r.roomName} />
-          <Row k="Date" v={date} />
-          <Row k="Time" v={`${time(start)} – ${time(end)}`} />
-          <Row
-            k="People"
-            v={`${r.attendeeCount} ${r.attendeeCount === 1 ? "person" : "people"}`}
+          <Row k={tx("Room")} v={r.roomName} />
+          <Row k={tx("Date")} v={date} />
+          <Row k={tx("Time")} v={`${time(start)} – ${time(end)}`} />
+          <Row k={tx("People")}
+            v={`${r.attendeeCount} ${r.attendeeCount === 1 ? tx("person") : tx("people")}`}
           />
-          {r.customerPhone && <Row k="Phone" v={r.customerPhone} />}
-          {r.usesPackage && <Row k="Payment" v="Package hours" />}
-          {r.notes && <Row k="Notes" v={r.notes} />}
+          {r.customerPhone && <Row k={tx("Phone")} v={r.customerPhone} />}
+          {r.usesPackage && <Row k={tx("Payment")} v={tx("Package hours")} />}
+          {r.notes && <Row k={tx("Notes")} v={r.notes} />}
         </dl>
 
         {error && (
@@ -1249,7 +1256,7 @@ function Details({
               disabled={!!busy}
               onClick={onCancel}
             >
-              {r.status === "active" ? "Cancel session" : "Cancel reservation"}
+              {r.status === "active" ? tx("Cancel session") : tx("Cancel reservation")}
             </button>
           )}
           {r.status === "confirmed" && (
@@ -1260,20 +1267,20 @@ function Details({
               title={
                 canCheckIn
                   ? undefined
-                  : `Check-in opens at ${time(new Date(opensAt))}`
+                  : (f.en ? `Check-in opens at ${time(new Date(opensAt))}` : `الدخول بيفتح الساعة ${time(new Date(opensAt))}`)
               }
               onClick={onCheckIn}
             >
               {busy === "checkin"
-                ? "Checking in…"
+                ? tx("Checking in…")
                 : canCheckIn
-                  ? "Check in"
-                  : `Check-in at ${time(new Date(opensAt))}`}
+                  ? tx("Check in")
+                  : (f.en ? `Check-in at ${time(new Date(opensAt))}` : `الدخول الساعة ${time(new Date(opensAt))}`)}
             </button>
           )}
           {r.status === "active" && (
             <span className="text-xs text-slate-500 self-center">
-              Check out from Meeting Rooms → In session.
+              {tx("Check out from Meeting Rooms → In session.")}
             </span>
           )}
         </div>
@@ -1283,6 +1290,8 @@ function Details({
 }
 
 function Row({ k, v }: { k: string; v: string }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <div className="flex gap-4">
       <dt className="w-20 shrink-0 text-slate-500">{k}</dt>

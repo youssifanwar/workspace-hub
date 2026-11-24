@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
 
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import ExpenseForm from "./ExpenseForm";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
@@ -40,6 +42,8 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   await loadTimezone();
 
@@ -145,16 +149,13 @@ export default async function ExpensesPage({
             Expenses &amp; Income
           </h1>
           <p className="text-slate-500">
-            Record money going out (expenses) and extra money coming in
-            (income). Session, café and package sales are counted
-            automatically — only add income here if it is not recorded
-            anywhere else.
+            {tx("Record money going out (expenses) and extra money coming in (income). Session, café and package sales are counted automatically — only add income here if it is not recorded anywhere else.")}
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
           <div className="kpi bg-gradient-to-br from-emerald-500 to-green-600 min-w-[200px]">
             <div className="text-xs uppercase text-white/80 font-semibold">
-              Manual income (all-time)
+              {tx("Manual income (all-time)")}
             </div>
             <div className="text-2xl font-bold mt-2 tabular-nums">
               {formatMoney(incomeTotal, currency)}
@@ -162,7 +163,7 @@ export default async function ExpensesPage({
           </div>
           <div className="kpi bg-gradient-to-br from-rose-500 to-red-500 min-w-[200px]">
             <div className="text-xs uppercase text-white/80 font-semibold">
-              All-time expenses
+              {tx("All-time expenses")}
             </div>
             <div className="text-2xl font-bold mt-2 tabular-nums">
               {formatMoney(totalExpenses, currency)}
@@ -170,7 +171,7 @@ export default async function ExpensesPage({
           </div>
           <div className="kpi bg-gradient-to-br from-cyan-600 to-blue-600 min-w-[190px]">
             <div className="text-xs uppercase text-white/80 font-semibold">
-              This shift · income
+              {tx("This shift · income")}
             </div>
             <div className="text-2xl font-bold mt-2 tabular-nums">
               {formatMoney(shiftIncomeTotal, currency)}
@@ -178,7 +179,7 @@ export default async function ExpensesPage({
           </div>
           <div className="kpi bg-gradient-to-br from-violet-600 to-indigo-600 min-w-[190px]">
             <div className="text-xs uppercase text-white/80 font-semibold">
-              This shift · expenses
+              {tx("This shift · expenses")}
             </div>
             <div className="text-2xl font-bold mt-2 tabular-nums">
               {formatMoney(shiftExpenseTotal, currency)}
@@ -193,13 +194,13 @@ export default async function ExpensesPage({
           href="/expenses"
           className={`btn ${!isIncome ? "btn-primary" : "btn-ghost"}`}
         >
-          💸 Expenses
+          {tx("💸 Expenses")}
         </a>
         <a
           href="/expenses?tab=income"
           className={`btn ${isIncome ? "btn-primary" : "btn-ghost"}`}
         >
-          💰 Income
+          {tx("💰 Income")}
         </a>
       </div>
 
@@ -208,7 +209,7 @@ export default async function ExpensesPage({
         {/* NEW ENTRY */}
         <section className="card p-5 lg:col-span-1">
           <h2 className="font-bold mb-3">
-            {isIncome ? "New income" : "New expense"}
+            {isIncome ? tx("New income") : tx("New expense")}
           </h2>
           <ExpenseForm
             key={isIncome ? "income" : "expense"}
@@ -222,13 +223,13 @@ export default async function ExpensesPage({
         <section className="card p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold">
-              {isIncome ? "Recent income" : "Recent expenses"}
+              {isIncome ? tx("Recent income") : tx("Recent expenses")}
             </h2>
-            <span className="text-xs text-slate-400">Latest 50</span>
+            <span className="text-xs text-slate-400">{tx("Latest 50")}</span>
           </div>
           {activeRows.length === 0 ? (
             <div className="text-sm text-slate-400 text-center py-8">
-              {isIncome ? "No income entries yet" : "No expenses yet"}
+              {isIncome ? tx("No income entries yet") : tx("No expenses yet")}
             </div>
           ) : (
             <div className="divide-soft">
@@ -248,14 +249,14 @@ export default async function ExpensesPage({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-slate-800">
-                        {row.category || "General"}
+                        {tx(row.category || "General")}
                       </div>
                       <div className="text-xs text-slate-500 truncate">
-                        {row.note?.trim() || "No note"}
+                        {row.note?.trim() || tx("No note")}
                         {" · "}
                         {String(row.paymentMethod ?? "cash").toUpperCase()}
                         {" · "}
-                        {row.userName || "Unknown user"}
+                        {row.userName || tx("Unknown user")}
                         {" · "}
                         {formatDateTime(row.createdAt)}
                       </div>

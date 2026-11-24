@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 /**
  * In-app replacement for window.confirm(): consistent look, keyboard
@@ -27,6 +28,8 @@ export default function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !busy) onClose();
@@ -56,7 +59,7 @@ export default function ConfirmDialog({
           </div>
           <div className="min-w-0">
             <h2 id="confirm-title" className="text-lg font-bold text-slate-900">
-              {title}
+              {tx(title)}
             </h2>
             <div className="text-sm text-slate-600 mt-1 leading-relaxed">
               {message}
@@ -80,7 +83,7 @@ export default function ConfirmDialog({
             disabled={busy}
             onClick={onClose}
           >
-            {cancelLabel}
+            {tx(cancelLabel)}
           </button>
           <button
             type="button"
@@ -92,7 +95,7 @@ export default function ConfirmDialog({
                 : "btn-primary"
             }`}
           >
-            {busy ? "Please wait…" : confirmLabel}
+            {busy ? tx("Please wait…") : tx(confirmLabel)}
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import ActiveMeetingRooms from "./ActiveMeetingRooms";
 import ConfirmDialog from "./ConfirmDialog";
 import ReservationDialog from "./ReservationDialog";
 import StartNowDialog from "./StartNowDialog";
+import { useFmt } from "@/lib/lang-context";
 
 export type HubRoom = {
   id: number;
@@ -79,6 +80,8 @@ export default function MeetingRoomsHub({
   earlyCheckinMinutes: number;
   maxBookingHours: number;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const now = useNow();
 
@@ -118,9 +121,9 @@ export default function MeetingRoomsHub({
   });
   const dayLabel = (key: string, iso: string) =>
     key === todayKey
-      ? "Today"
+      ? tx("Today")
       : key === tomorrowKey
-        ? "Tomorrow"
+        ? tx("Tomorrow")
         : new Date(iso).toLocaleDateString([], {
             weekday: "long",
             day: "numeric",
@@ -209,17 +212,17 @@ export default function MeetingRoomsHub({
       if (!res.ok) {
         setNotice({
           kind: "error",
-          text: data?.error || `Could not check in (HTTP ${res.status}).`,
+          text: data?.error || (f.en ? `Could not check in (HTTP ${res.status}).` : `مقدرناش نسجل الدخول (HTTP ${res.status}).`),
         });
         return;
       }
       setNotice({
         kind: "success",
-        text: `${r.customerName} is checked in to ${r.roomName}.`,
+        text: (f.en ? `${r.customerName} is checked in to ${r.roomName}.` : `${r.customerName} دخل ${r.roomName}.`),
       });
       router.refresh();
     } catch {
-      setNotice({ kind: "error", text: "Network error. Please try again." });
+      setNotice({ kind: "error", text: tx("Network error. Please try again.") });
     } finally {
       setCheckingIn(null);
     }
@@ -237,20 +240,18 @@ export default function MeetingRoomsHub({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setCancelError(
-          data?.error || `Could not cancel the reservation (HTTP ${res.status}).`,
+          data?.error || (f.en ? `Could not cancel the reservation (HTTP ${res.status}).` : `مقدرناش نلغي الحجز (HTTP ${res.status}).`),
         );
         return;
       }
       setNotice({
         kind: "success",
-        text: `Reservation for ${toCancel.customerName} was cancelled.${
-          toCancel.usesPackage ? " Package hours were returned." : ""
-        }`,
+        text: (f.en ? `Reservation for ${toCancel.customerName} was cancelled.${toCancel.usesPackage ? " Package hours were returned." : ""}` : `تم إلغاء حجز ${toCancel.customerName}.${toCancel.usesPackage ? " ساعات الباقة رجعت." : ""}`),
       });
       setToCancel(null);
       router.refresh();
     } catch {
-      setCancelError("Network error. Please try again.");
+      setCancelError(tx("Network error. Please try again."));
     } finally {
       setCancelling(false);
     }
@@ -268,31 +269,31 @@ export default function MeetingRoomsHub({
         <div className="meeting-hero-content">
           <div className="meeting-hero-eyebrow">
             <span className="meeting-hero-live-dot" />
-            <span>WORKSPACE HUB</span>
+            <span>{tx("WORKSPACE HUB")}</span>
             <span className="meeting-hero-separator">/</span>
-            <span>ROOM CONTROL</span>
-            <span className="meeting-hero-live-pill">LIVE OPERATIONS</span>
+            <span>{tx("ROOM CONTROL")}</span>
+            <span className="meeting-hero-live-pill">{tx("LIVE OPERATIONS")}</span>
           </div>
-          <h1 id="meeting-rooms-title">Meeting rooms<span className="meeting-hero-title-stop">.</span></h1>
-          <p>One clear view of room availability, customer check-ins and the schedule ahead.</p>
-          <div className="meeting-hero-metrics" aria-label="Current room summary">
-            <span><strong>{rooms.length.toString().padStart(2, "0")}</strong> rooms</span>
+          <h1 id="meeting-rooms-title">{tx("Meeting rooms")}<span className="meeting-hero-title-stop">.</span></h1>
+          <p>{tx("One clear view of room availability, customer check-ins and the schedule ahead.")}</p>
+          <div className="meeting-hero-metrics" aria-label={tx("Current room summary")}>
+            <span><strong>{rooms.length.toString().padStart(2, "0")}</strong> {tx("rooms")}</span>
             <i aria-hidden="true" />
-            <span><strong>{inUse.toString().padStart(2, "0")}</strong> in use</span>
+            <span><strong>{inUse.toString().padStart(2, "0")}</strong> {tx("in use")}</span>
             <i aria-hidden="true" />
-            <span><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong> available</span>
+            <span><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong> {tx("available")}</span>
           </div>
           <div className="meeting-hero-actions">
             <Link href="/meeting-rooms/calendar" className="btn btn-ghost meeting-hero-secondary">
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.6"/><path d="M7.5 3v4M16.5 3v4M4 9.5h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              Calendar
+              {tx("Calendar")}
             </Link>
             <button type="button" className="btn btn-ghost meeting-hero-secondary" disabled={rooms.length === 0} onClick={() => setStartNow({ roomId: null })}>
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><path d="m13.2 2.8-8 10.1h5.6l-.9 8.3 8-11h-5.5l.8-7.4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-              Walk-in
+              {tx("Walk-in")}
             </button>
             <button type="button" className="btn btn-primary meeting-hero-primary" disabled={rooms.length === 0} onClick={() => setBooking({ roomId: null, start: nextSlotStart() })}>
-              <span aria-hidden="true">＋</span> New reservation
+              <span aria-hidden="true">＋</span> {tx("New reservation")}
             </button>
           </div>
         </div>
@@ -301,11 +302,11 @@ export default function MeetingRoomsHub({
           <div className="meeting-hero-orbit meeting-hero-orbit-two" />
           <div className="meeting-hero-core">
             <svg viewBox="0 0 64 64" width="44" height="44" fill="none"><path d="M9 28 32 10l23 18v25a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3V28Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"/><path d="M20 56V34h24v22M27 34v22M9 28h46" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M22 22h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-            <span>HUB</span>
+            <span>{tx("HUB")}</span>
           </div>
-          <div className="meeting-hero-float-card meeting-hero-float-a"><span className="meeting-hero-float-icon is-blue">⌂</span><span><small>ROOMS ONLINE</small><strong>{rooms.length.toString().padStart(2, "0")}</strong></span><i /></div>
-          <div className="meeting-hero-float-card meeting-hero-float-b"><span className="meeting-hero-float-icon is-green">↗</span><span><small>AVAILABLE NOW</small><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong></span><i /></div>
-          <div className="meeting-hero-orbit-caption"><span /> CAPACITY MONITORING</div>
+          <div className="meeting-hero-float-card meeting-hero-float-a"><span className="meeting-hero-float-icon is-blue">⌂</span><span><small>{tx("ROOMS ONLINE")}</small><strong>{rooms.length.toString().padStart(2, "0")}</strong></span><i /></div>
+          <div className="meeting-hero-float-card meeting-hero-float-b"><span className="meeting-hero-float-icon is-green">↗</span><span><small>{tx("AVAILABLE NOW")}</small><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong></span><i /></div>
+          <div className="meeting-hero-orbit-caption"><span /> {tx("CAPACITY MONITORING")}</div>
         </div>
       </section>
 
@@ -321,7 +322,7 @@ export default function MeetingRoomsHub({
           <span>{notice.text}</span>
           <button
             type="button"
-            aria-label="Dismiss"
+            aria-label={tx("Dismiss")}
             className="opacity-60 hover:opacity-100"
             onClick={() => setNotice(null)}
           >
@@ -332,21 +333,21 @@ export default function MeetingRoomsHub({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 meeting-room-stat-grid">
-        <Stat icon="▦" label="Rooms" value={rooms.length} tone="blue" />
-        <Stat icon="◉" label="In use now" value={inUse} tone="indigo" />
-        <Stat icon="↗" label="Available now" value={Math.max(0, rooms.length - inUse)} tone="green" />
-        <Stat icon="◷" label="Upcoming today" value={todayCount} tone="cyan" />
+        <Stat icon="▦" label={tx("Rooms")} value={rooms.length} tone="blue" />
+        <Stat icon="◉" label={tx("In use now")} value={inUse} tone="indigo" />
+        <Stat icon="↗" label={tx("Available now")} value={Math.max(0, rooms.length - inUse)} tone="green" />
+        <Stat icon="◷" label={tx("Upcoming today")} value={todayCount} tone="cyan" />
       </div>
 
       {/* Rooms */}
       <section className="meeting-rooms-section">
         <div className="meeting-section-heading">
-          <div><span className="meeting-section-kicker">SPACE AVAILABILITY</span><h2 className="text-lg font-bold text-slate-900">Your rooms</h2></div>
+          <div><span className="meeting-section-kicker">{tx("SPACE AVAILABILITY")}</span><h2 className="text-lg font-bold text-slate-900">{tx("Your rooms")}</h2></div>
           <span className="meeting-section-count">{rooms.length} spaces</span>
         </div>
         {rooms.length === 0 ? (
           <div className="card p-10 text-center text-slate-500">
-            No meeting rooms yet. Add one in Settings → Desks.
+            {tx("No meeting rooms yet. Add one in Settings → Desks.")}
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -368,7 +369,7 @@ export default function MeetingRoomsHub({
                         <p className="text-sm text-slate-500">
                           Up to {room.capacity} people
                           {fromRate !== null
-                            ? ` · from ${fromRate.toFixed(0)} ${currency}/h`
+                            ? ` · ${tx("from")} ${fromRate.toFixed(0)} ${currency}/${tx("h")}`
                             : ""}
                         </p>
                       </div>
@@ -385,7 +386,7 @@ export default function MeetingRoomsHub({
                           busy ? "bg-indigo-500" : "bg-emerald-500"
                         }`}
                       />
-                      {busy ? "In use" : "Available"}
+                      {busy ? tx("In use") : tx("Available")}
                     </span>
                   </div>
 
@@ -401,14 +402,14 @@ export default function MeetingRoomsHub({
                       </>
                     ) : next ? (
                       <>
-                        <div className="text-slate-500">Next reservation</div>
+                        <div className="text-slate-500">{tx("Next reservation")}</div>
                         <div className="font-semibold text-slate-800">
                           {fmtTime(next.startAt)} · {next.customerName}
                         </div>
                       </>
                     ) : (
                       <div className="text-slate-400">
-                        Nothing scheduled
+                        {tx("Nothing scheduled")}
                       </div>
                     )}
                   </div>
@@ -420,7 +421,7 @@ export default function MeetingRoomsHub({
                       disabled={busy}
                       onClick={() => setStartNow({ roomId: room.id })}
                     >
-                      ⚡ Start now
+                      {tx("⚡ Start now")}
                     </button>
                     <button
                       type="button"
@@ -429,7 +430,7 @@ export default function MeetingRoomsHub({
                         setBooking({ roomId: room.id, start: nextSlotStart() })
                       }
                     >
-                      Reserve
+                      {tx("Reserve")}
                     </button>
                   </div>
                 </article>
@@ -449,12 +450,12 @@ export default function MeetingRoomsHub({
       {/* Upcoming */}
       <section className="meeting-rooms-section meeting-upcoming-section">
         <div className="meeting-section-heading">
-          <div><span className="meeting-section-kicker">SCHEDULE</span><h2 className="text-lg font-bold text-slate-900">Upcoming reservations</h2></div>
+          <div><span className="meeting-section-kicker">{tx("SCHEDULE")}</span><h2 className="text-lg font-bold text-slate-900">{tx("Upcoming reservations")}</h2></div>
           <span className="meeting-section-count">{upcoming.length} bookings</span>
         </div>
         {grouped.length === 0 ? (
           <div className="card p-10 text-center text-slate-500">
-            No upcoming reservations.
+            {tx("No upcoming reservations.")}
           </div>
         ) : (
           <div className="space-y-6">
@@ -493,7 +494,7 @@ export default function MeetingRoomsHub({
                         </div>
                         {r.usesPackage && (
                           <span className="rounded-full bg-violet-50 text-violet-700 text-xs font-semibold px-2.5 py-1">
-                            Package
+                            {tx("Package")}
                           </span>
                         )}
                         <div className="flex gap-2 ml-auto">
@@ -504,11 +505,11 @@ export default function MeetingRoomsHub({
                             title={
                               canCheckIn
                                 ? undefined
-                                : `Check-in opens at ${fmtTime(opensAt)}`
+                                : `${tx("Check-in opens at")} ${fmtTime(opensAt)}`
                             }
                             onClick={() => void checkIn(r)}
                           >
-                            {checkingIn === r.id ? "Checking in…" : "Check in"}
+                            {checkingIn === r.id ? tx("Checking in…") : tx("Check in")}
                           </button>
                           <button
                             type="button"
@@ -518,7 +519,7 @@ export default function MeetingRoomsHub({
                               setToCancel(r);
                             }}
                           >
-                            Cancel
+                            {tx("Cancel")}
                           </button>
                         </div>
                       </div>
@@ -571,7 +572,7 @@ export default function MeetingRoomsHub({
 
       {toCancel && (
         <ConfirmDialog
-          title="Cancel this reservation?"
+          title={tx("Cancel this reservation?")}
           message={
             <>
               <b>{toCancel.customerName}</b> · {toCancel.roomName}
@@ -580,12 +581,12 @@ export default function MeetingRoomsHub({
               {toCancel.usesPackage && (
                 <>
                   <br />
-                  Package hours will be returned to the customer.
+                  {tx("Package hours will be returned to the customer.")}
                 </>
               )}
             </>
           }
-          confirmLabel="Cancel reservation"
+          confirmLabel={tx("Cancel reservation")}
           busy={cancelling}
           error={cancelError}
           onConfirm={() => void confirmCancel()}
@@ -607,13 +608,15 @@ function Stat({
   value: number;
   tone?: "blue" | "indigo" | "green" | "cyan";
 }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <div className={`card meeting-room-stat tone-${tone}`}>
       <div className="meeting-room-stat-icon" aria-hidden="true">{icon}</div>
       <div className="meeting-room-stat-copy">
         <div className="meeting-room-stat-label">{label}</div>
         <div className="meeting-room-stat-value tabular-nums">{value.toString().padStart(2, "0")}</div>
-        <div className="meeting-room-stat-foot"><span /> LIVE STATUS</div>
+        <div className="meeting-room-stat-foot"><span /> {tx("LIVE STATUS")}</div>
       </div>
       <span className="meeting-room-stat-orb" aria-hidden="true" />
     </div>

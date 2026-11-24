@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 export type CustomerMatch = {
   id: number;
@@ -34,6 +35,8 @@ export default function CustomerSearchField({
   compact?: boolean;
   label?: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Match[]>([]);
   const [open, setOpen] = useState(false);
@@ -78,11 +81,11 @@ export default function CustomerSearchField({
   return (
     <div ref={boxRef} className="relative">
       <label className="block text-sm font-semibold text-slate-700 mb-1">
-        {label}
+        {tx(label)}
       </label>
       <input
         className="input w-full"
-        placeholder="Search by name or phone…"
+        placeholder={tx("Search by name or phone…")}
         value={query}
         disabled={disabled}
         onChange={(e) => {
@@ -94,12 +97,12 @@ export default function CustomerSearchField({
       {open && query.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
           {loading ? (
-            <div className="p-3 text-sm text-slate-400">Searching…</div>
+            <div className="p-3 text-sm text-slate-400">{tx("Searching…")}</div>
           ) : results.length === 0 ? (
             <div className="p-3 text-sm text-slate-400">
               {compact
-                ? "No match — type the phone number below to register a new customer."
-                : "No match — a new customer will be created with the name/phone below."}
+                ? tx("No match — type the phone number below to register a new customer.")
+                : tx("No match — a new customer will be created with the name/phone below.")}
             </div>
           ) : (
             results.map((c) => (
@@ -120,7 +123,7 @@ export default function CustomerSearchField({
                     {c.visits ?? 0} visit{(c.visits ?? 0) === 1 ? "" : "s"} ·{" "}
                     {(c.totalHours ?? 0).toFixed(1)} h stayed
                     {c.balance !== undefined && c.balance > 0
-                      ? ` · balance ${c.balance.toFixed(2)}`
+                      ? ` · ${tx("Balance").toLowerCase()} ${c.balance.toFixed(2)}`
                       : ""}
                   </div>
                 )}
@@ -134,14 +137,14 @@ export default function CustomerSearchField({
       <div className="grid grid-cols-2 gap-2 mt-2">
         <input
           className="input"
-          placeholder="Customer name"
+          placeholder={tx("Customer name")}
           value={name}
           disabled={disabled}
           onChange={(e) => onNameChange?.(e.target.value)}
         />
         <input
           className="input"
-          placeholder="Phone"
+          placeholder={tx("Phone")}
           value={phone}
           disabled={disabled}
           onChange={(e) => onPhoneChange?.(e.target.value)}

@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 /* ============================================================================
  * TYPES
@@ -74,6 +75,8 @@ export default function MeetingRoomPackagesAdmin({
 }: {
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [
     packages,
     setPackages,
@@ -157,7 +160,7 @@ export default function MeetingRoomPackagesAdmin({
       if (!response.ok) {
         setError(
           data.error ||
-            `Could not load packages (HTTP ${response.status}).`,
+            (f.en ? `Could not load packages (HTTP ${response.status}).` : `مقدرناش نحمّل الباقات (HTTP ${response.status}).`),
         );
 
         return;
@@ -177,7 +180,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setLoading(false);
@@ -426,7 +429,7 @@ export default function MeetingRoomPackagesAdmin({
       if (!response.ok) {
         setError(
           data.error ||
-            `Could not create package (HTTP ${response.status}).`,
+            (f.en ? `Could not create package (HTTP ${response.status}).` : `مقدرناش ننشئ الباقة (HTTP ${response.status}).`),
         );
 
         return;
@@ -439,7 +442,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setSuccess(
-        "Meeting room package created successfully.",
+        tx("Meeting room package created successfully."),
       );
 
       await loadPackages();
@@ -450,7 +453,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setSaving(false);
@@ -473,7 +476,7 @@ export default function MeetingRoomPackagesAdmin({
 
     if (!edit) {
       setError(
-        "Could not load the package for editing.",
+        tx("Could not load the package for editing."),
       );
 
       return;
@@ -551,7 +554,7 @@ export default function MeetingRoomPackagesAdmin({
       if (!response.ok) {
         setError(
           data.error ||
-            `Could not update package (HTTP ${response.status}).`,
+            (f.en ? `Could not update package (HTTP ${response.status}).` : `مقدرناش نحدّث الباقة (HTTP ${response.status}).`),
         );
 
         return;
@@ -562,7 +565,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setSuccess(
-        "Meeting room package updated successfully.",
+        tx("Meeting room package updated successfully."),
       );
 
       await loadPackages();
@@ -573,7 +576,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setSaving(false);
@@ -599,8 +602,8 @@ export default function MeetingRoomPackagesAdmin({
       window.confirm(
         pkg.status ===
           "active"
-          ? `Deactivate "${pkg.name}"? Existing customer purchases will remain unchanged.`
-          : `Activate "${pkg.name}"?`,
+          ? (f.en ? `Deactivate "${pkg.name}"? Existing customer purchases will remain unchanged.` : `إيقاف "${pkg.name}"؟ مشتريات العملاء الحالية مش هتتغير.`)
+          : (f.en ? `Activate "${pkg.name}"?` : `تفعيل "${pkg.name}"؟`),
       );
 
     if (!confirmed) {
@@ -638,7 +641,7 @@ export default function MeetingRoomPackagesAdmin({
       if (!response.ok) {
         setError(
           data.error ||
-            `Could not change package status (HTTP ${response.status}).`,
+            (f.en ? `Could not change package status (HTTP ${response.status}).` : `مقدرناش نغيّر حالة الباقة (HTTP ${response.status}).`),
         );
 
         return;
@@ -661,7 +664,7 @@ export default function MeetingRoomPackagesAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setSaving(false);
@@ -678,11 +681,11 @@ export default function MeetingRoomPackagesAdmin({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-slate-900">
-            🎟️ Meeting Room Packages
+            {tx("🎟️ Meeting Room Packages")}
           </h3>
 
           <p className="text-sm text-slate-500 mt-1">
-            Create your own meeting-room packages: choose any whole-hour amount, set the selling price, and optionally apply a discount. Customer purchases keep their historical price and hour snapshots.
+            {tx("Create your own meeting-room packages: choose any whole-hour amount, set the selling price, and optionally apply a discount. Customer purchases keep their historical price and hour snapshots.")}
           </p>
         </div>
 
@@ -702,12 +705,12 @@ export default function MeetingRoomPackagesAdmin({
             saving
           }
         >
-          + Add package
+          {tx("+ Add package")}
         </button>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        <div className="font-semibold text-slate-800">Flexible package setup</div>
+        <div className="font-semibold text-slate-800">{tx("Flexible package setup")}</div>
         <p className="mt-1">Hours and prices are fully customizable. Discount defaults to 0% and is never forced; use it only when you choose to offer one. You can create multiple packages with the same number of hours.</p>
       </div>
 
@@ -730,11 +733,11 @@ export default function MeetingRoomPackagesAdmin({
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="font-bold text-slate-900">
-                Add package
+                {tx("Add package")}
               </div>
 
               <div className="text-xs text-slate-500 mt-1">
-                Create a package with your own number of hours and price. Discount is optional and defaults to 0%.
+                {tx("Create a package with your own number of hours and price. Discount is optional and defaults to 0%.")}
               </div>
             </div>
 
@@ -758,7 +761,7 @@ export default function MeetingRoomPackagesAdmin({
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="label">
-                Package name
+                {tx("Package name")}
               </label>
 
               <input
@@ -775,7 +778,7 @@ export default function MeetingRoomPackagesAdmin({
                       .value,
                   )
                 }
-                placeholder="e.g. Meeting Room — 12 Hours"
+                placeholder={tx("e.g. Meeting Room — 12 Hours")}
                 disabled={
                   saving
                 }
@@ -783,7 +786,7 @@ export default function MeetingRoomPackagesAdmin({
             </div>
 
             <div>
-              <label className="label">Package hours</label>
+              <label className="label">{tx("Package hours")}</label>
               <input
                 className="input"
                 type="number"
@@ -791,7 +794,7 @@ export default function MeetingRoomPackagesAdmin({
                 step={1}
                 value={form.totalHours}
                 onChange={(event) => updateForm("totalHours", event.target.value)}
-                placeholder="e.g. 6, 12, 25"
+                placeholder={tx("e.g. 6, 12, 25")}
                 disabled={saving}
               />
             </div>
@@ -820,7 +823,7 @@ export default function MeetingRoomPackagesAdmin({
                       .value,
                   )
                 }
-                placeholder="Enter selling price"
+                placeholder={tx("Enter selling price")}
                 disabled={
                   saving
                 }
@@ -828,7 +831,7 @@ export default function MeetingRoomPackagesAdmin({
             </div>
 
             <div>
-              <label className="label">Optional discount (%)</label>
+              <label className="label">{tx("Optional discount (%)")}</label>
               <input
                 className="input"
                 type="number"
@@ -840,12 +843,12 @@ export default function MeetingRoomPackagesAdmin({
                 placeholder="0"
                 disabled={saving}
               />
-              <p className="text-xs text-slate-500 mt-1">Keep it at 0 if the package has no discount.</p>
+              <p className="text-xs text-slate-500 mt-1">{tx("Keep it at 0 if the package has no discount.")}</p>
             </div>
 
             <div>
               <label className="label">
-                Validity days
+                {tx("Validity days")}
               </label>
 
               <input
@@ -865,7 +868,7 @@ export default function MeetingRoomPackagesAdmin({
                       .value,
                   )
                 }
-                placeholder="Leave empty for no expiry"
+                placeholder={tx("Leave empty for no expiry")}
                 disabled={
                   saving
                 }
@@ -874,7 +877,7 @@ export default function MeetingRoomPackagesAdmin({
 
             <div className="md:col-span-2">
               <label className="label">
-                Description
+                {tx("Description")}
               </label>
 
               <textarea
@@ -891,7 +894,7 @@ export default function MeetingRoomPackagesAdmin({
                       .value,
                   )
                 }
-                placeholder="Optional description"
+                placeholder={tx("Optional description")}
                 disabled={
                   saving
                 }
@@ -913,7 +916,7 @@ export default function MeetingRoomPackagesAdmin({
                 saving
               }
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -927,8 +930,8 @@ export default function MeetingRoomPackagesAdmin({
               }
             >
               {saving
-                ? "Saving..."
-                : "Create package"}
+                ? tx("Saving...")
+                : tx("Create package")}
             </button>
           </div>
         </div>
@@ -938,17 +941,17 @@ export default function MeetingRoomPackagesAdmin({
       <div className="overflow-x-auto">
         {loading ? (
           <div className="rounded-2xl border border-slate-200 p-6 text-sm text-slate-500">
-            Loading meeting room packages...
+            {tx("Loading meeting room packages...")}
           </div>
         ) : packages.length ===
           0 ? (
           <div className="rounded-2xl border border-slate-200 p-6">
             <div className="font-semibold text-slate-800">
-              No meeting room packages configured.
+              {tx("No meeting room packages configured.")}
             </div>
 
             <div className="text-sm text-slate-500 mt-1">
-              Create a package with any whole-hour amount and your own selling price.
+              {tx("Create a package with any whole-hour amount and your own selling price.")}
             </div>
           </div>
         ) : (
@@ -956,31 +959,31 @@ export default function MeetingRoomPackagesAdmin({
             <thead className="text-xs text-slate-500 uppercase text-left">
               <tr>
                 <th className="py-3 pr-4">
-                  Package
+                  {tx("Package")}
                 </th>
 
                 <th className="py-3 pr-4">
-                  Hours
+                  {tx("Hours")}
                 </th>
 
                 <th className="py-3 pr-4">
-                  Discount
+                  {tx("Discount")}
                 </th>
 
                 <th className="py-3 pr-4">
-                  Price
+                  {tx("Price")}
                 </th>
 
                 <th className="py-3 pr-4">
-                  Validity
+                  {tx("Validity")}
                 </th>
 
                 <th className="py-3 pr-4">
-                  Status
+                  {tx("Status")}
                 </th>
 
                 <th className="py-3 text-right">
-                  Actions
+                  {tx("Actions")}
                 </th>
               </tr>
             </thead>
@@ -1046,7 +1049,7 @@ export default function MeetingRoomPackagesAdmin({
                                     .value,
                                 )
                               }
-                              placeholder="Description"
+                              placeholder={tx("Description")}
                               disabled={
                                 saving
                               }
@@ -1111,7 +1114,7 @@ export default function MeetingRoomPackagesAdmin({
                           />
                         ) : (
                           <span className={Number(pkg.discountPercent) > 0 ? "font-semibold text-emerald-700" : "text-slate-400"}>
-                            {Number(pkg.discountPercent) > 0 ? `${Number(pkg.discountPercent)}%` : "None"}
+                            {Number(pkg.discountPercent) > 0 ? `${Number(pkg.discountPercent)}%` : tx("None")}
                           </span>
                         )}
                       </td>
@@ -1176,7 +1179,7 @@ export default function MeetingRoomPackagesAdmin({
                                   .value,
                               )
                             }
-                            placeholder="No expiry"
+                            placeholder={tx("No expiry")}
                             disabled={
                               saving
                             }
@@ -1185,8 +1188,8 @@ export default function MeetingRoomPackagesAdmin({
                           <span>
                             {pkg.validityDays ===
                             null
-                              ? "No expiry"
-                              : `${pkg.validityDays} days`}
+                              ? tx("No expiry")
+                              : `${pkg.validityDays} ${tx("days")}`}
                           </span>
                         )}
                       </td>
@@ -1203,8 +1206,8 @@ export default function MeetingRoomPackagesAdmin({
                         >
                           {pkg.status ===
                           "active"
-                            ? "Active"
-                            : "Inactive"}
+                            ? tx("Active")
+                            : tx("Inactive")}
                         </span>
                       </td>
 
@@ -1226,8 +1229,8 @@ export default function MeetingRoomPackagesAdmin({
                               }
                             >
                               {saving
-                                ? "Saving..."
-                                : "Save"}
+                                ? tx("Saving...")
+                                : tx("Save")}
                             </button>
 
                             <button
@@ -1240,7 +1243,7 @@ export default function MeetingRoomPackagesAdmin({
                                 saving
                               }
                             >
-                              Cancel
+                              {tx("Cancel")}
                             </button>
                           </div>
                         ) : (
@@ -1257,7 +1260,7 @@ export default function MeetingRoomPackagesAdmin({
                                 saving
                               }
                             >
-                              ✏️ Edit
+                              {tx("✏️ Edit")}
                             </button>
 
                             <button
@@ -1274,8 +1277,8 @@ export default function MeetingRoomPackagesAdmin({
                             >
                               {pkg.status ===
                               "active"
-                                ? "Deactivate"
-                                : "Activate"}
+                                ? tx("Deactivate")
+                                : tx("Activate")}
                             </button>
                           </div>
                         )}

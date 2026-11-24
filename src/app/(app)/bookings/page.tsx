@@ -4,6 +4,8 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import {
   calculateCustomerSessionSeatCharge,
   getCustomerSessionPricing,
@@ -31,6 +33,8 @@ type BillingMode =
 /* -------------------------------------------------------------------------- */
 
 export default async function BookingsPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user =
     await getCurrentUser();
   await loadTimezone();
@@ -241,9 +245,9 @@ export default async function BookingsPage() {
                   href={`/bookings/${session.id}`}
                   className="underline"
                 >
-                  #{session.id} — {session.customerName ?? "Customer"}
+                  #{session.id} — {session.customerName ?? tx("Customer")}
                 </Link>{" "}
-                since {session.checkedInAt.toLocaleString()}
+                {tx("since")} {session.checkedInAt.toLocaleString()}
               </li>
             ))}
           </ul>
@@ -253,18 +257,17 @@ export default async function BookingsPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Customer Sessions
+            {tx("Customer Sessions")}
           </h1>
 
           <p className="text-slate-500 mt-1">
-            Manage active customer sessions, timing, orders and billing.
+            {tx("Manage active customer sessions, timing, orders and billing.")}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 font-semibold text-sm">
-            Active{" "}
-            {activeSessions.length}
+            {tx("Active")}{" "} {activeSessions.length}
           </div>
 
           <OpenSessionButton
@@ -282,11 +285,11 @@ export default async function BookingsPage() {
           </div>
 
           <h2 className="text-xl font-bold text-slate-900">
-            No active customer sessions
+            {tx("No active customer sessions")}
           </h2>
 
           <p className="text-slate-500 mt-2">
-            Start a session when a customer enters the workspace.
+            {tx("Start a session when a customer enters the workspace.")}
           </p>
 
           <div className="mt-6">
@@ -313,6 +316,7 @@ export default async function BookingsPage() {
                   pricing={
                     pricing
                   }
+                  tx={tx}
                 />
                 <QuickCancelButton
                   bookingId={session.id}
@@ -334,7 +338,9 @@ function SessionCard({
   session,
   currency,
   pricing,
+  tx,
 }: {
+  tx: (s: string) => string;
   session: {
     id: number;
 
@@ -470,13 +476,13 @@ function SessionCard({
 
             <div className="flex flex-col items-end gap-1">
               <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">
-                Active
+                {tx("Active")}
               </span>
 
               {session.billingMode ===
                 "package" && (
                 <span className="shrink-0 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-                  PACKAGE
+                  {tx("PACKAGE")}
                 </span>
               )}
             </div>
@@ -485,12 +491,12 @@ function SessionCard({
           {/* SESSION INFO */}
           <div className="grid grid-cols-2 gap-3 mt-5">
             <InfoBox
-              label="Session"
+              label={tx("Session")}
               value={`#${session.id}`}
             />
 
             <InfoBox
-              label="Access Code"
+              label={tx("Access Code")}
               value={
                 session.accessCode ||
                 "----"
@@ -499,14 +505,14 @@ function SessionCard({
             />
 
             <InfoBox
-              label="Started"
+              label={tx("Started")}
               value={formatTime(
                 session.checkedInAt,
               )}
             />
 
             <InfoBox
-              label="Duration"
+              label={tx("Duration")}
               value={formatDuration(
                 durationMs,
               )}
@@ -532,15 +538,15 @@ function SessionCard({
               >
                 {session.billingMode ===
                 "package"
-                  ? "Package"
-                  : "Regular"}
+                  ? tx("Package")
+                  : tx("Regular")}
               </span>
             </div>
 
             {/* SEAT */}
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm text-slate-500">
-                Seat
+                {tx("Seat")}
               </span>
 
               <span className="font-semibold text-slate-800">
@@ -556,10 +562,10 @@ function SessionCard({
               <span className="text-sm text-slate-500">
                 {session.billingMode ===
                 "package"
-                  ? "Package time"
+                  ? tx("Package time")
                   : billableHours > 4
-                  ? "Day Pass"
-                  : "Billable hours"}
+                  ? tx("Day Pass")
+                  : tx("Billable hours")}
               </span>
 
               <span className="font-semibold text-slate-800">
@@ -569,8 +575,8 @@ function SessionCard({
                     {billableHours}{" "}
                     {billableHours ===
                     1
-                      ? "hour"
-                      : "hours"}
+                      ? tx("hour")
+                      : tx("hours")}
                   </>
                 ) : billableHours >
                   4 ? (
@@ -582,8 +588,8 @@ function SessionCard({
                     {billableHours}{" "}
                     {billableHours ===
                     1
-                      ? "hour"
-                      : "hours"}
+                      ? tx("hour")
+                      : tx("hours")}
                   </>
                 )}
               </span>
@@ -592,7 +598,7 @@ function SessionCard({
             {/* F&B */}
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm text-slate-500">
-                F&amp;B
+                {tx("F&amp;B")}
               </span>
 
               <span className="font-semibold text-slate-800">
@@ -607,7 +613,7 @@ function SessionCard({
             {discount > 0 && (
               <div className="flex items-center justify-between mt-2">
                 <span className="text-sm text-slate-500">
-                  Discount
+                  {tx("Discount")}
                 </span>
 
                 <span className="font-semibold text-red-600">
@@ -623,7 +629,7 @@ function SessionCard({
             {/* TOTAL */}
             <div className="border-t border-slate-200 mt-3 pt-3 flex items-center justify-between">
               <span className="font-bold text-slate-900">
-                Current Total
+                {tx("Current Total")}
               </span>
 
               <span className="text-lg font-bold text-indigo-600">
@@ -639,7 +645,7 @@ function SessionCard({
         {/* FOOTER */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
           <div className="text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
-            Open session →
+            {tx("Open session →")}
           </div>
         </div>
       </div>

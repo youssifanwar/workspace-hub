@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Product = {
   id: number;
@@ -51,6 +52,8 @@ function money(value: number | string): string {
 }
 
 export default function FnbSalesPage() {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,7 +86,7 @@ export default function FnbSalesPage() {
       setProducts(Array.isArray(data?.products) ? data.products : []);
       setCategories(Array.isArray(data?.categories) ? data.categories : []);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load F&B menu.");
+      setError(loadError instanceof Error ? loadError.message : tx("Could not load F&B menu."));
     } finally {
       setLoading(false);
     }
@@ -182,7 +185,7 @@ export default function FnbSalesPage() {
     const paid = Number(paidAmount);
 
     if (!Number.isFinite(paid) || paid < cartTotal) {
-      setError(`Paid amount must be at least ${money(cartTotal)} EGP.`);
+      setError(`Paid amount must be at least ${money(cartTotal)} {f.cur}.`);
       return;
     }
 
@@ -219,7 +222,7 @@ export default function FnbSalesPage() {
       setSaleNote("");
       await load();
     } catch (saleError) {
-      setError(saleError instanceof Error ? saleError.message : "Could not complete sale.");
+      setError(saleError instanceof Error ? saleError.message : tx("Could not complete sale."));
       await load();
     } finally {
       setSaving(false);
@@ -227,22 +230,22 @@ export default function FnbSalesPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center text-slate-500">Loading F&B POS…</div>;
+    return <div className="min-h-screen grid place-items-center text-slate-500">{tx("Loading F&B POS…")}</div>;
   }
 
   return (
     <main className="p-4 lg:p-6 space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">F&amp;B</div>
-          <h1 className="text-3xl font-black text-slate-900 mt-1">Direct F&amp;B Sale</h1>
+          <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("F&B")}</div>
+          <h1 className="text-3xl font-black text-slate-900 mt-1">{tx("Direct F&B Sale")}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Sell food and drinks without opening a customer session or assigning a desk.
+            {tx("Sell food and drinks without opening a customer session or assigning a desk.")}
           </p>
         </div>
 
         <div className="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm">
-          <div className="text-xs text-slate-500">Cart</div>
+          <div className="text-xs text-slate-500">{tx("Cart")}</div>
           <div className="text-2xl font-black text-slate-900">{cartCount}</div>
         </div>
       </div>
@@ -265,7 +268,7 @@ export default function FnbSalesPage() {
                   : "bg-white border border-slate-200 text-slate-700"
               }`}
             >
-              All
+              {tx("All")}
             </button>
 
             {categories.map((category) => (
@@ -308,7 +311,7 @@ export default function FnbSalesPage() {
                     )}
 
                     <div className="absolute top-3 right-3 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-slate-700 shadow">
-                      Stock {stock}
+                      {tx("Stock")} {stock}
                     </div>
 
                     {inCart > 0 && (
@@ -321,9 +324,9 @@ export default function FnbSalesPage() {
                   <div className="p-4">
                     <div className="font-black text-slate-900 line-clamp-1">{product.name}</div>
                     <div className="flex items-center justify-between gap-2 mt-2">
-                      <div className="text-indigo-600 font-black">{money(product.price)} EGP</div>
+                      <div className="text-indigo-600 font-black">{money(product.price)} {f.cur}</div>
                       <div className="text-xs font-bold text-slate-400">
-                        {outOfStock ? "Out of Stock" : atLimit ? "Stock Limit" : "Add +"}
+                        {outOfStock ? tx("Out of Stock") : atLimit ? tx("Stock Limit") : tx("Add +")}
                       </div>
                     </div>
                   </div>
@@ -335,15 +338,15 @@ export default function FnbSalesPage() {
 
         <aside className="sticky top-4 rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden">
           <div className="p-5 border-b border-slate-100">
-            <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">Current Sale</div>
-            <h2 className="text-2xl font-black text-slate-900 mt-1">Walk-in Customer</h2>
-            <p className="text-sm text-slate-500 mt-1">No session · No desk</p>
+            <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("Current Sale")}</div>
+            <h2 className="text-2xl font-black text-slate-900 mt-1">{tx("Walk-in Customer")}</h2>
+            <p className="text-sm text-slate-500 mt-1">{tx("No session · No desk")}</p>
           </div>
 
           <div className="p-5 space-y-4 max-h-[55vh] overflow-auto">
             {cartItems.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-500">
-                Cart is empty.
+                {tx("Cart is empty.")}
               </div>
             ) : (
               cartItems.map((item) => (
@@ -353,7 +356,7 @@ export default function FnbSalesPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-slate-900 line-clamp-1">{item.product.name}</div>
-                    <div className="text-sm text-slate-500">{money(item.product.price)} EGP</div>
+                    <div className="text-sm text-slate-500">{money(item.product.price)} {f.cur}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" className="w-8 h-8 rounded-lg border" onClick={() => changeQuantity(item.product.id, -1)}>-</button>
@@ -374,8 +377,8 @@ export default function FnbSalesPage() {
 
           <div className="p-5 border-t border-slate-100 space-y-4">
             <div className="flex items-center justify-between text-lg">
-              <span className="text-slate-500">Total</span>
-              <span className="font-black text-slate-900">{money(cartTotal)} EGP</span>
+              <span className="text-slate-500">{tx("Total")}</span>
+              <span className="font-black text-slate-900">{money(cartTotal)} {f.cur}</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -390,14 +393,14 @@ export default function FnbSalesPage() {
                       : "border-slate-200 text-slate-700"
                   }`}
                 >
-                  {method === "cash" ? "Cash" : method === "visa" ? "Visa" : "InstaPay"}
+                  {f.pay(method)}
                 </button>
               ))}
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="fnb-paid-amount">
-                Paid Amount
+                {tx("Paid Amount")}
               </label>
               <input
                 id="fnb-paid-amount"
@@ -423,7 +426,7 @@ export default function FnbSalesPage() {
                 value={saleNote}
                 onChange={(event) => setSaleNote(event.target.value)}
                 className="input w-full resize-none"
-                placeholder="Optional sale note"
+                placeholder={tx("Optional sale note")}
                 disabled={saving}
               />
             </div>
@@ -434,7 +437,7 @@ export default function FnbSalesPage() {
               disabled={saving || cartItems.length === 0}
               className="btn btn-primary w-full py-4 text-base font-black"
             >
-              {saving ? "Completing Sale…" : "Complete Sale"}
+              {saving ? tx("Completing Sale…") : tx("Complete Sale")}
             </button>
           </div>
         </aside>
@@ -444,7 +447,7 @@ export default function FnbSalesPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">
           <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-100 text-center">
-              <div className="text-sm font-bold text-emerald-600">Sale Completed</div>
+              <div className="text-sm font-bold text-emerald-600">{tx("Sale Completed")}</div>
               <div className="text-3xl font-black text-slate-900 mt-1">{receipt.saleNumber}</div>
             </div>
 
@@ -462,9 +465,9 @@ export default function FnbSalesPage() {
               </div>
 
               <div className="border-t border-slate-200 pt-4 space-y-2">
-                <div className="flex justify-between text-slate-500"><span>Total</span><span>{money(receipt.total)} EGP</span></div>
-                <div className="flex justify-between text-slate-500"><span>Paid</span><span>{money(receipt.paidAmount)} EGP</span></div>
-                <div className="flex justify-between text-lg font-black text-slate-900"><span>Change</span><span>{money(receipt.changeAmount)} EGP</span></div>
+                <div className="flex justify-between text-slate-500"><span>{tx("Total")}</span><span>{money(receipt.total)} {f.cur}</span></div>
+                <div className="flex justify-between text-slate-500"><span>{tx("Paid")}</span><span>{money(receipt.paidAmount)} {f.cur}</span></div>
+                <div className="flex justify-between text-lg font-black text-slate-900"><span>{tx("Change")}</span><span>{money(receipt.changeAmount)} {f.cur}</span></div>
               </div>
             </div>
 
@@ -474,14 +477,14 @@ export default function FnbSalesPage() {
                 className="btn btn-ghost"
                 onClick={() => setReceipt(null)}
               >
-                Close
+                {tx("Close")}
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => router.push(`/fnb/invoice/${receipt.saleId}`)}
               >
-                Invoice / Print
+                {tx("Invoice / Print")}
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 export default function QrUrlSettings({
   configured,
@@ -10,6 +11,8 @@ export default function QrUrlSettings({
   configured: string;
   detected: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [url, setUrl] = useState(configured);
   const [loading, setLoading] = useState(false);
@@ -26,10 +29,10 @@ export default function QrUrlSettings({
     });
     setLoading(false);
     if (!res.ok) {
-      setMsg({ type: "err", text: "Failed to save" });
+      setMsg({ type: "err", text: tx("Failed to save") });
       return;
     }
-    setMsg({ type: "ok", text: "Saved. New QR codes will use this URL." });
+    setMsg({ type: "ok", text: tx("Saved. New QR codes will use this URL.") });
     router.refresh();
   }
 
@@ -37,13 +40,13 @@ export default function QrUrlSettings({
     <form onSubmit={save} className="space-y-3">
       <div className="p-3 rounded-xl bg-slate-50 text-xs">
         <div className="text-slate-500 uppercase font-semibold">
-          Auto-detected LAN IP
+          {tx("Auto-detected LAN IP")}
         </div>
         <div className="font-mono text-slate-800 mt-1">http://{detected}:3000</div>
       </div>
 
       <div>
-        <label className="label">Custom public URL (optional)</label>
+        <label className="label">{tx("Custom public URL (optional)")}</label>
         <input
           className="input font-mono"
           value={url}
@@ -51,9 +54,7 @@ export default function QrUrlSettings({
           placeholder="e.g. http://192.168.1.20:3000"
         />
         <p className="text-xs text-slate-500 mt-2">
-          Leave empty to use the auto-detected LAN address. Set a custom URL if
-          you use a fixed hostname (e.g. <code>menu.mycafe.local</code>) or if
-          your customers are on a different subnet.
+          {f.en ? <>Leave empty to use the auto-detected LAN address. Set a custom URL if you use a fixed hostname (e.g. <code>menu.mycafe.local</code>) or if your customers are on a different subnet.</> : <>سيبه فاضي لاستخدام عنوان الشبكة المكتشف تلقائياً. حط رابط مخصص لو بتستخدم اسم ثابت (مثلاً <code>menu.mycafe.local</code>) أو لو عملاءك على شبكة تانية.</>}
         </p>
       </div>
 
@@ -70,7 +71,7 @@ export default function QrUrlSettings({
       )}
 
       <button type="submit" className="btn btn-primary" disabled={loading}>
-        {loading ? "Saving…" : "Save URL"}
+        {loading ? tx("Saving…") : tx("Save URL")}
       </button>
     </form>
   );

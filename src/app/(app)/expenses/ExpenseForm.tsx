@@ -5,6 +5,7 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 const CATEGORIES = [
   "Utilities",
@@ -39,6 +40,8 @@ export default function ExpenseForm({
   kind?: "expense" | "income";
   categories?: string[];
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const isIncome = kind === "income";
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "visa" | "instapay">("cash");
   const categoryOptions = Array.from(
@@ -80,7 +83,7 @@ export default function ExpenseForm({
 
     if (!isValidAmount(trimmedAmount)) {
       setError(
-        "Enter a valid amount greater than 0.",
+        tx("Enter a valid amount greater than 0."),
       );
       return;
     }
@@ -90,21 +93,21 @@ export default function ExpenseForm({
       9999999999.99
     ) {
       setError(
-        "Amount is too large.",
+        tx("Amount is too large."),
       );
       return;
     }
 
     if (!category.trim() || category.trim().length > 100) {
       setError(
-        "Enter a category (up to 100 characters).",
+        tx("Enter a category (up to 100 characters)."),
       );
       return;
     }
 
     if (trimmedNote.length > 500) {
       setError(
-        "Note is too long.",
+        tx("Note is too long."),
       );
       return;
     }
@@ -143,7 +146,7 @@ export default function ExpenseForm({
 
       if (!res.ok) {
         setError(
-          data?.error || (isIncome ? "Failed to record the income." : "Failed to record the expense."),
+          data?.error || (isIncome ? tx("Failed to record the income.") : tx("Failed to record the expense.")),
         );
         return;
       }
@@ -161,7 +164,7 @@ export default function ExpenseForm({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -212,7 +215,7 @@ export default function ExpenseForm({
           htmlFor="expense-category"
           className="label"
         >
-          Category
+          {tx("Category")}
         </label>
 
         <input
@@ -222,7 +225,7 @@ export default function ExpenseForm({
           list="expense-category-options"
           value={category}
           maxLength={100}
-          placeholder="Choose or type a new category"
+          placeholder={tx("Choose or type a new category")}
           onChange={(e) => {
             setCategory(
               e.target.value,
@@ -244,7 +247,7 @@ export default function ExpenseForm({
       </div>
 
       <div>
-        <label className="label">{isIncome ? "Received by" : "Paid by"}</label>
+        <label className="label">{isIncome ? tx("Received by") : tx("Paid by")}</label>
         <div className="grid grid-cols-3 gap-2">
           {(["cash", "visa", "instapay"] as const).map((m) => (
             <button
@@ -261,12 +264,12 @@ export default function ExpenseForm({
                   : "border-slate-200 hover:border-indigo-300 bg-white"
               }`}
             >
-              {m === "instapay" ? "InstaPay" : m}
+              {f.pay(m)}
             </button>
           ))}
         </div>
         {!isIncome && (
-          <p className="text-xs text-slate-500 mt-1.5">Only cash expenses reduce the cash drawer. Visa and InstaPay are recorded as non-cash expenses.</p>
+          <p className="text-xs text-slate-500 mt-1.5">{tx("Only cash expenses reduce the cash drawer. Visa and InstaPay are recorded as non-cash expenses.")}</p>
         )}
       </div>
 
@@ -276,7 +279,7 @@ export default function ExpenseForm({
           htmlFor="expense-note"
           className="label"
         >
-          Note
+          {tx("Note")}
         </label>
 
         <input
@@ -290,7 +293,7 @@ export default function ExpenseForm({
             );
             setError(null);
           }}
-          placeholder="Describe the expense…"
+          placeholder={tx("Describe the expense…")}
           maxLength={500}
           autoComplete="off"
           disabled={loading}
@@ -316,7 +319,7 @@ export default function ExpenseForm({
         aria-busy={loading}
       >
         {loading
-          ? "Saving…"
+          ? tx("Saving…")
           : isIncome ? "💰 Record income" : "💸 Record expense"}
       </button>
     </form>

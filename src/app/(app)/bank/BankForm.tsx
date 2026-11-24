@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type TransactionType = "deposit" | "withdraw";
 
@@ -20,6 +21,8 @@ export default function BankForm({
 }: {
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [type, setType] = useState<TransactionType>("deposit");
@@ -43,17 +46,17 @@ export default function BankForm({
     const trimmedNote = note.trim();
 
     if (!isValidAmount(trimmedAmount)) {
-      setError("Enter a valid amount greater than 0.");
+      setError(tx("Enter a valid amount greater than 0."));
       return;
     }
 
     if (numericAmount > 9999999999.99) {
-      setError("Amount is too large.");
+      setError(tx("Amount is too large."));
       return;
     }
 
     if (trimmedNote.length > 500) {
-      setError("Note is too long.");
+      setError(tx("Note is too long."));
       return;
     }
 
@@ -80,7 +83,7 @@ export default function BankForm({
 
       if (!res.ok) {
         setError(
-          data?.error || "Failed to record the transaction.",
+          data?.error || tx("Failed to record the transaction."),
         );
         return;
       }
@@ -93,7 +96,7 @@ export default function BankForm({
       console.error("Bank transaction failed:", err);
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -128,7 +131,7 @@ export default function BankForm({
               : "border-slate-200 bg-white hover:border-slate-300"
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          ⬆️ Deposit
+          {tx("⬆️ Deposit")}
         </button>
 
         <button
@@ -142,7 +145,7 @@ export default function BankForm({
               : "border-slate-200 bg-white hover:border-slate-300"
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          ⬇️ Withdraw
+          {tx("⬇️ Withdraw")}
         </button>
       </div>
 
@@ -182,7 +185,7 @@ export default function BankForm({
           htmlFor="bank-note"
           className="label"
         >
-          Note
+          {tx("Note")}
         </label>
 
         <input
@@ -194,7 +197,7 @@ export default function BankForm({
             setNote(e.target.value);
             setError(null);
           }}
-          placeholder="Reference, receipt #…"
+          placeholder={tx("Reference, receipt #…")}
           maxLength={500}
           disabled={loading}
           autoComplete="off"
@@ -220,10 +223,10 @@ export default function BankForm({
         aria-busy={loading}
       >
         {loading
-          ? "Saving…"
+          ? tx("Saving…")
           : type === "deposit"
-            ? "Record deposit"
-            : "Record withdrawal"}
+            ? tx("Record deposit")
+            : tx("Record withdrawal")}
       </button>
     </form>
   );

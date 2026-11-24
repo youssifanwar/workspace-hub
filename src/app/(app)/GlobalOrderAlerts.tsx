@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Ticket = {
   id: number;
@@ -19,6 +20,8 @@ type TopAlert = {
 };
 
 export default function GlobalOrderAlerts() {
+  const f = useFmt();
+  const tx = f.t;
   const pathname = usePathname();
   const [alerts, setAlerts] = useState<TopAlert[]>([]);
   const [permission, setPermission] = useState<NotificationPermission>(
@@ -277,19 +280,19 @@ export default function GlobalOrderAlerts() {
       <button
         type="button"
         onClick={() => void handleEnableAlerts()}
-        className="fixed bottom-5 right-5 z-[9999] rounded-xl border border-white/20 bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-2xl transition hover:scale-[1.02]"
-        title="Enable order sound and notifications"
+        className="fixed bottom-5 left-5 z-[9999] rounded-xl border border-white/20 bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-2xl transition hover:scale-[1.02]"
+        title={tx("فعّل صوت الطلبات والإشعارات")}
       >
         {soundReady && permission === "granted"
-          ? "🔔 Alerts on"
-          : "🔔 Enable alerts"}
-        <span className="ml-2 text-xs opacity-70">
-          {live ? "• Live" : "• Offline"}
+          ? tx("🔔 التنبيهات شغالة")
+          : tx("🔔 فعّل التنبيهات")}
+        <span className="mr-2 text-xs opacity-70">
+          {live ? tx("• مباشر") : tx("• مفيش اتصال")}
         </span>
       </button>
 
       {/* In-app top notifications work even when browser notifications are blocked. */}
-      <div className="pointer-events-none fixed right-5 top-5 z-[10000] flex w-[min(390px,calc(100vw-32px))] flex-col gap-3">
+      <div className="pointer-events-none fixed left-5 top-5 z-[10000] flex w-[min(390px,calc(100vw-32px))] flex-col gap-3">
         {alerts.map((alert) => (
           <div
             key={alert.id}
@@ -299,13 +302,13 @@ export default function GlobalOrderAlerts() {
               <div className="text-2xl">🔔</div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-bold text-slate-900">
-                  New order received
+                  {tx("وصل طلب جديد")}
                 </div>
                 <div className="mt-0.5 text-sm font-semibold text-slate-700">
-                  Ticket #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}
+                  {tx("تذكرة")} #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}
                 </div>
                 <div className="mt-0.5 text-xs text-slate-500">
-                  {alert.count} item(s) · Live Orders
+                  {alert.count} {tx("أصناف")} · {tx("طلبات المشروبات")}
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Kind = "desk" | "meeting";
 
@@ -50,6 +51,8 @@ export default function CustomerPackagesButton({
   balance?: number;
   canVoid?: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -129,7 +132,7 @@ export default function CustomerPackagesButton({
       }
       setOwned(list);
     } catch {
-      setError("Could not load packages.");
+      setError(tx("Could not load packages."));
     } finally {
       setLoading(false);
     }
@@ -147,11 +150,11 @@ export default function CustomerPackagesButton({
 
   async function voidPackage(item: Owned) {
     const reason = window.prompt(
-      `Void "${item.name}"? Only unused packages can be voided.\nWrite the reason:`,
+      (f.en ? `Void "${item.name}"? Only unused packages can be voided.\nWrite the reason:` : `إلغاء "${item.name}"؟ الباقات اللي لسه ما اتستخدمتش بس هي اللي تتلغي.\nاكتب السبب:`),
     );
     if (reason === null) return;
     if (!reason.trim()) {
-      setError("A reason is required to void a package.");
+      setError(tx("A reason is required to void a package."));
       return;
     }
     setError(null);
@@ -168,26 +171,26 @@ export default function CustomerPackagesButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not void the package.");
+        setError(data?.error || tx("Could not void the package."));
         return;
       }
       setSuccess(
         data.refund === "balance"
-          ? "Package voided and refunded to the customer's balance."
+          ? tx("Package voided and refunded to the customer's balance.")
           : data.paymentMethod === "cash"
-            ? "Package voided. Hand the cash back to the customer."
-            : "Package voided. Refund the customer through the same payment method.",
+            ? tx("Package voided. Hand the cash back to the customer.")
+            : tx("Package voided. Refund the customer through the same payment method."),
       );
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     }
   }
 
   async function sell() {
     if (!packageId) {
-      setError("Choose a package first.");
+      setError(tx("Choose a package first."));
       return;
     }
     setSaving(true);
@@ -220,16 +223,16 @@ export default function CustomerPackagesButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not register the package.");
+        setError(data?.error || tx("Could not register the package."));
         return;
       }
-      setSuccess("Package registered successfully.");
+      setSuccess(tx("Package registered successfully."));
       setPackageId("");
       setNote("");
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -242,7 +245,7 @@ export default function CustomerPackagesButton({
         className="btn btn-ghost text-teal-700"
         onClick={() => setOpen(true)}
       >
-        Packages & hours
+        {tx("الباقات والساعات")}
       </button>
 
       {open &&
@@ -252,7 +255,7 @@ export default function CustomerPackagesButton({
             <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold">Customer packages & hours</h2>
+                  <h2 className="text-xl font-bold">{tx("Customer packages & hours")}</h2>
                   <p className="text-sm text-slate-500">
                     {customerName} · {customerPhone}
                   </p>
@@ -270,12 +273,12 @@ export default function CustomerPackagesButton({
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Current packages</h3>
+                <h3 className="font-semibold mb-2">{tx("Current packages")}</h3>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">{tx("Loading…")}</p>
                 ) : owned.length === 0 ? (
                   <p className="text-sm text-slate-400">
-                    No packages yet for this customer.
+                    {tx("No packages yet for this customer.")}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -288,16 +291,16 @@ export default function CustomerPackagesButton({
                           <div className="font-semibold">
                             {o.name}{" "}
                             <span className="text-xs text-slate-500">
-                              ({o.kind === "desk" ? "Desk" : "Meeting room"})
+                              ({o.kind === "desk" ? tx("Desk") : tx("Meeting room")})
                             </span>
                           </div>
                           <div className="text-slate-500">
-                            Paid: {new Date(o.purchasedAt).toLocaleString()}
+                            {tx("Paid")}: {new Date(o.purchasedAt).toLocaleString()}
                             {o.expiresAt
-                              ? ` · Expires: ${new Date(
+                              ? ` · ${tx("Expires")}: ${new Date(
                                   o.expiresAt,
                                 ).toLocaleDateString()}`
-                              : " · No expiry"}
+                              : ` · ${tx("No expiry")}`}
                           </div>
                         </div>
                         <div className="text-right">
@@ -314,7 +317,7 @@ export default function CustomerPackagesButton({
                               className="text-xs text-red-600 font-semibold mt-1 hover:underline"
                               onClick={() => void voidPackage(o)}
                             >
-                              Void (sold by mistake)
+                              {tx("Void (sold by mistake)")}
                             </button>
                           )}
                         </div>
@@ -326,12 +329,10 @@ export default function CustomerPackagesButton({
 
               <div className="border-t border-slate-200 pt-4 space-y-3">
                 <h3 className="font-semibold">
-                  Assign / sell a package to this customer
+                  {tx("Assign / sell a package to this customer")}
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Create package definitions first in Settings → Meeting Room
-                  Packages. Then choose Desk hours or Meeting room hours below
-                  and register the sale using the customer's payment method.
+                  {tx("Create package definitions first in Settings → Meeting Room Packages. Then choose Desk hours or Meeting room hours below and register the sale using the customer's payment method.")}
                 </p>
 
                 <div className="flex gap-2">
@@ -347,37 +348,36 @@ export default function CustomerPackagesButton({
                         kind === k ? "btn-primary" : "btn-ghost"
                       }`}
                     >
-                      {k === "desk" ? "Desk hours" : "Meeting room hours"}
+                      {k === "desk" ? tx("Desk hours") : tx("Meeting room hours")}
                     </button>
                   ))}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Package type</label>
+                  <label className="text-sm font-medium">{tx("Package type")}</label>
                   <select
                     className="input w-full"
                     value={packageId}
                     onChange={(e) => setPackageId(e.target.value)}
                   >
-                    <option value="">Select…</option>
+                    <option value="">{tx("Select…")}</option>
                     {list.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} — {Number(p.totalHours)}h —{" "}
                         {Number(p.price)} {currency}
-                        {p.validityDays ? ` — ${p.validityDays} days` : ""}
+                        {p.validityDays ? ` — ${p.validityDays} ${tx("days")}` : ""}
                       </option>
                     ))}
                   </select>
                   {list.length === 0 && !loading && (
                     <p className="text-xs text-amber-600 mt-1">
-                      No active {kind === "desk" ? "desk" : "meeting room"}{" "}
-                      packages. Create them in Settings first.
+                      {f.en ? `No active ${kind === "desk" ? "desk" : "meeting room"} packages. Create them in Settings first.` : `مفيش باقات ${kind === "desk" ? "مكاتب" : "غرف اجتماعات"} نشطة. اعملها من الإعدادات الأول.`}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Paid by</label>
+                  <label className="text-sm font-medium">{tx("Paid by")}</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                     {(["cash", "visa", "instapay", "balance"] as const).map(
                       (m) => (
@@ -392,9 +392,9 @@ export default function CustomerPackagesButton({
                           }`}
                         >
                           {m === "instapay"
-                            ? "InstaPay"
+                            ? tx("InstaPay")
                             : m === "balance"
-                              ? `Balance · ${balance.toFixed(2)}`
+                              ? `${tx("Balance")} · ${balance.toFixed(2)}`
                               : m}
                         </button>
                       ),
@@ -403,7 +403,7 @@ export default function CustomerPackagesButton({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Payment date</label>
+                  <label className="text-sm font-medium">{tx("Payment date")}</label>
                   <input
                     type="datetime-local"
                     className="input w-full"
@@ -412,12 +412,12 @@ export default function CustomerPackagesButton({
                     onChange={(e) => setPaidAt(e.target.value)}
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Expiry is counted from this date.
+                    {tx("Expiry is counted from this date.")}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Note (optional)</label>
+                  <label className="text-sm font-medium">{tx("Note (optional)")}</label>
                   <input
                     className="input w-full"
                     value={note}
@@ -442,7 +442,7 @@ export default function CustomerPackagesButton({
                   disabled={saving || !packageId}
                   onClick={sell}
                 >
-                  {saving ? "Saving…" : "Register package"}
+                  {saving ? tx("Saving…") : tx("Register package")}
                 </button>
               </div>
             </div>

@@ -12,6 +12,7 @@ import {
 
 import CustomerSearchField from "./CustomerSearchField";
 import MeetingPackagePurchase from "./MeetingPackagePurchase";
+import { useFmt } from "@/lib/lang-context";
 
 export type DialogRoom = {
   id: number;
@@ -89,6 +90,8 @@ export default function ReservationDialog({
   timeZone?: string;
   onClose: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   // The date/time the user types is in the WORKSPACE timezone, regardless
   // of the browser's own timezone.
@@ -230,7 +233,7 @@ export default function ReservationDialog({
             state: "conflict",
             message: message(
               avail,
-              "This room is not available for the selected time.",
+              tx("This room is not available for the selected time."),
             ),
           });
         } else {
@@ -254,14 +257,14 @@ export default function ReservationDialog({
           });
         } else {
           setQuote(null);
-          setQuoteError(message(price, "Could not calculate the price."));
+          setQuoteError(message(price, tx("Could not calculate the price.")));
         }
       } catch (e) {
         if ((e as Error)?.name === "AbortError") return;
         if (id === seq.current) {
           setCheck({
             state: "conflict",
-            message: "Could not reach the reservation service.",
+            message: tx("Could not reach the reservation service."),
           });
         }
       }
@@ -290,7 +293,7 @@ export default function ReservationDialog({
   async function submit() {
     if (saving || !formValid || !room || !start || !end) return;
     if (!name.trim() || !phone.trim()) {
-      setError("Enter the customer's name and phone number.");
+      setError(tx("Enter the customer's name and phone number."));
       return;
     }
     setError(null);
@@ -316,13 +319,13 @@ export default function ReservationDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(message(data, "Could not create the reservation."));
+        setError(message(data, tx("Could not create the reservation.")));
         return;
       }
       router.refresh();
       onClose();
     } catch {
-      setError("Network error. Please try again.");
+      setError(tx("Network error. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -374,15 +377,15 @@ export default function ReservationDialog({
                 id="reservation-title"
                 className="text-xl font-bold text-slate-900"
               >
-                New reservation
+                {tx("New reservation")}
               </h2>
               <p className="text-sm text-slate-500">
-                Availability and price update as you type.
+                {tx("Availability and price update as you type.")}
               </p>
             </div>
             <button
               type="button"
-              aria-label="Close"
+              aria-label={tx("Close")}
               className="btn btn-ghost !px-3"
               onClick={onClose}
               disabled={saving}
@@ -398,7 +401,7 @@ export default function ReservationDialog({
                 <h3 className="text-sm font-bold text-slate-900">
                   1 · Room &amp; time
                 </h3>
-                <Field label="Room">
+                <Field label={tx("Room")}>
                   <select
                     className="select"
                     value={roomId}
@@ -410,7 +413,7 @@ export default function ReservationDialog({
                       if (r && people > r.capacity) setPeople(r.capacity);
                     }}
                   >
-                    <option value="">Choose a room…</option>
+                    <option value="">{tx("Choose a room…")}</option>
                     {rooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name} · up to {r.capacity} people
@@ -420,7 +423,7 @@ export default function ReservationDialog({
                 </Field>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Date">
+                  <Field label={tx("Date")}>
                     <input
                       type="date"
                       className="input"
@@ -429,7 +432,7 @@ export default function ReservationDialog({
                       onChange={(e) => setDate(e.target.value)}
                     />
                   </Field>
-                  <Field label="Start time">
+                  <Field label={tx("Start time")}>
                     <input
                       type="time"
                       step={900}
@@ -442,19 +445,19 @@ export default function ReservationDialog({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Duration">
+                  <Field label={tx("Duration")}>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         className="btn btn-ghost !px-3"
                         disabled={saving || duration <= 1}
                         onClick={() => setDuration((d) => Math.max(1, d - 1))}
-                        aria-label="Shorter"
+                        aria-label={tx("Shorter")}
                       >
                         −
                       </button>
                       <div className="flex-1 text-center font-semibold tabular-nums">
-                        {duration} {duration === 1 ? "hour" : "hours"}
+                        {duration} {duration === 1 ? tx("hour") : "hours"}
                       </div>
                       <button
                         type="button"
@@ -463,15 +466,15 @@ export default function ReservationDialog({
                         onClick={() =>
                           setDuration((d) => Math.min(maxDurationHours, d + 1))
                         }
-                        aria-label="Longer"
+                        aria-label={tx("Longer")}
                       >
                         +
                       </button>
                     </div>
                   </Field>
                   <Field
-                    label="People"
-                    hint={room ? `Capacity ${room.capacity}` : undefined}
+                    label={tx("People")}
+                    hint={room ? `${tx("Capacity")} ${room.capacity}` : undefined}
                   >
                     <div className="flex items-center gap-2">
                       <button
@@ -479,7 +482,7 @@ export default function ReservationDialog({
                         className="btn btn-ghost !px-3"
                         disabled={saving || people <= 1}
                         onClick={() => setPeople((p) => Math.max(1, p - 1))}
-                        aria-label="Fewer"
+                        aria-label={tx("Fewer")}
                       >
                         −
                       </button>
@@ -493,7 +496,7 @@ export default function ReservationDialog({
                           saving || (room ? people >= room.capacity : false)
                         }
                         onClick={() => setPeople((p) => p + 1)}
-                        aria-label="More"
+                        aria-label={tx("More")}
                       >
                         +
                       </button>
@@ -504,7 +507,7 @@ export default function ReservationDialog({
 
               <section className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900">
-                  2 · Customer
+                  {tx("2 · Customer")}
                 </h3>
                 <CustomerSearchField
                   name={name}
@@ -522,7 +525,7 @@ export default function ReservationDialog({
                   }}
                 />
                 {packages.length > 0 && (
-                  <Field label="Pay with a package">
+                  <Field label={tx("Pay with a package")}>
                     <select
                       className="select"
                       value={packageId ?? ""}
@@ -533,12 +536,12 @@ export default function ReservationDialog({
                         )
                       }
                     >
-                      <option value="">Pay normally</option>
+                      <option value="">{tx("Pay normally")}</option>
                       {packages.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.packageNameSnapshot ??
                             p.packageName ??
-                            `Package #${p.id}`}{" "}
+                            `${tx("Package")} #${p.id}`}{" "}
                           · {Number(p.remainingHours).toFixed(2)}h left
                         </option>
                       ))}
@@ -562,7 +565,7 @@ export default function ReservationDialog({
                   3 · Repeat &amp; notes
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Repeat">
+                  <Field label={tx("Repeat")}>
                     <select
                       className="select"
                       value={recurrence}
@@ -573,15 +576,15 @@ export default function ReservationDialog({
                         )
                       }
                     >
-                      <option value="none">Does not repeat</option>
-                      <option value="daily">Every day</option>
-                      <option value="weekly">Every week</option>
+                      <option value="none">{tx("Does not repeat")}</option>
+                      <option value="daily">{tx("Every day")}</option>
+                      <option value="weekly">{tx("Every week")}</option>
                     </select>
                   </Field>
                   {recurrence !== "none" && (
                     <Field
-                      label={recurrence === "daily" ? "Days" : "Weeks"}
-                      hint="2 to 52"
+                      label={recurrence === "daily" ? tx("Days") : tx("Weeks")}
+                      hint={tx("2 to 52")}
                     >
                       <input
                         type="number"
@@ -597,11 +600,11 @@ export default function ReservationDialog({
                     </Field>
                   )}
                 </div>
-                <Field label="Notes">
+                <Field label={tx("Notes")}>
                   <input
                     className="input"
                     maxLength={2000}
-                    placeholder="Optional"
+                    placeholder={tx("Optional")}
                     value={notes}
                     disabled={saving}
                     onChange={(e) => setNotes(e.target.value)}
@@ -612,11 +615,11 @@ export default function ReservationDialog({
 
             {/* Summary */}
             <aside className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-100 p-6 flex flex-col">
-              <h3 className="text-sm font-bold text-slate-900 mb-4">Summary</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-4">{tx("Summary")}</h3>
 
               <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-1">
                 <div className="font-bold text-slate-900">
-                  {room?.name ?? "No room selected"}
+                  {room?.name ?? tx("No room selected")}
                 </div>
                 {start && end ? (
                   <>
@@ -629,7 +632,7 @@ export default function ReservationDialog({
                   </>
                 ) : (
                   <div className="text-sm text-slate-400">
-                    Pick a date and time
+                    {tx("Pick a date and time")}
                   </div>
                 )}
                 {occurrences > 1 && (
@@ -643,23 +646,22 @@ export default function ReservationDialog({
               <div className="mt-4" aria-live="polite">
                 {inPast && (
                   <Pill tone="amber">
-                    The start time must be in the future. To seat someone right
-                    now, use Start now.
+                    {tx("The start time must be in the future. To seat someone right now, use Start now.")}
                   </Pill>
                 )}
                 {overCapacity && (
                   <Pill tone="amber">
-                    Over capacity ({room?.capacity} max)
+                    {tx("Over capacity")} ({room?.capacity} {tx("max")})
                   </Pill>
                 )}
                 {!inPast && !overCapacity && check.state === "idle" && (
-                  <Pill tone="slate">Choose a room to check availability</Pill>
+                  <Pill tone="slate">{tx("Choose a room to check availability")}</Pill>
                 )}
                 {check.state === "checking" && (
-                  <Pill tone="slate">Checking availability…</Pill>
+                  <Pill tone="slate">{tx("Checking availability…")}</Pill>
                 )}
                 {check.state === "ok" && (
-                  <Pill tone="green">Room is available</Pill>
+                  <Pill tone="green">{tx("Room is available")}</Pill>
                 )}
                 {check.state === "conflict" && (
                   <Pill tone="red">{check.message}</Pill>
@@ -670,23 +672,23 @@ export default function ReservationDialog({
               <dl className="mt-5 space-y-2 text-sm">
                 {quote ? (
                   <>
-                    <Row k="Rate" v={`${money(quote.hourlyRate)} / hour`} />
-                    <Row k="Subtotal" v={money(quote.subtotal)} />
+                    <Row k={tx("Rate")} v={`${money(quote.hourlyRate)} / ${tx("hour")}`} />
+                    <Row k={tx("Subtotal")} v={money(quote.subtotal)} />
                     {quote.discount > 0 && (
                       <Row
-                        k={`Package discount (${quote.discountPercent}%)`}
+                        k={`${tx("Package discount")} (${quote.discountPercent}%)`}
                         v={`− ${money(quote.discount)}`}
                         accent
                       />
                     )}
                     {packageId !== null && quote.packageHours > 0 && (
                       <Row
-                        k="Package hours used"
-                        v={`${quote.packageHours.toFixed(2)} h`}
+                        k={tx("Package hours used")}
+                        v={`${quote.packageHours.toFixed(2)} ${tx("h")}`}
                       />
                     )}
                     <div className="border-t border-slate-200 pt-3 mt-3 flex items-baseline justify-between">
-                      <dt className="font-bold text-slate-900">Total</dt>
+                      <dt className="font-bold text-slate-900">{tx("Total")}</dt>
                       <dd className="text-xl font-extrabold text-indigo-700 tabular-nums">
                         {money(quote.total)}
                       </dd>
@@ -696,7 +698,7 @@ export default function ReservationDialog({
                   <div className="text-xs text-rose-600">{quoteError}</div>
                 ) : (
                   <div className="text-xs text-slate-400">
-                    The price appears once the details are complete.
+                    {tx("The price appears once the details are complete.")}
                   </div>
                 )}
               </dl>
@@ -716,7 +718,7 @@ export default function ReservationDialog({
                   disabled={!canConfirm}
                   onClick={submit}
                 >
-                  {saving ? "Saving…" : "Confirm reservation"}
+                  {saving ? tx("Saving…") : tx("Confirm reservation")}
                 </button>
                 <button
                   type="button"
@@ -724,7 +726,7 @@ export default function ReservationDialog({
                   disabled={saving}
                   onClick={onClose}
                 >
-                  Cancel
+                  {tx("Cancel")}
                 </button>
               </div>
             </aside>
@@ -744,6 +746,8 @@ function Row({
   v: string;
   accent?: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-slate-500">{k}</dt>
@@ -765,6 +769,8 @@ function Pill({
   tone: "green" | "red" | "amber" | "slate";
   children: React.ReactNode;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const styles = {
     green: "bg-emerald-50 text-emerald-700 border-emerald-200",
     red: "bg-rose-50 text-rose-700 border-rose-200",

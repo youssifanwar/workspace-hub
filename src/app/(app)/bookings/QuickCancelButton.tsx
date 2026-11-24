@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 export default function QuickCancelButton({
   bookingId,
@@ -10,6 +11,8 @@ export default function QuickCancelButton({
   bookingId: number;
   label?: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -17,7 +20,7 @@ export default function QuickCancelButton({
     if (busy) return;
     if (
       !confirm(
-        "Cancel this session? It will be removed and nothing will be charged.",
+        tx("Cancel this session? It will be removed and nothing will be charged."),
       )
     ) {
       return;
@@ -29,12 +32,12 @@ export default function QuickCancelButton({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || "Could not cancel this session.");
+        alert(data?.error || tx("Could not cancel this session."));
         return;
       }
       router.refresh();
     } catch {
-      alert("Network error. Try again.");
+      alert(tx("Network error. Try again."));
     } finally {
       setBusy(false);
     }
@@ -47,7 +50,7 @@ export default function QuickCancelButton({
       disabled={busy}
       className="btn btn-ghost text-red-600 w-full"
     >
-      {busy ? "Cancelling…" : `✕ ${label}`}
+      {busy ? tx("Cancelling…") : `✕ ${tx(label)}`}
     </button>
   );
 }

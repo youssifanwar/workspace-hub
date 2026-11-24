@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type StatusResponse = {
   connected: boolean;
@@ -15,6 +16,8 @@ type ApiResponse = {
 };
 
 export default function GoogleCalendarSettings() {
+  const f = useFmt();
+  const tx = f.t;
   const [status, setStatus] =
     useState<StatusResponse>({
       connected: false,
@@ -59,7 +62,7 @@ export default function GoogleCalendarSettings() {
       if (!res.ok) {
         setError(
           data.error ||
-            `Status request failed (HTTP ${res.status})`,
+            (f.en ? `Status request failed (HTTP ${res.status})` : `فشل طلب الحالة (HTTP ${res.status})`),
         );
 
         return null;
@@ -86,7 +89,7 @@ export default function GoogleCalendarSettings() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not check Google Calendar status.",
+          : tx("Could not check Google Calendar status."),
       );
 
       return null;
@@ -170,7 +173,7 @@ export default function GoogleCalendarSettings() {
       ) {
         setError(
           data.error ||
-            `Could not start Google Calendar connection (HTTP ${res.status})`,
+            (f.en ? `Could not start Google Calendar connection (HTTP ${res.status})` : `مقدرناش نبدأ الربط بتقويم جوجل (HTTP ${res.status})`),
         );
 
         setConnecting(false);
@@ -193,7 +196,7 @@ export default function GoogleCalendarSettings() {
        * Keep this app open and poll until the local token is stored.
        */
       setSuccess(
-        "Google sign-in opened. Complete the authorization in the browser…",
+        tx("Google sign-in opened. Complete the authorization in the browser…"),
       );
 
       // ---------------------------------------------------------------------
@@ -221,7 +224,7 @@ export default function GoogleCalendarSettings() {
             setSuccess(null);
 
             setError(
-              "Google authorization timed out. Please try Connect again.",
+              tx("Google authorization timed out. Please try Connect again."),
             );
 
             return;
@@ -235,11 +238,7 @@ export default function GoogleCalendarSettings() {
           ) {
             setConnecting(false);
             setSuccess(
-              `Google Calendar connected${
-                nextStatus.email
-                  ? `: ${nextStatus.email}`
-                  : ""
-              }`,
+              `${tx("Google Calendar connected")}${nextStatus.email ? `: ${nextStatus.email}` : ""}`,
             );
 
             return;
@@ -268,7 +267,7 @@ export default function GoogleCalendarSettings() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not start Google Calendar connection.",
+          : tx("Could not start Google Calendar connection."),
       );
 
       setConnecting(false);
@@ -286,7 +285,7 @@ export default function GoogleCalendarSettings() {
 
     if (
       !window.confirm(
-        "Disconnect Google Calendar from WorkSpace Hub?",
+        tx("Disconnect Google Calendar from WorkSpace Hub?"),
       )
     ) {
       return;
@@ -318,7 +317,7 @@ export default function GoogleCalendarSettings() {
       if (!res.ok) {
         setError(
           data.error ||
-            `Disconnect failed (HTTP ${res.status})`,
+            (f.en ? `Disconnect failed (HTTP ${res.status})` : `فشل الفصل (HTTP ${res.status})`),
         );
 
         return;
@@ -330,7 +329,7 @@ export default function GoogleCalendarSettings() {
       });
 
       setSuccess(
-        "Google Calendar disconnected successfully.",
+        tx("Google Calendar disconnected successfully."),
       );
     } catch (err) {
       console.error(
@@ -341,7 +340,7 @@ export default function GoogleCalendarSettings() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not disconnect Google Calendar.",
+          : tx("Could not disconnect Google Calendar."),
       );
     } finally {
       setDisconnecting(false);
@@ -359,29 +358,27 @@ export default function GoogleCalendarSettings() {
 
         <div>
           <div className="font-semibold text-slate-800">
-            Google Calendar
+            {tx("Google Calendar")}
           </div>
 
           <div className="text-sm text-slate-500">
-            Use Google Calendar to manage
-            meeting-room availability and
-            reservations.
+            {tx("Use Google Calendar to manage meeting-room availability and reservations.")}
           </div>
         </div>
 
         {loading ? (
           <div className="text-sm text-slate-500">
-            Checking connection…
+            {tx("Checking connection…")}
           </div>
         ) : status.connected ? (
           <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            Connected
+            {tx("Connected")}
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-            Not connected
+            {tx("Not connected")}
           </div>
         )}
 
@@ -397,7 +394,7 @@ export default function GoogleCalendarSettings() {
           <div className="text-sm text-emerald-800">
 
             <div className="font-bold">
-              Google account connected
+              {tx("Google account connected")}
             </div>
 
             {status.email && (
@@ -419,8 +416,8 @@ export default function GoogleCalendarSettings() {
             className="btn btn-ghost mt-3 text-red-600 disabled:opacity-50"
           >
             {disconnecting
-              ? "Disconnecting…"
-              : "Disconnect"}
+              ? tx("Disconnecting…")
+              : tx("Disconnect")}
           </button>
 
         </div>
@@ -428,8 +425,7 @@ export default function GoogleCalendarSettings() {
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
 
           <div className="text-sm text-slate-600 mb-3">
-            Connect the Gmail account you
-            created for the workspace.
+            {tx("Connect the Gmail account you created for the workspace.")}
           </div>
 
           <button
@@ -442,8 +438,8 @@ export default function GoogleCalendarSettings() {
             className="btn btn-primary disabled:opacity-50"
           >
             {connecting
-              ? "Waiting for Google authorization…"
-              : "Connect Google Calendar"}
+              ? tx("Waiting for Google authorization…")
+              : tx("Connect Google Calendar")}
           </button>
 
         </div>

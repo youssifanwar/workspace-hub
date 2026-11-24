@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type NewOrderEvent = {
   type: "new_order";
@@ -93,6 +94,8 @@ function isValidNewOrderEvent(
 }
 
 export default function NotificationListener() {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -365,7 +368,7 @@ export default function NotificationListener() {
             )}
 
             <div className="text-xs text-indigo-600 font-semibold mt-1">
-              Click to view →
+              {tx("Click to view →")}
             </div>
           </div>
 
@@ -373,7 +376,7 @@ export default function NotificationListener() {
             type="button"
             onClick={closeToast}
             className="text-slate-400 hover:text-slate-600 text-lg shrink-0"
-            aria-label="Dismiss new order notification"
+            aria-label={tx("Dismiss new order notification")}
           >
             ✕
           </button>

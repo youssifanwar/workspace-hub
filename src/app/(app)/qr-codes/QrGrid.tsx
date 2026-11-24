@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type Desk = {
   id: number;
@@ -22,6 +23,8 @@ export default function QrGrid({
   baseUrl: string;
   workspaceName: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [selected, setSelected] =
     useState<Set<number>>(new Set());
 
@@ -220,7 +223,7 @@ export default function QrGrid({
             className="btn btn-ghost"
             onClick={selectAll}
           >
-            Select all
+            {tx("Select all")}
           </button>
 
           <button
@@ -228,7 +231,7 @@ export default function QrGrid({
             className="btn btn-ghost"
             onClick={selectNone}
           >
-            Clear
+            {tx("Clear")}
           </button>
 
           <div className="ml-auto flex gap-2">
@@ -284,8 +287,8 @@ export default function QrGrid({
                   <div className="text-[11px] text-slate-500">
                     {desk.type ===
                     "meeting_room"
-                      ? "Meeting Room"
-                      : "Desk"}
+                      ? tx("Meeting Room")
+                      : tx("Desk")}
                   </div>
                 </div>
 
@@ -301,7 +304,7 @@ export default function QrGrid({
                     printState.active
                   }
                 >
-                  🖨 Print
+                  {tx("🖨 Print")}
                 </button>
               </div>
             );
@@ -341,8 +344,8 @@ export default function QrGrid({
                   <div className="print-type">
                     {desk.type ===
                     "meeting_room"
-                      ? "Meeting Room"
-                      : "Desk"}
+                      ? tx("Meeting Room")
+                      : tx("Desk")}
                   </div>
 
                   <div className="print-qr">
@@ -354,7 +357,7 @@ export default function QrGrid({
                   </div>
 
                   <div className="print-cta">
-                    📱 Scan to order
+                    {tx("📱 Scan to order")}
                   </div>
 
                   <div className="print-url">

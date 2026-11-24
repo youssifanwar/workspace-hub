@@ -5,6 +5,7 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type U = {
   id: number;
@@ -29,6 +30,8 @@ export default function UsersAdmin({
 }: {
   users: U[];
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [creating, setCreating] = useState(false);
@@ -66,7 +69,7 @@ export default function UsersAdmin({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to update the user.",
+            tx("Failed to update the user."),
         );
         return false;
       }
@@ -77,7 +80,7 @@ export default function UsersAdmin({
       console.error("User update failed:", err);
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
 
       return false;
@@ -115,7 +118,7 @@ export default function UsersAdmin({
     }
 
     const pw = window.prompt(
-      `Enter a new password for ${u.username}:`,
+      (f.en ? `Enter a new password for ${u.username}:` : `اكتب كلمة مرور جديدة لـ ${u.username}:`),
     );
 
     if (pw === null) {
@@ -124,20 +127,20 @@ export default function UsersAdmin({
 
     if (pw.length < 6) {
       setError(
-        "Password must be at least 6 characters.",
+        tx("Password must be at least 6 characters."),
       );
       return;
     }
 
     if (pw.length > 128) {
       setError(
-        "Password must not exceed 128 characters.",
+        tx("Password must not exceed 128 characters."),
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Reset the password for ${u.username}?`,
+      (f.en ? `Reset the password for ${u.username}?` : `إعادة تعيين كلمة مرور ${u.username}؟`),
     );
 
     if (!confirmed) {
@@ -149,7 +152,7 @@ export default function UsersAdmin({
     });
 
     if (success) {
-      window.alert("Password updated ✓");
+      window.alert(tx("Password updated ✓"));
     }
   }
 
@@ -186,7 +189,7 @@ export default function UsersAdmin({
           className="btn btn-primary"
           disabled={busyUserId !== null}
         >
-          + New user
+          {tx("+ New user")}
         </button>
       </div>
 
@@ -195,23 +198,23 @@ export default function UsersAdmin({
           <thead className="text-xs text-slate-500 uppercase text-left">
             <tr>
               <th className="py-2">
-                User
+                {tx("User")}
               </th>
 
               <th>
-                Username
+                {tx("Username")}
               </th>
 
               <th>
-                Role
+                {tx("Role")}
               </th>
 
               <th>
-                Status
+                {tx("Status")}
               </th>
 
               <th className="text-right">
-                Actions
+                {tx("Actions")}
               </th>
             </tr>
           </thead>
@@ -253,7 +256,7 @@ export default function UsersAdmin({
 
                         if (!ROLES.includes(nextRole)) {
                           setError(
-                            "Invalid role.",
+                            tx("Invalid role."),
                           );
                           return;
                         }
@@ -266,18 +269,18 @@ export default function UsersAdmin({
                       disabled={
                         busyUserId !== null
                       }
-                      aria-label={`Role for ${u.username}`}
+                      aria-label={(f.en ? `Role for ${u.username}` : `دور ${u.username}`)}
                     >
                       <option value="admin">
-                        Admin
+                        {tx("Admin")}
                       </option>
 
                       <option value="manager">
-                        Manager
+                        {tx("Manager")}
                       </option>
 
                       <option value="employee">
-                        Employee
+                        {tx("Employee")}
                       </option>
                     </select>
                   </td>
@@ -291,8 +294,8 @@ export default function UsersAdmin({
                       }`}
                     >
                       {u.active
-                        ? "Active"
-                        : "Disabled"}
+                        ? tx("Active")
+                        : tx("Disabled")}
                     </span>
                   </td>
 
@@ -307,8 +310,8 @@ export default function UsersAdmin({
                         disabled={
                           busyUserId !== null
                         }
-                        title="Reset password"
-                        aria-label={`Reset password for ${u.username}`}
+                        title={tx("Reset password")}
+                        aria-label={(f.en ? `Reset password for ${u.username}` : `إعادة تعيين كلمة مرور ${u.username}`)}
                       >
                         🔑
                       </button>
@@ -324,10 +327,10 @@ export default function UsersAdmin({
                         }
                       >
                         {busy
-                          ? "Saving…"
+                          ? tx("Saving…")
                           : u.active
-                            ? "Disable"
-                            : "Enable"}
+                            ? tx("Disable")
+                            : tx("Enable")}
                       </button>
                     </div>
                   </td>
@@ -340,7 +343,7 @@ export default function UsersAdmin({
 
       {users.length === 0 && (
         <div className="text-center py-8 text-sm text-slate-400">
-          No users found.
+          {tx("No users found.")}
         </div>
       )}
 
@@ -365,6 +368,8 @@ function NewUserModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -396,14 +401,14 @@ function NewUserModal({
 
     if (!normalizedFullName) {
       setError(
-        "Full name is required.",
+        tx("Full name is required."),
       );
       return;
     }
 
     if (normalizedFullName.length > 200) {
       setError(
-        "Full name is too long.",
+        tx("Full name is too long."),
       );
       return;
     }
@@ -414,7 +419,7 @@ function NewUserModal({
       )
     ) {
       setError(
-        "Username may contain only letters, numbers, dots, underscores, and hyphens.",
+        tx("Username may contain only letters, numbers, dots, underscores, and hyphens."),
       );
       return;
     }
@@ -424,13 +429,13 @@ function NewUserModal({
       password.length > 128
     ) {
       setError(
-        "Password must be between 6 and 128 characters.",
+        tx("Password must be between 6 and 128 characters."),
       );
       return;
     }
 
     if (!ROLES.includes(role)) {
-      setError("Invalid role.");
+      setError(tx("Invalid role."));
       return;
     }
 
@@ -459,7 +464,7 @@ function NewUserModal({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to create the user.",
+            tx("Failed to create the user."),
         );
         return;
       }
@@ -472,7 +477,7 @@ function NewUserModal({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -492,14 +497,14 @@ function NewUserModal({
             id="new-user-title"
             className="text-xl font-bold"
           >
-            New user
+            {tx("New user")}
           </h3>
 
           <button
             type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center"
-            aria-label="Close"
+            aria-label={tx("Close")}
             disabled={loading}
           >
             ✕
@@ -517,7 +522,7 @@ function NewUserModal({
               htmlFor="new-user-full-name"
               className="label"
             >
-              Full name
+              {tx("Full name")}
             </label>
 
             <input
@@ -545,7 +550,7 @@ function NewUserModal({
                 htmlFor="new-user-username"
                 className="label"
               >
-                Username
+                {tx("Username")}
               </label>
 
               <input
@@ -574,7 +579,7 @@ function NewUserModal({
                 htmlFor="new-user-password"
                 className="label"
               >
-                Password
+                {tx("Password")}
               </label>
 
               <input
@@ -604,7 +609,7 @@ function NewUserModal({
               htmlFor="new-user-role"
               className="label"
             >
-              Role
+              {tx("Role")}
             </label>
 
             <select
@@ -626,15 +631,15 @@ function NewUserModal({
               disabled={loading}
             >
               <option value="employee">
-                Employee
+                {tx("Employee")}
               </option>
 
               <option value="manager">
-                Manager
+                {tx("Manager")}
               </option>
 
               <option value="admin">
-                Admin
+                {tx("Admin")}
               </option>
             </select>
           </div>
@@ -658,7 +663,7 @@ function NewUserModal({
               className="btn btn-ghost flex-1"
               disabled={loading}
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -668,8 +673,8 @@ function NewUserModal({
               aria-busy={loading}
             >
               {loading
-                ? "Creating…"
-                : "Create user"}
+                ? tx("Creating…")
+                : tx("Create user")}
             </button>
           </div>
         </form>

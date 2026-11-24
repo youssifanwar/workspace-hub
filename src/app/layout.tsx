@@ -12,6 +12,9 @@ import "@fontsource/fira-code/500.css";
 import "@fontsource-variable/noto-sans-arabic";
 
 import "./globals.css";
+import "./redesign.css";
+import { getLang } from "@/lib/i18n";
+import { LangProvider } from "@/lib/lang-context";
 
 export const metadata: Metadata = {
   title: {
@@ -26,18 +29,20 @@ export const metadata: Metadata = {
   ),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const lang = await getLang();
   return (
     <html
-      lang="en"
+      lang={lang}
+      dir={lang === "ar" ? "rtl" : "ltr"}
       suppressHydrationWarning
     >
       <body className="antialiased">
-        {children}
+        <LangProvider lang={lang}>{children}</LangProvider>
       </body>
     </html>
   );

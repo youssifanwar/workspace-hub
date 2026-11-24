@@ -33,6 +33,8 @@ import {
   getSetting,
 } from "@/lib/settings";
 import { activeTimeZone, getZonedDayRange, loadTimezone } from "@/lib/timezone";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +118,8 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   await loadTimezone();
 
@@ -735,12 +739,12 @@ export default async function ReportsPage({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Reports
+            {tx("Reports")}
           </h1>
 
           <p className="text-slate-500">
             {formatDate(from)} →{" "}
-            {formatDate(to)} · Last {days} days
+            {formatDate(to)} · {f.en ? `Last ${days} days` : `آخر ${days} يوم`}
           </p>
         </div>
 
@@ -762,7 +766,7 @@ export default async function ReportsPage({
                 }`}
               >
                 {range === 1
-                  ? "Today"
+                  ? tx("Today")
                   : `${range}d`}
               </Link>
             ),
@@ -774,7 +778,7 @@ export default async function ReportsPage({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="kpi bg-gradient-to-br from-emerald-500 to-teal-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Revenue
+            {tx("Revenue")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -792,7 +796,7 @@ export default async function ReportsPage({
 
         <div className="kpi bg-gradient-to-br from-indigo-500 to-purple-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Seat charges
+            {tx("Seat charges")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -818,7 +822,7 @@ export default async function ReportsPage({
 
         <div className="kpi bg-gradient-to-br from-rose-500 to-red-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Expenses
+            {tx("Expenses")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -835,17 +839,17 @@ export default async function ReportsPage({
         {/* DAILY REVENUE */}
         <div className="card p-6 lg:col-span-2">
           <h3 className="font-bold mb-4">
-            Daily revenue
+            {tx("Daily revenue")}
           </h3>
 
           {dailyRowsMerged.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
-              No data
+              {tx("No data")}
             </div>
           ) : (
             <div
               className="flex items-end gap-2 h-48"
-              aria-label="Daily revenue chart"
+              aria-label={tx("Daily revenue chart")}
             >
               {dailyRowsMerged.map(
                 (row) => {
@@ -910,12 +914,12 @@ export default async function ReportsPage({
         {/* PAYMENTS */}
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            Payment methods
+            {tx("Payment methods")}
           </h3>
 
           {combinedPaymentRows.length === 0 ? (
             <div className="text-sm text-slate-400 text-center py-6">
-              No sales
+              {tx("No sales")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -942,24 +946,24 @@ export default async function ReportsPage({
                   const label =
                     payment.method ===
                     "cash"
-                      ? "💵 Cash"
+                      ? tx("💵 Cash")
                       : payment.method ===
                           "visa"
-                        ? "💳 Visa"
+                        ? tx("💳 Visa")
                         : payment.method ===
                             "instapay"
-                          ? "📱 InstaPay"
+                          ? tx("📱 InstaPay")
                           : payment.method === "balance"
-                            ? "👛 Customer balance"
+                            ? tx("👛 Customer balance")
                             : payment.method ===
                               "bank"
-                            ? "🏦 Bank"
+                            ? tx("🏦 Bank")
                             : payment.method ===
                                 "card"
-                              ? "💳 Card"
+                              ? tx("💳 Card")
                               : payment.method
                                 ? payment.method
-                                : "Unknown";
+                                : tx("Unknown");
 
                   return (
                     <div
@@ -1000,7 +1004,7 @@ export default async function ReportsPage({
           <div className="mt-4 pt-4 border-t border-slate-100 text-sm space-y-1">
             <div className="flex justify-between">
               <span className="text-slate-600">
-                Bank deposits
+                {tx("Bank deposits")}
               </span>
 
               <span className="font-semibold tabular-nums">
@@ -1013,7 +1017,7 @@ export default async function ReportsPage({
 
             <div className="flex justify-between">
               <span className="text-slate-600">
-                Bank withdrawals
+                {tx("Bank withdrawals")}
               </span>
 
               <span className="font-semibold tabular-nums">
@@ -1026,7 +1030,7 @@ export default async function ReportsPage({
 
             <div className="flex justify-between text-base font-bold pt-2 border-t border-slate-100">
               <span>
-                Net profit
+                {tx("Net profit")}
               </span>
 
               <span
@@ -1051,12 +1055,12 @@ export default async function ReportsPage({
         {/* TOP PRODUCTS */}
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            Top selling products
+            {tx("Top selling products")}
           </h3>
 
           {mergedTopProducts.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">
-              No sales yet
+              {tx("No sales yet")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -1108,12 +1112,12 @@ export default async function ReportsPage({
         {/* RECENT SHIFTS */}
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            Recent shifts
+            {tx("Recent shifts")}
           </h3>
 
           {shiftRows.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">
-              No shifts
+              {tx("No shifts")}
             </p>
           ) : (
             <div className="divide-soft">
@@ -1138,7 +1142,7 @@ export default async function ReportsPage({
                     </div>
 
                     <span className="text-sm text-indigo-600 font-semibold">
-                      View →
+                      {tx("View →")}
                     </span>
                   </Link>
                 ),

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 declare global {
   interface Window {
@@ -25,6 +26,8 @@ export default function PrintingSettings({
   kitchenPrinter: string;
   invoicePrinter: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [enabled, setEnabled] = useState(autoPrint);
   const [kitchen, setKitchen] = useState(kitchenPrinter);
@@ -63,17 +66,17 @@ export default function PrintingSettings({
     });
     setLoading(false);
     if (!res.ok) {
-      setMsg({ type: "err", text: "Failed to save" });
+      setMsg({ type: "err", text: tx("Failed to save") });
       return;
     }
-    setMsg({ type: "ok", text: "Saved ✓" });
+    setMsg({ type: "ok", text: tx("Saved ✓") });
     router.refresh();
   }
 
   async function testPrint() {
     if (!window.wsh?.silentPrint) {
       alert(
-        "Silent printing is only available in the desktop app.\nIn the browser, use Ctrl+P to print manually.",
+        tx("Silent printing is only available in the desktop app.\nIn the browser, use Ctrl+P to print manually."),
       );
       return;
     }
@@ -88,8 +91,8 @@ export default function PrintingSettings({
     });
     setMsg(
       res.ok
-        ? { type: "ok", text: "Test sent to printer ✓" }
-        : { type: "err", text: res.error || "Print failed" },
+        ? { type: "ok", text: tx("Test sent to printer ✓") }
+        : { type: "err", text: res.error || tx("Print failed") },
     );
   }
 
@@ -104,25 +107,24 @@ export default function PrintingSettings({
         />
         <div>
           <div className="font-semibold text-sm">
-            Auto-print new QR orders
+            {tx("Auto-print new QR orders")}
           </div>
           <div className="text-xs text-slate-500">
-            When ON, incoming orders print automatically on the kitchen printer
-            (desktop app only).
+            {tx("When ON, incoming orders print automatically on the kitchen printer (desktop app only).")}
           </div>
         </div>
       </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <PrinterField
-          label="Kitchen printer (order tickets)"
+          label={tx("Kitchen printer (order tickets)")}
           value={kitchen}
           onChange={setKitchen}
           printers={printers}
           inElectron={inElectron}
         />
         <PrinterField
-          label="Invoice printer (customer receipts)"
+          label={tx("Invoice printer (customer receipts)")}
           value={invoice}
           onChange={setInvoice}
           printers={printers}
@@ -132,8 +134,7 @@ export default function PrintingSettings({
 
       {!inElectron && (
         <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-          💡 Silent printing requires the desktop version of WorkSpace Hub.
-          In the browser, the system will fall back to Ctrl+P dialog.
+          {tx("💡 Silent printing requires the desktop version of WorkSpace Hub. In the browser, the system will fall back to Ctrl+P dialog.")}
         </div>
       )}
 
@@ -151,7 +152,7 @@ export default function PrintingSettings({
 
       <div className="flex gap-2">
         <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-          {loading ? "Saving…" : "Save printing settings"}
+          {loading ? tx("Saving…") : tx("Save printing settings")}
         </button>
         <button
           type="button"
@@ -159,7 +160,7 @@ export default function PrintingSettings({
           className="btn btn-ghost"
           disabled={!inElectron}
         >
-          🧪 Test print
+          {tx("🧪 Test print")}
         </button>
       </div>
     </form>
@@ -179,6 +180,8 @@ function PrinterField({
   printers: string[] | null;
   inElectron: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <div>
       <label className="label">{label}</label>
@@ -188,7 +191,7 @@ function PrinterField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">— System default —</option>
+          <option value="">{tx("— System default —")}</option>
           {printers.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -200,7 +203,7 @@ function PrinterField({
           className="input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Exact printer name from Windows"
+          placeholder={tx("Exact printer name from Windows")}
         />
       )}
     </div>

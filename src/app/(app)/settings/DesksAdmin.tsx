@@ -7,6 +7,7 @@ import {
 import {
   useRouter,
 } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 /* ============================================================================
  * TYPES
@@ -92,6 +93,8 @@ export default function DesksAdmin({
 
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router =
     useRouter();
 
@@ -347,7 +350,7 @@ export default function DesksAdmin({
         tier.maxPeople >
         capacity
       ) {
-        return `A pricing tier cannot exceed the room capacity of ${capacity}.`;
+        return (f.en ? `A pricing tier cannot exceed the room capacity of ${capacity}.` : `شريحة السعر ما تزيدش عن سعة الغرفة (${capacity}).`);
       }
 
       if (
@@ -369,7 +372,7 @@ export default function DesksAdmin({
       expectedMin !==
       capacity + 1
     ) {
-      return `Pricing tiers must cover all attendee counts from 1 to ${capacity}.`;
+      return (f.en ? `Pricing tiers must cover all attendee counts from 1 to ${capacity}.` : `شرائح السعر لازم تغطي كل عدد حضور من 1 لحد ${capacity}.`);
     }
 
     return null;
@@ -406,7 +409,7 @@ export default function DesksAdmin({
       1
     ) {
       setError(
-        "Desk name is required.",
+        tx("Desk name is required."),
       );
 
       return;
@@ -418,7 +421,7 @@ export default function DesksAdmin({
       )
     ) {
       setError(
-        "Sort order must be a whole number.",
+        tx("Sort order must be a whole number."),
       );
 
       return;
@@ -462,7 +465,7 @@ export default function DesksAdmin({
       ) {
         setError(
           data.error ||
-            `Could not save desk (HTTP ${response.status}).`,
+            (f.en ? `Could not save desk (HTTP ${response.status}).` : `مقدرناش نحفظ المكتب (HTTP ${response.status}).`),
         );
 
         return;
@@ -484,7 +487,7 @@ export default function DesksAdmin({
       );
 
       setSuccess(
-        `"${name}" updated successfully.`,
+        (f.en ? `"${name}" updated successfully.` : `تم تحديث "${name}".`),
       );
 
       router.refresh();
@@ -495,7 +498,7 @@ export default function DesksAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setLoadingId(
@@ -553,7 +556,7 @@ export default function DesksAdmin({
       !name
     ) {
       setError(
-        "Room name is required.",
+        tx("Room name is required."),
       );
 
       return;
@@ -565,7 +568,7 @@ export default function DesksAdmin({
       )
     ) {
       setError(
-        "Sort order must be a whole number.",
+        tx("Sort order must be a whole number."),
       );
 
       return;
@@ -647,7 +650,7 @@ export default function DesksAdmin({
       ) {
         setError(
           data.error ||
-            `Could not save room (HTTP ${response.status}).`,
+            (f.en ? `Could not save room (HTTP ${response.status}).` : `مقدرناش نحفظ الغرفة (HTTP ${response.status}).`),
         );
 
         return;
@@ -669,7 +672,7 @@ export default function DesksAdmin({
       );
 
       setSuccess(
-        `"${name}" and its pricing were updated successfully.`,
+        (f.en ? `"${name}" and its pricing were updated successfully.` : `تم تحديث "${name}" وتسعيرها.`),
       );
 
       router.refresh();
@@ -680,7 +683,7 @@ export default function DesksAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setLoadingId(
@@ -706,8 +709,8 @@ export default function DesksAdmin({
     const confirmed =
       window.confirm(
         desk.active
-          ? `Deactivate "${desk.name}"? Existing historical reservations will remain untouched.`
-          : `Activate "${desk.name}"?`,
+          ? (f.en ? `Deactivate "${desk.name}"? Existing historical reservations will remain untouched.` : `إيقاف "${desk.name}"؟ الحجوزات القديمة مش هتتأثر.`)
+          : (f.en ? `Activate "${desk.name}"?` : `تفعيل "${desk.name}"؟`),
       );
 
     if (!confirmed) {
@@ -751,7 +754,7 @@ export default function DesksAdmin({
       ) {
         setError(
           data.error ||
-            `Could not ${action} "${desk.name}" (HTTP ${response.status}).`,
+            (f.en ? `Could not ${action} "${desk.name}" (HTTP ${response.status}).` : `مقدرناش ننفذ العملية على "${desk.name}" (HTTP ${response.status}).`),
         );
 
         return;
@@ -773,7 +776,7 @@ export default function DesksAdmin({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setLoadingId(
@@ -792,7 +795,7 @@ export default function DesksAdmin({
     );
 
     setSuccess(
-      "Location created successfully.",
+      tx("Location created successfully."),
     );
 
     router.refresh();
@@ -811,15 +814,11 @@ export default function DesksAdmin({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <div className="font-semibold text-slate-900">
-            Physical locations
+            {tx("Physical locations")}
           </div>
 
           <div className="text-xs text-slate-500 mt-1">
-            Desks are physical locations.
-            Customer-session pricing is
-            managed separately. Meeting
-            rooms have their own attendee
-            pricing.
+            {tx("Desks are physical locations. Customer-session pricing is managed separately. Meeting rooms have their own attendee pricing.")}
           </div>
         </div>
 
@@ -830,7 +829,7 @@ export default function DesksAdmin({
           }
           className="btn btn-primary"
         >
-          + Add location
+          {tx("+ Add location")}
         </button>
       </div>
 
@@ -859,31 +858,31 @@ export default function DesksAdmin({
           <thead className="text-xs text-slate-500 uppercase text-left">
             <tr>
               <th className="py-3 pr-4">
-                Name
+                {tx("Name")}
               </th>
 
               <th className="py-3 pr-4">
-                Type
+                {tx("Type")}
               </th>
 
               <th className="py-3 pr-4">
-                Capacity
+                {tx("Capacity")}
               </th>
 
               <th className="py-3 pr-4">
-                Pricing
+                {tx("Pricing")}
               </th>
 
               <th className="py-3 pr-4">
-                Order
+                {tx("Order")}
               </th>
 
               <th className="py-3 pr-4">
-                Status
+                {tx("Status")}
               </th>
 
               <th className="py-3 text-right">
-                Actions
+                {tx("Actions")}
               </th>
             </tr>
           </thead>
@@ -1006,8 +1005,8 @@ export default function DesksAdmin({
                       >
                         {desk.type ===
                         "meeting_room"
-                          ? "Room"
-                          : "Desk"}
+                          ? tx("Room")
+                          : tx("Desk")}
                       </span>
                     </td>
 
@@ -1295,7 +1294,7 @@ export default function DesksAdmin({
                                     />
 
                                     <span className="text-xs text-slate-500">
-                                      Active
+                                      {tx("Active")}
                                     </span>
                                   </div>
                                 </div>
@@ -1346,7 +1345,7 @@ export default function DesksAdmin({
                                 )
                               }
                             >
-                              + Add pricing tier
+                              {tx("+ Add pricing tier")}
                             </button>
                           </div>
                         ) : desk.pricingTiers &&
@@ -1405,12 +1404,12 @@ export default function DesksAdmin({
                           </div>
                         ) : (
                           <span className="text-red-500 text-xs">
-                            No pricing configured
+                            {tx("No pricing configured")}
                           </span>
                         )
                       ) : (
                         <span className="text-slate-400">
-                          Customer-session pricing
+                          {tx("Customer-session pricing")}
                         </span>
                       )}
                     </td>
@@ -1503,8 +1502,8 @@ export default function DesksAdmin({
                         }`}
                       >
                         {desk.active
-                          ? "Active"
-                          : "Inactive"}
+                          ? tx("Active")
+                          : tx("Inactive")}
                       </span>
                     </td>
 
@@ -1530,8 +1529,8 @@ export default function DesksAdmin({
                               }
                             >
                               {loading
-                                ? "Saving..."
-                                : "Save"}
+                                ? tx("Saving...")
+                                : tx("Save")}
                             </button>
 
                             <button
@@ -1559,7 +1558,7 @@ export default function DesksAdmin({
                                 loading
                               }
                             >
-                              Cancel
+                              {tx("Cancel")}
                             </button>
                           </div>
                         ) : (
@@ -1573,7 +1572,7 @@ export default function DesksAdmin({
                                 )
                               }
                             >
-                              ✏️ Edit room
+                              {tx("✏️ Edit room")}
                             </button>
 
                             <button
@@ -1589,8 +1588,8 @@ export default function DesksAdmin({
                               }
                             >
                               {desk.active
-                                ? "Deactivate"
-                                : "Activate"}
+                                ? tx("Deactivate")
+                                : tx("Activate")}
                             </button>
                           </div>
                         )
@@ -1609,8 +1608,8 @@ export default function DesksAdmin({
                             }
                           >
                             {loading
-                              ? "Saving..."
-                              : "Save"}
+                              ? tx("Saving...")
+                              : tx("Save")}
                           </button>
 
                           <button
@@ -1638,7 +1637,7 @@ export default function DesksAdmin({
                               loading
                             }
                           >
-                            Cancel
+                            {tx("Cancel")}
                           </button>
                         </div>
                       ) : (
@@ -1652,7 +1651,7 @@ export default function DesksAdmin({
                               )
                             }
                           >
-                            ✏️ Edit
+                            {tx("✏️ Edit")}
                           </button>
 
                           <button
@@ -1668,8 +1667,8 @@ export default function DesksAdmin({
                             }
                           >
                             {desk.active
-                              ? "Deactivate"
-                              : "Activate"}
+                              ? tx("Deactivate")
+                              : tx("Activate")}
                           </button>
                         </div>
                       )}
@@ -1718,6 +1717,8 @@ function AddLocationModal({
 
   onSaved: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [
     name,
     setName,
@@ -1802,7 +1803,7 @@ function AddLocationModal({
         order,
       )
     ) {
-      return "Sort order must be a whole number.";
+      return tx("Sort order must be a whole number.");
     }
 
     if (
@@ -1913,7 +1914,7 @@ function AddLocationModal({
         tier.maxPeople >
         roomCapacity
       ) {
-        return `Pricing cannot exceed room capacity of ${roomCapacity}.`;
+        return (f.en ? `Pricing cannot exceed room capacity of ${roomCapacity}.` : `التسعير ما يزيدش عن سعة الغرفة (${roomCapacity}).`);
       }
 
       if (
@@ -1935,7 +1936,7 @@ function AddLocationModal({
       expectedMin !==
       roomCapacity + 1
     ) {
-      return `Pricing tiers must cover all people from 1 to ${roomCapacity}.`;
+      return (f.en ? `Pricing tiers must cover all people from 1 to ${roomCapacity}.` : `شرائح السعر لازم تغطي كل الأشخاص من 1 لحد ${roomCapacity}.`);
     }
 
     return null;
@@ -2053,7 +2054,7 @@ function AddLocationModal({
       ) {
         setError(
           data.error ||
-            `Could not create location (HTTP ${response.status}).`,
+            (f.en ? `Could not create location (HTTP ${response.status}).` : `مقدرناش ننشئ المكان (HTTP ${response.status}).`),
         );
 
         return;
@@ -2067,7 +2068,7 @@ function AddLocationModal({
       );
 
       setError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setLoading(
@@ -2082,12 +2083,11 @@ function AddLocationModal({
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <h3 className="text-xl font-bold">
-              Add location
+              {tx("Add location")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Add a physical desk or
-              meeting room.
+              {tx("Add a physical desk or meeting room.")}
             </p>
           </div>
 
@@ -2119,7 +2119,7 @@ function AddLocationModal({
         >
           <div>
             <label className="label">
-              Name
+              {tx("Name")}
             </label>
 
             <input
@@ -2146,7 +2146,7 @@ function AddLocationModal({
 
           <div>
             <label className="label">
-              Type
+              {tx("Type")}
             </label>
 
             <div className="grid grid-cols-2 gap-2">
@@ -2167,7 +2167,7 @@ function AddLocationModal({
                     : "border-slate-200"
                 }`}
               >
-                🪑 Desk
+                {tx("🪑 Desk")}
               </button>
 
               <button
@@ -2187,7 +2187,7 @@ function AddLocationModal({
                     : "border-slate-200"
                 }`}
               >
-                👥 Meeting Room
+                {tx("👥 Meeting Room")}
               </button>
             </div>
           </div>
@@ -2227,15 +2227,14 @@ function AddLocationModal({
               />
 
               <div className="text-xs text-slate-500 mt-1">
-                This does not control
-                Customer Session billing.
+                {tx("This does not control Customer Session billing.")}
               </div>
             </div>
           ) : (
             <>
               <div>
                 <label className="label">
-                  Room capacity
+                  {tx("Room capacity")}
                 </label>
 
                 <input
@@ -2288,7 +2287,7 @@ function AddLocationModal({
 
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
                 <div className="font-bold text-indigo-950 mb-3">
-                  Meeting room pricing
+                  {tx("Meeting room pricing")}
                 </div>
 
                 <div className="space-y-2">
@@ -2308,7 +2307,7 @@ function AddLocationModal({
                           type="number"
                           min={1}
                           step={1}
-                          placeholder="Min"
+                          placeholder={tx("Min")}
                           value={
                             tier.minPeople
                           }
@@ -2348,7 +2347,7 @@ function AddLocationModal({
                           type="number"
                           min={1}
                           step={1}
-                          placeholder="Max"
+                          placeholder={tx("Max")}
                           value={
                             tier.maxPeople
                           }
@@ -2388,7 +2387,7 @@ function AddLocationModal({
                           type="number"
                           min="0.01"
                           step="0.01"
-                          placeholder={`Rate (${currency})`}
+                          placeholder={(f.en ? `Rate (${currency})` : `السعر (${currency})`)}
                           value={
                             tier.hourlyRate
                           }
@@ -2481,14 +2480,11 @@ function AddLocationModal({
                     loading
                   }
                 >
-                  + Add pricing tier
+                  {tx("+ Add pricing tier")}
                 </button>
 
                 <div className="text-xs text-slate-500 mt-3">
-                  The ranges must cover every
-                  attendee count from 1 to the
-                  room capacity without gaps or
-                  overlaps.
+                  {tx("The ranges must cover every attendee count from 1 to the room capacity without gaps or overlaps.")}
                 </div>
               </div>
             </>
@@ -2496,7 +2492,7 @@ function AddLocationModal({
 
           <div>
             <label className="label">
-              Sort order
+              {tx("Sort order")}
             </label>
 
             <input
@@ -2532,7 +2528,7 @@ function AddLocationModal({
                 loading
               }
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -2543,8 +2539,8 @@ function AddLocationModal({
               }
             >
               {loading
-                ? "Saving..."
-                : "Add location"}
+                ? tx("Saving...")
+                : tx("Add location")}
             </button>
           </div>
         </form>

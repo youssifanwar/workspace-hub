@@ -37,7 +37,7 @@ export default function QuickCancelButton({
       }
       router.refresh();
     } catch {
-      alert("Network error. Try again.");
+      alert(tx("Network error. Try again."));
     } finally {
       setBusy(false);
     }

@@ -341,7 +341,7 @@ export default function CheckInModal({
     }
 
     if (!existingCustomer) {
-      setError("A customer must already exist before using a package.");
+      setError(tx("A customer must already exist before using a package."));
       return;
     }
 
@@ -399,7 +399,7 @@ export default function CheckInModal({
     }
 
     if (!existingCustomer) {
-      return "A customer must already exist before using a package.";
+      return tx("A customer must already exist before using a package.");
     }
 
     if (activeSubscriptions.length === 0) {
@@ -538,7 +538,7 @@ export default function CheckInModal({
       console.error("Start session failed:", err);
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);

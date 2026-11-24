@@ -128,7 +128,7 @@ export default function CustomerSubscriptionButton({
     const pkg = packages.find((item) => item.id === packageId);
 
     if (!pkg) {
-      setError("Package not found.");
+      setError(tx("Package not found."));
       return;
     }
 
@@ -163,7 +163,7 @@ export default function CustomerSubscriptionButton({
 
       setSubscription(data?.subscription ?? null);
 
-      setSuccess(f.en ? "Package purchased successfully." : "تم شراء الباقة بنجاح.");
+      setSuccess(f.en ? tx("Package purchased successfully.") : "تم شراء الباقة بنجاح.");
 
       setOpen(false);
 
@@ -203,17 +203,17 @@ export default function CustomerSubscriptionButton({
     const email = newCustomerEmail.trim();
 
     if (!name) {
-      setError("Customer name is required.");
+      setError(tx("Customer name is required."));
       return;
     }
 
     if (!phone) {
-      setError("Customer phone is required.");
+      setError(tx("Customer phone is required."));
       return;
     }
 
     if (!selectedPackageId) {
-      setError("Please select a package.");
+      setError(tx("Please select a package."));
       return;
     }
 
@@ -222,7 +222,7 @@ export default function CustomerSubscriptionButton({
     );
 
     if (!selectedPackage) {
-      setError("Selected package not found.");
+      setError(tx("Selected package not found."));
       return;
     }
 
@@ -345,7 +345,7 @@ export default function CustomerSubscriptionButton({
               }}
               className="btn btn-primary w-full"
             >
-              📦 Purchase Package
+              {tx("📦 Purchase Package")}
             </button>
           )}
         </>
@@ -363,7 +363,7 @@ export default function CustomerSubscriptionButton({
             customerId ? "btn-ghost w-full" : "btn-primary w-full"
           }`}
         >
-          ➕ New Customer + Package
+          {tx("➕ New Customer + Package")}
         </button>
       )}
 
@@ -480,7 +480,7 @@ export default function CustomerSubscriptionButton({
                   </div>
 
                   <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                    Register + Purchase Package
+                    {tx("Register + Purchase Package")}
                   </h3>
 
                   <p className="text-sm text-slate-500 mt-1">
@@ -506,7 +506,7 @@ export default function CustomerSubscriptionButton({
               <div className="space-y-4">
                 {/* NAME */}
                 <div>
-                  <label className="label">Customer name</label>
+                  <label className="label">{tx("Customer name")}</label>
 
                   <input
                     className="input"
@@ -520,7 +520,7 @@ export default function CustomerSubscriptionButton({
 
                 {/* PHONE */}
                 <div>
-                  <label className="label">Phone number</label>
+                  <label className="label">{tx("Phone number")}</label>
 
                   <input
                     className="input"
@@ -537,7 +537,7 @@ export default function CustomerSubscriptionButton({
                   <label className="label">
                     Email{" "}
                     <span className="text-slate-400 font-normal">
-                      (optional)
+                      {tx("(optional)")}
                     </span>
                   </label>
 
@@ -553,7 +553,7 @@ export default function CustomerSubscriptionButton({
 
                 {/* PACKAGES */}
                 <div>
-                  <label className="label">Choose package</label>
+                  <label className="label">{tx("Choose package")}</label>
 
                   {packages.length === 0 ? (
                     <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
@@ -677,7 +677,7 @@ export default function CustomerSubscriptionButton({
                     disabled={saving}
                     className="btn btn-ghost flex-1"
                   >
-                    Cancel
+                    {tx("Cancel")}
                   </button>
 
                   <button

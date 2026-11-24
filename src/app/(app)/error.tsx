@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 /**
  * Friendly fallback for unexpected errors. It deliberately shows NO error
@@ -15,6 +16,8 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   useEffect(() => {
     console.error("App error", error.digest ?? "(no reference)");
   }, [error]);
@@ -25,7 +28,7 @@ export default function AppError({
         ⚠️
       </div>
       <h2 className="text-xl font-bold text-slate-900 mb-2">
-        Something went wrong
+        {tx("Something went wrong")}
       </h2>
       <p className="text-slate-500 mb-6">
         This page couldn&apos;t be loaded. Your data is safe. Try again, and if
@@ -41,10 +44,10 @@ export default function AppError({
       </p>
       <div className="flex justify-center gap-2">
         <button type="button" className="btn btn-primary" onClick={reset}>
-          Try again
+          {tx("Try again")}
         </button>
         <Link href="/dashboard" className="btn btn-ghost">
-          Go to dashboard
+          {tx("Go to dashboard")}
         </Link>
       </div>
     </div>

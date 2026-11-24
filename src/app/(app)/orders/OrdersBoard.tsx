@@ -528,13 +528,13 @@ export default function OrdersBoard({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setActionError(err?.error || "Could not mark order as served.");
+        setActionError(err?.error || tx("Could not mark order as served."));
         return;
       }
 
       await reloadTicketsNow();
     } catch {
-      setActionError("Network error while updating order.");
+      setActionError(tx("Network error while updating order."));
     } finally {
       setBusyTicketId(null);
     }
@@ -568,13 +568,13 @@ export default function OrdersBoard({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setActionError(err?.error || "Could not cancel order.");
+        setActionError(err?.error || tx("Could not cancel order."));
         return;
       }
 
       await reloadTicketsNow();
     } catch {
-      setActionError("Network error while cancelling order.");
+      setActionError(tx("Network error while cancelling order."));
     } finally {
       setBusyTicketId(null);
     }

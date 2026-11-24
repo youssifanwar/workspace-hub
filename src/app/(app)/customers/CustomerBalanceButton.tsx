@@ -81,15 +81,15 @@ export default function CustomerBalanceButton({
     setSuccess(null);
     const value = Number(amount);
     if (!Number.isFinite(value) || value === 0) {
-      setError("Enter a valid amount.");
+      setError(tx("Enter a valid amount."));
       return;
     }
     if (mode === "deposit" && value < 0) {
-      setError("Top-up must be a positive amount.");
+      setError(tx("Top-up must be a positive amount."));
       return;
     }
     if (mode === "adjustment" && !note.trim()) {
-      setError("Write a note explaining the adjustment.");
+      setError(tx("Write a note explaining the adjustment."));
       return;
     }
     setSaving(true);
@@ -106,7 +106,7 @@ export default function CustomerBalanceButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not update the balance.");
+        setError(data?.error || tx("Could not update the balance."));
         return;
       }
       setSuccess(
@@ -119,7 +119,7 @@ export default function CustomerBalanceButton({
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -142,7 +142,7 @@ export default function CustomerBalanceButton({
             <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold">Account balance</h2>
+                  <h2 className="text-xl font-bold">{tx("Account balance")}</h2>
                   <p className="text-sm text-slate-500">{customerName}</p>
                 </div>
                 <button
@@ -208,7 +208,7 @@ export default function CustomerBalanceButton({
 
                 {mode === "deposit" && (
                   <div>
-                    <label className="label">Paid by</label>
+                    <label className="label">{tx("Paid by")}</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(["cash", "visa", "instapay"] as const).map((m) => (
                         <button
@@ -274,11 +274,11 @@ export default function CustomerBalanceButton({
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">History</h3>
+                <h3 className="font-semibold mb-2">{tx("History")}</h3>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">{tx("Loading…")}</p>
                 ) : history.length === 0 ? (
-                  <p className="text-sm text-slate-400">No transactions yet.</p>
+                  <p className="text-sm text-slate-400">{tx("No transactions yet.")}</p>
                 ) : (
                   <div className="divide-soft">
                     {history.map((t) => (

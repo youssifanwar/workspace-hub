@@ -143,7 +143,7 @@ export default async function FnbInvoicePage({
           <div className="border-t border-b border-dashed border-slate-300 py-3">
             <div className="text-xs font-bold mb-2">F&amp;B ITEMS</div>
             {items.length === 0 ? (
-              <div className="text-xs text-slate-500">No items recorded.</div>
+              <div className="text-xs text-slate-500">{tx("No items recorded.")}</div>
             ) : (
               items.map((item, index) => {
                 const quantity = Math.max(0, Math.trunc(safeNumber(item.quantity, 0)));

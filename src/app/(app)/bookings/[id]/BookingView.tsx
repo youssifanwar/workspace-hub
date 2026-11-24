@@ -1433,7 +1433,7 @@ function CheckoutModal({
             >
               {paidNum <
               total
-                ? `${f.en ? "Short by" : "ناقص"} ${(
+                ? `${f.en ? tx("Short by") : "ناقص"} ${(
                     total -
                     paidNum
                   ).toFixed(

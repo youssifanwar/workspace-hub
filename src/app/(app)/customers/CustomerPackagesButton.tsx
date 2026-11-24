@@ -154,7 +154,7 @@ export default function CustomerPackagesButton({
     );
     if (reason === null) return;
     if (!reason.trim()) {
-      setError("A reason is required to void a package.");
+      setError(tx("A reason is required to void a package."));
       return;
     }
     setError(null);
@@ -171,7 +171,7 @@ export default function CustomerPackagesButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not void the package.");
+        setError(data?.error || tx("Could not void the package."));
         return;
       }
       setSuccess(
@@ -184,13 +184,13 @@ export default function CustomerPackagesButton({
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     }
   }
 
   async function sell() {
     if (!packageId) {
-      setError("Choose a package first.");
+      setError(tx("Choose a package first."));
       return;
     }
     setSaving(true);
@@ -223,16 +223,16 @@ export default function CustomerPackagesButton({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not register the package.");
+        setError(data?.error || tx("Could not register the package."));
         return;
       }
-      setSuccess("Package registered successfully.");
+      setSuccess(tx("Package registered successfully."));
       setPackageId("");
       setNote("");
       await load();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -255,7 +255,7 @@ export default function CustomerPackagesButton({
             <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold">Customer packages & hours</h2>
+                  <h2 className="text-xl font-bold">{tx("Customer packages & hours")}</h2>
                   <p className="text-sm text-slate-500">
                     {customerName} · {customerPhone}
                   </p>
@@ -273,9 +273,9 @@ export default function CustomerPackagesButton({
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Current packages</h3>
+                <h3 className="font-semibold mb-2">{tx("Current packages")}</h3>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">{tx("Loading…")}</p>
                 ) : owned.length === 0 ? (
                   <p className="text-sm text-slate-400">
                     {tx("No packages yet for this customer.")}
@@ -317,7 +317,7 @@ export default function CustomerPackagesButton({
                               className="text-xs text-red-600 font-semibold mt-1 hover:underline"
                               onClick={() => void voidPackage(o)}
                             >
-                              Void (sold by mistake)
+                              {tx("Void (sold by mistake)")}
                             </button>
                           )}
                         </div>
@@ -329,12 +329,10 @@ export default function CustomerPackagesButton({
 
               <div className="border-t border-slate-200 pt-4 space-y-3">
                 <h3 className="font-semibold">
-                  Assign / sell a package to this customer
+                  {tx("Assign / sell a package to this customer")}
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Create package definitions first in Settings → Meeting Room
-                  Packages. Then choose Desk hours or Meeting room hours below
-                  and register the sale using the customer's payment method.
+                  {tx("Create package definitions first in Settings → Meeting Room Packages. Then choose Desk hours or Meeting room hours below and register the sale using the customer's payment method.")}
                 </p>
 
                 <div className="flex gap-2">
@@ -356,7 +354,7 @@ export default function CustomerPackagesButton({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Package type</label>
+                  <label className="text-sm font-medium">{tx("Package type")}</label>
                   <select
                     className="input w-full"
                     value={packageId}
@@ -379,7 +377,7 @@ export default function CustomerPackagesButton({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Paid by</label>
+                  <label className="text-sm font-medium">{tx("Paid by")}</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                     {(["cash", "visa", "instapay", "balance"] as const).map(
                       (m) => (
@@ -405,7 +403,7 @@ export default function CustomerPackagesButton({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Payment date</label>
+                  <label className="text-sm font-medium">{tx("Payment date")}</label>
                   <input
                     type="datetime-local"
                     className="input w-full"
@@ -419,7 +417,7 @@ export default function CustomerPackagesButton({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Note (optional)</label>
+                  <label className="text-sm font-medium">{tx("Note (optional)")}</label>
                   <input
                     className="input w-full"
                     value={note}

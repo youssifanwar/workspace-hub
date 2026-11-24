@@ -150,12 +150,12 @@ export default function CustomerEditButton({
     const trimmedPhone = phone.trim();
 
     if (!trimmedName) {
-      setError("Customer name is required.");
+      setError(tx("Customer name is required."));
       return;
     }
 
     if (!trimmedPhone) {
-      setError("Customer phone is required.");
+      setError(tx("Customer phone is required."));
       return;
     }
 
@@ -187,7 +187,7 @@ export default function CustomerEditButton({
         );
       }
 
-      setSuccess("Customer information updated successfully.");
+      setSuccess(tx("Customer information updated successfully."));
       router.refresh();
     } catch (saveError) {
       setError(
@@ -208,7 +208,7 @@ export default function CustomerEditButton({
     const amount = Number(refundAmount);
 
     if (!Number.isFinite(amount) || amount < 0) {
-      setError("Refund amount must be a valid non-negative number.");
+      setError(tx("Refund amount must be a valid non-negative number."));
       return;
     }
 
@@ -292,7 +292,7 @@ export default function CustomerEditButton({
               <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
-                    Customer
+                    {tx("Customer")}
                   </div>
                   <h3 className="text-2xl font-black text-slate-900 mt-1">
                     {tx("Edit customer")}
@@ -315,8 +315,8 @@ export default function CustomerEditButton({
 
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Name" value={name} onChange={setName} />
-                  <Field label="Phone" value={phone} onChange={setPhone} />
+                  <Field label={tx("Name")} value={name} onChange={setName} />
+                  <Field label={tx("Phone")} value={phone} onChange={setPhone} />
                   <Field
                     label={tx("Email")}
                     value={email}
@@ -327,7 +327,7 @@ export default function CustomerEditButton({
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Notes
+                    {tx("Notes")}
                   </label>
                   <textarea
                     className="input w-full min-h-28"
@@ -415,7 +415,7 @@ export default function CustomerEditButton({
 
                         <div>
                           <label className="block text-xs font-bold text-slate-600 mb-1">
-                            Reason
+                            {tx("Reason")}
                           </label>
                           <input
                             className="input w-full"

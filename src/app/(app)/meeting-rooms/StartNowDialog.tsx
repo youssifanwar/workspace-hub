@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import CustomerSearchField from "./CustomerSearchField";
 import MeetingPackagePurchase from "./MeetingPackagePurchase";
 import type { DialogRoom } from "./ReservationDialog";
+import { useFmt } from "@/lib/lang-context";
 
 type Busy = {
   deskId: number;
@@ -42,7 +43,7 @@ function message(data: unknown, fallback: string): string {
 }
 
 /**
- * "Start now": seats a walk-in customer immediately. Mirrors the booking
+ * tx("Start now"): seats a walk-in customer immediately. Mirrors the booking
  * dialog — live price, conflict warning against reservations already
  * known to the page, and a confirm button that stays disabled until the
  * details are valid. The server remains the final authority on conflicts.
@@ -66,6 +67,8 @@ export default function StartNowDialog({
   onClose: () => void;
   onStarted: (text: string) => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [roomId, setRoomId] = useState<number | "">(initialRoomId ?? "");
@@ -169,7 +172,7 @@ export default function StartNowDialog({
         if (id !== seq.current) return;
         if (!res.ok) {
           setQuote(null);
-          setQuoteError(message(data, "Could not calculate the price."));
+          setQuoteError(message(data, tx("Could not calculate the price.")));
           return;
         }
         const n = (v: unknown) => {
@@ -188,7 +191,7 @@ export default function StartNowDialog({
       } catch (e) {
         if ((e as Error)?.name !== "AbortError" && id === seq.current) {
           setQuote(null);
-          setQuoteError("Could not reach the pricing service.");
+          setQuoteError(tx("Could not reach the pricing service."));
         }
       }
     }, 300);
@@ -247,7 +250,7 @@ export default function StartNowDialog({
       router.refresh();
       onClose();
     } catch {
-      setError("Network error. Please try again.");
+      setError(tx("Network error. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -270,15 +273,15 @@ export default function StartNowDialog({
                 id="start-now-title"
                 className="text-xl font-bold text-slate-900"
               >
-                Start now
+                {tx("Start now")}
               </h2>
               <p className="text-sm text-slate-500">
-                Seat a walk-in customer immediately.
+                {tx("Seat a walk-in customer immediately.")}
               </p>
             </div>
             <button
               type="button"
-              aria-label="Close"
+              aria-label={tx("Close")}
               className="btn btn-ghost !px-3"
               onClick={onClose}
               disabled={saving}
@@ -291,7 +294,7 @@ export default function StartNowDialog({
             <div className="p-6 space-y-5">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-                  Room
+                  {tx("Room")}
                 </label>
                 <select
                   className="select"
@@ -304,7 +307,7 @@ export default function StartNowDialog({
                     if (r && people > r.capacity) setPeople(r.capacity);
                   }}
                 >
-                  <option value="">Choose a room…</option>
+                  <option value="">{tx("Choose a room…")}</option>
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name} · up to {r.capacity} people
@@ -315,7 +318,7 @@ export default function StartNowDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <Stepper
-                  label="Hours"
+                  label={tx("Hours")}
                   value={hours}
                   min={1}
                   max={maxDurationHours}
@@ -323,13 +326,13 @@ export default function StartNowDialog({
                   onChange={setHours}
                 />
                 <Stepper
-                  label="People"
+                  label={tx("People")}
                   value={people}
                   min={1}
                   max={room?.capacity ?? 99}
                   disabled={saving}
                   onChange={setPeople}
-                  hint={room ? `Capacity ${room.capacity}` : undefined}
+                  hint={room ? `${tx("Capacity")} ${room.capacity}` : undefined}
                 />
               </div>
 
@@ -352,7 +355,7 @@ export default function StartNowDialog({
               {packages.length > 0 && (
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-                    Pay with a package
+                    {tx("Pay with a package")}
                   </label>
                   <select
                     className="select"
@@ -364,12 +367,12 @@ export default function StartNowDialog({
                       )
                     }
                   >
-                    <option value="">Pay normally</option>
+                    <option value="">{tx("Pay normally")}</option>
                     {packages.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.packageNameSnapshot ??
                           p.packageName ??
-                          `Package #${p.id}`}{" "}
+                          `${tx("Package")} #${p.id}`}{" "}
                         · {Number(p.remainingHours).toFixed(2)}h left
                       </option>
                     ))}
@@ -390,12 +393,12 @@ export default function StartNowDialog({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-                  Notes
+                  {tx("Notes")}
                 </label>
                 <input
                   className="input"
                   maxLength={2000}
-                  placeholder="Optional"
+                  placeholder={tx("Optional")}
                   value={notes}
                   disabled={saving}
                   onChange={(e) => setNotes(e.target.value)}
@@ -404,46 +407,46 @@ export default function StartNowDialog({
             </div>
 
             <aside className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-100 p-6 flex flex-col">
-              <h3 className="text-sm font-bold text-slate-900 mb-4">Summary</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-4">{tx("Summary")}</h3>
 
               <div className="rounded-xl bg-white border border-slate-200 p-4">
                 <div className="font-bold text-slate-900">
-                  {room?.name ?? "No room selected"}
+                  {room?.name ?? tx("No room selected")}
                 </div>
                 <div className="text-sm text-slate-600 mt-1">
-                  Starts now · {hours} {hours === 1 ? "hour" : "hours"}
+                  {tx("Starts now")} · {hours} {hours === 1 ? tx("hour") : tx("hours")}
                 </div>
               </div>
 
               <div className="mt-4" aria-live="polite">
                 {overCapacity && (
-                  <Note tone="amber">Over capacity ({room?.capacity} max)</Note>
+                  <Note tone="amber">{tx("Over capacity")} ({room?.capacity} {tx("max")})</Note>
                 )}
                 {!overCapacity && conflict && (
                   <Note tone="red">
                     This room is{" "}
-                    {conflict.status === "active" ? "in use" : "booked"}{" "}
+                    {conflict.status === "active" ? tx("in use") : tx("booked")}{" "}
                     {fmt(conflict.startAt)}–{fmt(conflict.endAt)}. Choose another
                     room or fewer hours.
                   </Note>
                 )}
                 {!overCapacity && !conflict && room && (
-                  <Note tone="green">Room is free for this time</Note>
+                  <Note tone="green">{tx("Room is free for this time")}</Note>
                 )}
-                {!room && <Note tone="slate">Choose a room to begin</Note>}
+                {!room && <Note tone="slate">{tx("Choose a room to begin")}</Note>}
               </div>
 
               <dl className="mt-5 space-y-2 text-sm">
                 {quote ? (
                   <>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Rate</dt>
+                      <dt className="text-slate-500">{tx("Rate")}</dt>
                       <dd className="font-semibold tabular-nums">
                         {money(quote.hourlyRate)} / h
                       </dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Subtotal</dt>
+                      <dt className="text-slate-500">{tx("Subtotal")}</dt>
                       <dd className="font-semibold tabular-nums">
                         {money(quote.subtotal)}
                       </dd>
@@ -459,7 +462,7 @@ export default function StartNowDialog({
                       </div>
                     )}
                     <div className="border-t border-slate-200 pt-3 mt-3 flex items-baseline justify-between">
-                      <dt className="font-bold text-slate-900">Total</dt>
+                      <dt className="font-bold text-slate-900">{tx("Total")}</dt>
                       <dd className="text-xl font-extrabold text-indigo-700 tabular-nums">
                         {money(quote.total)}
                       </dd>
@@ -469,7 +472,7 @@ export default function StartNowDialog({
                   <div className="text-xs text-rose-600">{quoteError}</div>
                 ) : (
                   <div className="text-xs text-slate-400">
-                    The price appears once a room is chosen.
+                    {tx("The price appears once a room is chosen.")}
                   </div>
                 )}
               </dl>
@@ -489,7 +492,7 @@ export default function StartNowDialog({
                   disabled={!canStart}
                   onClick={submit}
                 >
-                  {saving ? "Starting…" : "Start session"}
+                  {saving ? tx("Starting…") : tx("Start session")}
                 </button>
                 <button
                   type="button"
@@ -497,7 +500,7 @@ export default function StartNowDialog({
                   disabled={saving}
                   onClick={onClose}
                 >
-                  Cancel
+                  {tx("Cancel")}
                 </button>
               </div>
             </aside>
@@ -525,6 +528,8 @@ function Stepper({
   hint?: string;
   onChange: (n: number) => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <div>
       <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
@@ -536,7 +541,7 @@ function Stepper({
           className="btn btn-ghost !px-3"
           disabled={disabled || value <= min}
           onClick={() => onChange(Math.max(min, value - 1))}
-          aria-label={`Decrease ${label}`}
+          aria-label={`${tx("Decrease")} ${label}`}
         >
           −
         </button>
@@ -548,7 +553,7 @@ function Stepper({
           className="btn btn-ghost !px-3"
           disabled={disabled || value >= max}
           onClick={() => onChange(Math.min(max, value + 1))}
-          aria-label={`Increase ${label}`}
+          aria-label={`${tx("Increase")} ${label}`}
         >
           +
         </button>
@@ -565,6 +570,8 @@ function Note({
   tone: "green" | "red" | "amber" | "slate";
   children: React.ReactNode;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const styles = {
     green: "bg-emerald-50 text-emerald-700 border-emerald-200",
     red: "bg-rose-50 text-rose-700 border-rose-200",

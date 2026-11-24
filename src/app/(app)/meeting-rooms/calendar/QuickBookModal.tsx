@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import CustomerSearchField from "../CustomerSearchField";
+import { useFmt } from "@/lib/lang-context";
 
 type Room = {
   id: number;
@@ -44,6 +45,8 @@ export default function QuickBookModal({
   maxDurationHours: number;
   onClose: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [roomId, setRoomId] = useState<number | "">(
@@ -103,31 +106,31 @@ export default function QuickBookModal({
     if (saving) return;
     setError(null);
 
-    if (!room) return setError("Choose a room.");
-    if (!name.trim()) return setError("Customer name is required.");
-    if (!phone.trim()) return setError("Customer phone is required.");
+    if (!room) return setError(tx("Choose a room."));
+    if (!name.trim()) return setError(tx("Customer name is required."));
+    if (!phone.trim()) return setError(tx("Customer phone is required."));
 
     const hours = Number(duration);
     if (!Number.isInteger(hours) || hours < 1) {
-      return setError("Duration must be a whole number of hours.");
+      return setError(tx("Duration must be a whole number of hours."));
     }
     const attendeeCount = Number(people);
     if (!Number.isInteger(attendeeCount) || attendeeCount < 1) {
-      return setError("Number of people must be at least 1.");
+      return setError(tx("Number of people must be at least 1."));
     }
     if (attendeeCount > room.capacity) {
       return setError(`${room.name} holds up to ${room.capacity} people.`);
     }
 
     const start = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(start.getTime())) return setError("Invalid date or time.");
+    if (Number.isNaN(start.getTime())) return setError(tx("Invalid date or time."));
     const end = new Date(start.getTime() + hours * 3_600_000);
 
     let occurrences = 1;
     if (recurrence !== "none") {
       occurrences = Number(count);
       if (!Number.isInteger(occurrences) || occurrences < 2 || occurrences > 52) {
-        return setError("Repeat count must be between 2 and 52.");
+        return setError(tx("Repeat count must be between 2 and 52."));
       }
     }
 
@@ -152,13 +155,13 @@ export default function QuickBookModal({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not create the reservation.");
+        setError(data?.error || tx("Could not create the reservation."));
         return;
       }
       onClose();
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -168,7 +171,7 @@ export default function QuickBookModal({
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">
       <div className="card w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 space-y-4">
         <div className="flex items-start justify-between">
-          <h2 className="text-xl font-bold">New reservation</h2>
+          <h2 className="text-xl font-bold">{tx("New reservation")}</h2>
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             ✕
           </button>
@@ -176,7 +179,7 @@ export default function QuickBookModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="label">Room</label>
+            <label className="label">{tx("Room")}</label>
             <select
               className="select"
               value={roomId}
@@ -185,7 +188,7 @@ export default function QuickBookModal({
                 setRoomId(e.target.value ? Number(e.target.value) : "")
               }
             >
-              <option value="">Select room…</option>
+              <option value="">{tx("Select room…")}</option>
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} (up to {r.capacity})
@@ -195,7 +198,7 @@ export default function QuickBookModal({
           </div>
 
           <div>
-            <label className="label">Date</label>
+            <label className="label">{tx("Date")}</label>
             <input
               type="date"
               className="input"
@@ -205,7 +208,7 @@ export default function QuickBookModal({
             />
           </div>
           <div>
-            <label className="label">Start time</label>
+            <label className="label">{tx("Start time")}</label>
             <input
               type="time"
               className="input"
@@ -217,7 +220,7 @@ export default function QuickBookModal({
           </div>
 
           <div>
-            <label className="label">Duration (hours)</label>
+            <label className="label">{tx("Duration (hours)")}</label>
             <select
               className="select"
               value={duration}
@@ -227,14 +230,14 @@ export default function QuickBookModal({
               {Array.from({ length: maxDurationHours }, (_, i) => i + 1).map(
                 (h) => (
                   <option key={h} value={h}>
-                    {h} {h === 1 ? "hour" : "hours"}
+                    {h} {h === 1 ? tx("hour") : tx("hours")}
                   </option>
                 ),
               )}
             </select>
           </div>
           <div>
-            <label className="label">People</label>
+            <label className="label">{tx("People")}</label>
             <input
               type="number"
               min={1}
@@ -261,7 +264,7 @@ export default function QuickBookModal({
 
         {packages.length > 0 && (
           <div>
-            <label className="label">Pay with a package (optional)</label>
+            <label className="label">{tx("Pay with a package (optional)")}</label>
             <select
               className="select"
               value={packageId ?? ""}
@@ -270,10 +273,10 @@ export default function QuickBookModal({
                 setPackageId(e.target.value ? Number(e.target.value) : null)
               }
             >
-              <option value="">Pay normally</option>
+              <option value="">{tx("Pay normally")}</option>
               {packages.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.packageNameSnapshot ?? p.packageName ?? `Package #${p.id}`}{" "}
+                  {p.packageNameSnapshot ?? p.packageName ?? `${tx("Package")} #${p.id}`}{" "}
                   — {Number(p.remainingHours).toFixed(2)}h left
                 </option>
               ))}
@@ -283,7 +286,7 @@ export default function QuickBookModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Repeat</label>
+            <label className="label">{tx("Repeat")}</label>
             <select
               className="select"
               value={recurrence}
@@ -292,15 +295,15 @@ export default function QuickBookModal({
                 setRecurrence(e.target.value as "none" | "daily" | "weekly")
               }
             >
-              <option value="none">Does not repeat</option>
-              <option value="daily">Every day</option>
-              <option value="weekly">Every week</option>
+              <option value="none">{tx("Does not repeat")}</option>
+              <option value="daily">{tx("Every day")}</option>
+              <option value="weekly">{tx("Every week")}</option>
             </select>
           </div>
           {recurrence !== "none" && (
             <div>
               <label className="label">
-                Number of {recurrence === "daily" ? "days" : "weeks"}
+                {tx("Number of")} {recurrence === "daily" ? tx("days") : tx("weeks")}
               </label>
               <input
                 type="number"
@@ -316,7 +319,7 @@ export default function QuickBookModal({
         </div>
 
         <div>
-          <label className="label">Notes (optional)</label>
+          <label className="label">{tx("Notes (optional)")}</label>
           <input
             className="input"
             maxLength={2000}
@@ -334,7 +337,7 @@ export default function QuickBookModal({
 
         <div className="flex gap-2 justify-end">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Cancel
+            {tx("Cancel")}
           </button>
           <button
             type="button"
@@ -342,7 +345,7 @@ export default function QuickBookModal({
             disabled={saving}
             onClick={submit}
           >
-            {saving ? "Saving…" : "Save reservation"}
+            {saving ? tx("Saving…") : tx("Save reservation")}
           </button>
         </div>
       </div>

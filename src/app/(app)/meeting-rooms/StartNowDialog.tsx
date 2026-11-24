@@ -454,7 +454,7 @@ export default function StartNowDialog({
                     {quote.discount > 0 && (
                       <div className="flex justify-between">
                         <dt className="text-slate-500">
-                          Package discount ({quote.discountPercent}%)
+                          {tx("Package discount")} ({quote.discountPercent}%)
                         </dt>
                         <dd className="font-semibold text-emerald-600 tabular-nums">
                           − {money(quote.discount)}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 const MAX_NOTE_LENGTH = 500;
 
@@ -56,6 +57,8 @@ export default function OpenShiftForm({
 }: {
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [openingCash, setOpeningCash] = useState("0");
@@ -77,7 +80,7 @@ export default function OpenShiftForm({
 
     if (parsedOpeningCash === null) {
       setError(
-        "Please enter a valid opening cash amount greater than or equal to 0.",
+        tx("Please enter a valid opening cash amount greater than or equal to 0."),
       );
       return;
     }
@@ -86,7 +89,7 @@ export default function OpenShiftForm({
 
     if (normalizedNote.length > MAX_NOTE_LENGTH) {
       setError(
-        `Note cannot exceed ${MAX_NOTE_LENGTH} characters.`,
+        f.en ? `Note cannot exceed ${MAX_NOTE_LENGTH} characters.` : `الملاحظة لا تزيد عن ${MAX_NOTE_LENGTH} حرف.`,
       );
       return;
     }
@@ -116,7 +119,7 @@ export default function OpenShiftForm({
             : "";
 
         setError(
-          serverError || "Failed to open shift. Please try again.",
+          serverError || tx("Failed to open shift. Please try again."),
         );
         setLoading(false);
         return;
@@ -126,7 +129,7 @@ export default function OpenShiftForm({
       router.refresh();
     } catch {
       setError(
-        "A network error occurred. Please check your connection and try again.",
+        tx("A network error occurred. Please check your connection and try again."),
       );
       setLoading(false);
     }
@@ -164,7 +167,7 @@ export default function OpenShiftForm({
           htmlFor="opening-cash"
           className="label"
         >
-          Opening cash in drawer ({currency})
+          {tx("Opening cash in drawer")} ({currency})
         </label>
 
         <input
@@ -185,8 +188,7 @@ export default function OpenShiftForm({
           id="opening-cash-help"
           className="text-xs text-slate-500 mt-1"
         >
-          Enter the actual amount of cash you found in the register at
-          the start of your shift.
+          {tx("Enter the actual amount of cash you found in the register at the start of your shift.")}
         </p>
       </div>
 
@@ -195,7 +197,7 @@ export default function OpenShiftForm({
           htmlFor="shift-note"
           className="label"
         >
-          Note (optional)
+          {tx("Note (optional)")}
         </label>
 
         <input
@@ -203,7 +205,7 @@ export default function OpenShiftForm({
           className="input"
           value={note}
           onChange={handleNoteChange}
-          placeholder="Anything worth noting for this shift…"
+          placeholder={tx("Anything worth noting for this shift…")}
           maxLength={MAX_NOTE_LENGTH}
           autoComplete="off"
           disabled={loading}
@@ -230,8 +232,8 @@ export default function OpenShiftForm({
         disabled={!canSubmit}
       >
         {loading
-          ? "Opening shift…"
-          : "Open shift & start working →"}
+          ? tx("Opening shift…")
+          : tx("Open shift & start working →")}
       </button>
     </form>
   );

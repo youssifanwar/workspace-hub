@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 const MAX_NOTE_LENGTH = 500;
 
@@ -60,6 +61,8 @@ export default function CloseShiftForm({
   expectedCash: number;
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const safeExpectedCash =
@@ -100,7 +103,7 @@ export default function CloseShiftForm({
 
     if (parsedCash === null) {
       setError(
-        "Please enter a valid closing cash amount greater than or equal to 0.",
+        tx("Please enter a valid closing cash amount greater than or equal to 0."),
       );
       setConfirm(false);
       return;
@@ -110,7 +113,7 @@ export default function CloseShiftForm({
 
     if (normalizedNote.length > MAX_NOTE_LENGTH) {
       setError(
-        `Closing note cannot exceed ${MAX_NOTE_LENGTH} characters.`,
+        f.en ? `Closing note cannot exceed ${MAX_NOTE_LENGTH} characters.` : `ملاحظة الإقفال لا تزيد عن ${MAX_NOTE_LENGTH} حرف.`,
       );
       setConfirm(false);
       return;
@@ -147,7 +150,7 @@ export default function CloseShiftForm({
 
         setError(
           serverError ||
-            "Failed to close shift. Please try again.",
+            tx("Failed to close shift. Please try again."),
         );
         setLoading(false);
         setConfirm(false);
@@ -161,7 +164,7 @@ export default function CloseShiftForm({
         typeof shiftId !== "string"
       ) {
         setError(
-          "Shift closed, but the summary page could not be opened.",
+          tx("Shift closed, but the summary page could not be opened."),
         );
         setLoading(false);
         setConfirm(false);
@@ -174,7 +177,7 @@ export default function CloseShiftForm({
 
       if (!normalizedShiftId) {
         setError(
-          "Shift closed, but the summary page could not be opened.",
+          tx("Shift closed, but the summary page could not be opened."),
         );
         setLoading(false);
         setConfirm(false);
@@ -189,7 +192,7 @@ export default function CloseShiftForm({
       router.refresh();
     } catch {
       setError(
-        "A network error occurred. Please check your connection and try again.",
+        tx("A network error occurred. Please check your connection and try again."),
       );
       setLoading(false);
       setConfirm(false);
@@ -237,7 +240,7 @@ export default function CloseShiftForm({
             htmlFor="actual-cash"
             className="label"
           >
-            Actual cash counted in drawer ({currency})
+            {tx("Actual cash counted in drawer")} ({currency})
           </label>
 
           <input
@@ -257,8 +260,7 @@ export default function CloseShiftForm({
             id="actual-cash-help"
             className="text-xs text-slate-500 mt-1"
           >
-            Count the cash in the drawer and enter the exact amount
-            before closing the shift.
+            {tx("Count the cash in the drawer and enter the exact amount before closing the shift.")}
           </p>
         </div>
 
@@ -267,7 +269,7 @@ export default function CloseShiftForm({
             htmlFor="closing-note"
             className="label"
           >
-            Closing note (optional)
+            {tx("Closing note (optional)")}
           </label>
 
           <input
@@ -275,7 +277,7 @@ export default function CloseShiftForm({
             className="input"
             value={note}
             onChange={handleNoteChange}
-            placeholder="Cash difference reason, incidents…"
+            placeholder={tx("Cash difference reason, incidents…")}
             maxLength={MAX_NOTE_LENGTH}
             autoComplete="off"
             disabled={loading}
@@ -297,16 +299,16 @@ export default function CloseShiftForm({
         }`}
         aria-live="polite"
       >
-        Difference:{" "}
+        {tx("Difference:")}{" "}
         <span className="font-bold tabular-nums">
           {diff >= 0 ? "+" : ""}
           {diff.toFixed(2)} {currency}
         </span>{" "}
         {isBalanced
-          ? "· Balanced ✓"
+          ? `· ${tx("Balanced")} ✓`
           : diff > 0
-          ? "· Overage"
-          : "· Shortage"}
+          ? `· ${tx("Overage")}`
+          : `· ${tx("Shortage")}`}
       </div>
 
       {error && (
@@ -327,10 +329,10 @@ export default function CloseShiftForm({
         disabled={!canSubmit}
       >
         {loading
-          ? "Closing…"
+          ? tx("Closing…")
           : confirm
-          ? "⚠️ Click again to confirm closing this shift"
-          : "Close shift →"}
+          ? tx("⚠️ Click again to confirm closing this shift")
+          : tx("Close shift →")}
       </button>
     </form>
   );

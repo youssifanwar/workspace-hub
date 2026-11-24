@@ -17,6 +17,8 @@ import {
   users,
 } from "@/db/schema";
 import { formatMoney, getSetting } from "@/lib/settings";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 
 import OpenShiftForm from "./OpenShiftForm";
 import CloseShiftForm from "./CloseShiftForm";
@@ -70,6 +72,8 @@ function formatDate(value: Date | string | null): string {
 }
 
 export default async function ShiftPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   await loadTimezone();
 
@@ -118,23 +122,21 @@ export default async function ShiftPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Open a new shift
+            {tx("Open a new shift")}
           </h1>
 
           <p className="text-slate-500">
-            You need to open a shift before you can work.
+            {tx("You need to open a shift before you can work.")}
           </p>
         </div>
 
         {anyActive && (
           <div className="card p-6 border border-amber-200 bg-amber-50">
             <h3 className="font-bold text-amber-900">
-              {holder?.fullName ?? "Another employee"} has the shift open
+              {holder?.fullName ?? tx("Another employee")} {tx("has the shift open")}
             </h3>
             <p className="text-sm text-amber-800 mt-1">
-              Opened {formatDate(anyActive.openedAt)}. Only one shift can be
-              open at a time. Ask them to use <b>Hand over shift</b> on
-              their Shift page{isAdmin(user.role) ? ", or hand it over yourself below" : ", or ask an admin to do it"}.
+              {tx("Opened")} {formatDate(anyActive.openedAt)}. {tx("Only one shift can be open at a time. Ask them to use")} <b>{tx("Hand over shift")}</b> {tx("on their Shift page")}{isAdmin(user.role) ? tx(", or hand it over yourself below") : tx(", or ask an admin to do it")}.
             </p>
           </div>
         )}
@@ -142,7 +144,7 @@ export default async function ShiftPage() {
         {anyActive && isAdmin(user.role) && (
           <div className="card p-6">
             <h3 className="font-bold mb-3">
-              Hand over {holder?.fullName ?? "the open"} shift
+              {tx("Hand over")} {holder?.fullName ?? tx("the open")} {tx("shift")}
             </h3>
             <HandoverForm
               candidates={handoverCandidates}
@@ -161,7 +163,7 @@ export default async function ShiftPage() {
 
         {recent.length > 0 && (
           <div className="card p-6">
-            <h3 className="font-bold mb-3">Recent shifts</h3>
+            <h3 className="font-bold mb-3">{tx("Recent shifts")}</h3>
 
             <div className="divide-soft text-sm">
               {recent.map((shift) => {
@@ -178,8 +180,8 @@ export default async function ShiftPage() {
                   >
                     <div className="min-w-0">
                       <div className="font-semibold">
-                        Shift #{shift.id} ·{" "}
-                        {shift.userName || "Unknown user"}
+                        {tx("Shift")} #{shift.id} ·{" "}
+                        {shift.userName || tx("Unknown user")}
                       </div>
 
                       <div className="text-xs text-slate-500">
@@ -190,7 +192,7 @@ export default async function ShiftPage() {
 
                     <div className="text-right text-xs shrink-0">
                       <div>
-                        Open:{" "}
+                        {tx("Open:")}{" "}
                         {formatMoney(
                           openingCash,
                           currency,
@@ -198,7 +200,7 @@ export default async function ShiftPage() {
                       </div>
 
                       <div>
-                        Close:{" "}
+                        {tx("Close:")}{" "}
                         {closingCash !== null
                           ? formatMoney(
                               closingCash,
@@ -375,11 +377,11 @@ export default async function ShiftPage() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            My Shift · #{active.id}
+            {tx("My Shift")} · #{active.id}
           </h1>
 
           <p className="text-slate-500">
-            Opened {openedAt} · Opening cash{" "}
+            {tx("Opened")} {openedAt} · {tx("Opening cash")}{" "}
             {formatMoney(openingCash, currency)}
           </p>
         </div>
@@ -389,20 +391,20 @@ export default async function ShiftPage() {
             href="/bookings"
             className="btn btn-primary"
           >
-            Bookings →
+            {tx("Bookings →")}
           </Link>
         </div>
       </div>
 
       <div className="grid md:grid-cols-4 gap-4">
         <StatBox
-          label="Bookings this shift"
+          label={tx("Bookings this shift")}
           value={String(bookingsCount)}
           icon="🪑"
         />
 
         <StatBox
-          label="Seat charges"
+          label={tx("Seat charges")}
           value={formatMoney(
             seatTotal,
             currency,
@@ -411,14 +413,14 @@ export default async function ShiftPage() {
         />
 
         <StatBox
-          label="F&B sales"
+          label={tx("F&B sales")}
           value={formatMoney(ordersTotal, currency)}
-          sub={`Direct POS included: ${formatMoney(directFnbTotal, currency)}`}
+          sub={`${tx("Direct POS included:")} ${formatMoney(directFnbTotal, currency)}`}
           icon="🍔"
         />
 
         <StatBox
-          label="Total revenue"
+          label={tx("Total revenue")}
           value={formatMoney(
             revenue,
             currency,
@@ -431,12 +433,12 @@ export default async function ShiftPage() {
       <div className="grid md:grid-cols-2 gap-6">
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            Payment breakdown
+            {tx("Payment breakdown")}
           </h3>
 
           <div className="space-y-3">
             <Line
-              label="💵 Cash"
+              label={tx("💵 Cash")}
               value={formatMoney(
                 cashTotal,
                 currency,
@@ -444,7 +446,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="💳 Visa"
+              label={tx("💳 Visa")}
               value={formatMoney(
                 visaTotal,
                 currency,
@@ -452,7 +454,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="📱 InstaPay"
+              label={tx("📱 InstaPay")}
               value={formatMoney(
                 instapayTotal,
                 currency,
@@ -460,7 +462,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="👛 Paid from customer balance"
+              label={tx("👛 Paid from customer balance")}
               value={formatMoney(
                 balanceTotal,
                 currency,
@@ -469,24 +471,24 @@ export default async function ShiftPage() {
 
             <div className="border-t border-slate-100 pt-3 mt-3 space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Extra cash in drawer
+                {tx("Extra cash in drawer")}
               </div>
               <Line
-                label="📦 Packages cash (included above)"
+                label={tx("📦 Packages cash (included above)")}
                 value={formatMoney(
                   extraCash.packages,
                   currency,
                 )}
               />
               <Line
-                label="➕ Other income cash (included above)"
+                label={tx("➕ Other income cash (included above)")}
                 value={formatMoney(
                   extraCash.manualIncome,
                   currency,
                 )}
               />
               <Line
-                label="👛 Balance top-ups (added separately)"
+                label={tx("👛 Balance top-ups (added separately)")}
                 value={formatMoney(
                   extraCash.balanceDeposits,
                   currency,
@@ -496,7 +498,7 @@ export default async function ShiftPage() {
 
             <div className="border-t border-slate-100 pt-3 mt-3">
               <Line
-                label="🏦 Bank deposits"
+                label={tx("🏦 Bank deposits")}
                 value={formatMoney(
                   bankDeposits,
                   currency,
@@ -504,7 +506,7 @@ export default async function ShiftPage() {
               />
 
               <Line
-                label="🏦 Bank withdrawals"
+                label={tx("🏦 Bank withdrawals")}
                 value={formatMoney(
                   bankWithdrawals,
                   currency,
@@ -524,12 +526,12 @@ export default async function ShiftPage() {
 
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            Cash drawer
+            {tx("Cash drawer")}
           </h3>
 
           <div className="space-y-3 text-sm">
             <Line
-              label="Opening cash"
+              label={tx("Opening cash")}
               value={formatMoney(
                 openingCash,
                 currency,
@@ -537,7 +539,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="+ Cash revenue (sessions, F&B, packages & other income)"
+              label={tx("+ Cash revenue (sessions, F&B, packages & other income)")}
               value={formatMoney(
                 cashTotal,
                 currency,
@@ -545,12 +547,12 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="+ Cash customer-balance top-ups"
+              label={tx("+ Cash customer-balance top-ups")}
               value={formatMoney(extraCash.balanceDeposits, currency)}
             />
 
             <Line
-              label="− Cash expenses"
+              label={tx("− Cash expenses")}
               value={formatMoney(
                 cashExpensesTotal,
                 currency,
@@ -558,7 +560,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="− Deposited to bank"
+              label={tx("− Deposited to bank")}
               value={formatMoney(
                 bankDeposits,
                 currency,
@@ -566,7 +568,7 @@ export default async function ShiftPage() {
             />
 
             <Line
-              label="+ Withdrawn from bank"
+              label={tx("+ Withdrawn from bank")}
               value={formatMoney(
                 bankWithdrawals,
                 currency,
@@ -576,7 +578,7 @@ export default async function ShiftPage() {
 
           <div className="mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200">
             <div className="text-xs text-indigo-700 font-semibold uppercase">
-              Expected cash in drawer
+              {tx("Expected cash in drawer")}
             </div>
 
             <div className="text-2xl font-bold text-indigo-900 tabular-nums mt-1">
@@ -591,7 +593,7 @@ export default async function ShiftPage() {
 
       <div className="card p-6">
         <h3 className="font-bold mb-4">
-          Close shift
+          {tx("Close shift")}
         </h3>
 
         <CloseShiftForm
@@ -601,7 +603,7 @@ export default async function ShiftPage() {
       </div>
 
       <div className="card p-6">
-        <h3 className="font-bold mb-4">Hand over to the next employee</h3>
+        <h3 className="font-bold mb-4">{tx("Hand over to the next employee")}</h3>
 
         <HandoverForm
           candidates={handoverCandidates}

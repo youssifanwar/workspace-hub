@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -38,7 +38,7 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
   await loadTimezone();
   if (!user) redirect("/login");
   // Owner-only page: same rule the staff-shifts settings page already uses.
-  if (!isAdmin(user.role)) redirect("/dashboard");
+  if (!isAdmin(user.role)) notFound();
 
   const { range } = await searchParams;
   const key = range && RANGES[range] ? range : "today";

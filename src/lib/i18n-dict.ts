@@ -1328,5 +1328,8 @@ export const AR_EXTRA: Record<string, string> = {
  "Out of stock": "خلصان",
  "In stock": "متوفر",
  "Operations": "التشغيل",
- "Live sessions": "الجلسات الشغالة"
+ "Live sessions": "الجلسات الشغالة",
+ "Insights": "التحليلات",
+ "Units": "الوحدات",
+ "Share": "النسبة"
 };

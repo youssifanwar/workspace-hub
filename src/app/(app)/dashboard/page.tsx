@@ -18,7 +18,8 @@ import {
   products,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { arDate, arLongDate, arMoney, arNumber, arTime, paymentLabel } from "@/lib/ar";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import Icon from "../_components/Icon";
 import {
   calculateCustomerSessionSeatCharge,
@@ -60,6 +61,8 @@ function safeNumber(value: unknown): number {
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
+  const f = makeFmt(await getLang());
+  const t = f.t;
   await loadTimezone();
 
   if (!user) {
@@ -421,7 +424,7 @@ export default async function DashboardPage() {
     const key = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(d);
     week.push({
       key,
-      label: i === 0 ? "النهارده" : d.toLocaleDateString("ar-EG-u-nu-latn", { weekday: "long", timeZone: tz }),
+      label: i === 0 ? t("النهارده") : f.weekday(d, tz),
       value: weekMap.get(key) ?? 0,
       today: key === todayKey,
     });
@@ -483,7 +486,7 @@ export default async function DashboardPage() {
 
   const firstName = user.fullName.trim().split(/\s+/)[0] || user.fullName;
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(new Date()));
-  const greeting = hour < 12 ? "صباح الخير" : "مساء الخير";
+  const greeting = hour < 12 ? t("صباح الخير") : t("مساء الخير");
   const todayCount = Number(todayTicketsRow[0]?.c ?? 0);
   const roomsTotal = Number(deskCountRow[0]?.c ?? 0);
   const occupied = activeCount + activeMeetingRoomsCount;
@@ -493,46 +496,46 @@ export default async function DashboardPage() {
     <div className="x-page space-y-5">
       <div className="x-head">
         <div>
-          <h1>{greeting}، {firstName} 👋</h1>
-          <p>{arLongDate(new Date(), tz)} · ده ملخص اللي بيحصل دلوقتي</p>
+          <h1>{greeting}{f.en ? "," : "،"} {firstName} 👋</h1>
+          <p>{f.longDate(new Date(), tz)} · {t("ده ملخص اللي بيحصل دلوقتي")}</p>
         </div>
         <div className="x-actions">
-          <Link href="/bookings" className="x-btn primary">+ جلسة جديدة</Link>
-          <Link href="/meeting-rooms/calendar" className="x-btn">حجز غرفة</Link>
-          <Link href="/shift" className="x-btn dark">الشيفت</Link>
+          <Link href="/bookings" className="x-btn primary">{t("+ جلسة جديدة")}</Link>
+          <Link href="/meeting-rooms/calendar" className="x-btn">{t("حجز غرفة")}</Link>
+          <Link href="/shift" className="x-btn dark">{t("الشيفت")}</Link>
         </div>
       </div>
 
-      <section className="x-grid x-kpis" aria-label="أرقام النهارده">
+      <section className="x-grid x-kpis" aria-label={t("أرقام النهارده")}>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">إيراد النهارده</span><span className="x-kpi-ico tone-blue"><Icon name="cash" size={19} /></span></div>
-          <div className="x-kpi-value x-num">{arNumber(todayRevenue)}<small>ج.م</small></div>
-          <div className="x-row-sub">صافي بعد المصاريف: {arMoney(netRevenue)}</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{t("إيراد النهارده")}</span><span className="x-kpi-ico tone-blue"><Icon name="cash" size={19} /></span></div>
+          <div className="x-kpi-value x-num">{f.number(todayRevenue)}<small>{f.cur}</small></div>
+          <div className="x-row-sub">{t("صافي بعد المصاريف:")} {f.money(netRevenue)}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">جلسات شغالة</span><span className="x-kpi-ico tone-green"><Icon name="users" size={19} /></span></div>
-          <div className="x-kpi-value x-num">{activeCount}<small>جلسة</small></div>
-          <div className="x-row-sub">و {activeMeetingRoomsCount} غرفة اجتماعات مستخدمة</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{t("جلسات شغالة")}</span><span className="x-kpi-ico tone-green"><Icon name="users" size={19} /></span></div>
+          <div className="x-kpi-value x-num">{activeCount}<small>{t("جلسة")}</small></div>
+          <div className="x-row-sub">{f.en ? `and ${activeMeetingRoomsCount} meeting rooms in use` : `و ${activeMeetingRoomsCount} غرفة اجتماعات مستخدمة`}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">طلبات المشروبات</span><span className="x-kpi-ico tone-amber"><Icon name="utensils" size={19} /></span></div>
-          <div className="x-kpi-value x-num">{todayCount}<small>طلب النهارده</small></div>
-          <div className="x-row-sub">{liveTickets.length > 0 ? `${liveTickets.length} لسه شغالين` : "مفيش طلبات معلقة"}</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{t("طلبات المشروبات")}</span><span className="x-kpi-ico tone-amber"><Icon name="utensils" size={19} /></span></div>
+          <div className="x-kpi-value x-num">{todayCount}<small>{t("طلب النهارده")}</small></div>
+          <div className="x-row-sub">{liveTickets.length > 0 ? (f.en ? `${liveTickets.length} still active` : `${liveTickets.length} لسه شغالين`) : t("مفيش طلبات معلقة")}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">إشغال المكان</span><span className="x-kpi-ico tone-violet"><Icon name="building" size={19} /></span></div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{t("إشغال المكان")}</span><span className="x-kpi-ico tone-violet"><Icon name="building" size={19} /></span></div>
           <div className="x-kpi-value x-num">{occupancy}%</div>
-          <div className="x-row-sub">{occupied} من {roomsTotal} مكان</div>
+          <div className="x-row-sub">{occupied} {t("من")} {roomsTotal} {t("مكان")}</div>
         </div>
       </section>
 
       <div className="x-grid x-cols-2">
         <section className="x-card">
           <div className="x-card-head">
-            <h2>الإيراد آخر 7 أيام</h2>
-            <span className="x-pill blue x-num">الإجمالي {arMoney(weekTotal)}</span>
+            <h2>{t("الإيراد آخر 7 أيام")}</h2>
+            <span className="x-pill blue x-num">{t("الإجمالي")} {f.money(weekTotal)}</span>
           </div>
-          <div className="x-bars" role="img" aria-label="رسم بياني للإيراد اليومي">
+          <div className="x-bars" role="img" aria-label={t("رسم بياني للإيراد اليومي")}>
             {week.map((w) => (
               <div key={w.key} className={`x-bar ${w.today ? "today" : ""}`}>
                 <span className="x-bar-val x-num">{w.value >= 1000 ? `${(w.value / 1000).toFixed(1)}k` : Math.round(w.value)}</span>
@@ -545,19 +548,19 @@ export default async function DashboardPage() {
 
         <div className="space-y-4">
           <section className="x-card">
-            <div className="x-card-head"><h2>طرق دفع النهارده</h2></div>
+            <div className="x-card-head"><h2>{t("طرق دفع النهارده")}</h2></div>
             {paymentBreakdownCombined.length === 0 ? (
-              <div className="x-empty">لسه مفيش مبيعات النهارده.</div>
+              <div className="x-empty">{t("لسه مفيش مبيعات النهارده.")}</div>
             ) : (
               <div className="flex items-center gap-5">
                 <div className="x-donut" style={{ background: donut, borderRadius: 999 }}>
-                  <div className="x-donut-hole"><div><b className="x-num" style={{ fontSize: 20 }}>{arNumber(paymentTotal)}</b><div className="x-row-sub">ج.م</div></div></div>
+                  <div className="x-donut-hole"><div><b className="x-num" style={{ fontSize: 20 }}>{f.number(paymentTotal)}</b><div className="x-row-sub">{f.cur}</div></div></div>
                 </div>
                 <div className="x-legend">
                   {paymentBreakdownCombined.map((p, i) => (
                     <div key={p.method ?? "unknown"} className="x-legend-row">
-                      <span><i className="x-sw" style={{ background: palette[i % palette.length] }} />{paymentLabel(p.method)}</span>
-                      <span className="x-num">{arNumber(safeNumber(p.total))}</span>
+                      <span><i className="x-sw" style={{ background: palette[i % palette.length] }} />{f.pay(p.method)}</span>
+                      <span className="x-num">{f.number(safeNumber(p.total))}</span>
                     </div>
                   ))}
                 </div>
@@ -566,16 +569,16 @@ export default async function DashboardPage() {
           </section>
 
           <section className="x-card">
-            <div className="x-card-head"><h2>الطلبات الحية</h2><Link href="/orders" className="x-link">افتح لوحة الطلبات ←</Link></div>
+            <div className="x-card-head"><h2>{t("الطلبات الحية")}</h2><Link href="/orders" className="x-link">{t("افتح لوحة الطلبات ←")}</Link></div>
             {liveTickets.length === 0 ? (
-              <div className="x-empty">مفيش طلبات دلوقتي.</div>
+              <div className="x-empty">{t("مفيش طلبات دلوقتي.")}</div>
             ) : (
               <div className="x-list">
-                {liveTickets.map((t) => (
-                  <div key={t.id} className="x-row">
-                    <span className="x-row-title x-num">#{String(t.number).padStart(3, "0")}</span>
-                    <div className="x-row-main"><div className="x-row-sub" style={{ marginTop: 0 }}>{t.deskName} · {t.itemCount} أصناف</div></div>
-                    <span className={`x-pill ${t.status === "pending" ? "amber" : "blue"}`}>{t.status === "pending" ? "جديد" : "بيتحضّر"}</span>
+                {liveTickets.map((tk) => (
+                  <div key={tk.id} className="x-row">
+                    <span className="x-row-title x-num">#{String(tk.number).padStart(3, "0")}</span>
+                    <div className="x-row-main"><div className="x-row-sub" style={{ marginTop: 0 }}>{tk.deskName} · {tk.itemCount} {t("أصناف")}</div></div>
+                    <span className={`x-pill ${tk.status === "pending" ? "amber" : "blue"}`}>{tk.status === "pending" ? t("جديد") : t("بيتحضّر")}</span>
                   </div>
                 ))}
               </div>
@@ -586,9 +589,9 @@ export default async function DashboardPage() {
 
       <div className="x-grid x-cols-3">
         <section className="x-card">
-          <div className="x-card-head"><h2>الجلسات الشغالة</h2><Link href="/bookings" className="x-link">الكل ←</Link></div>
+          <div className="x-card-head"><h2>{t("الجلسات الشغالة")}</h2><Link href="/bookings" className="x-link">{t("الكل ←")}</Link></div>
           {activeSessionsRows.length === 0 ? (
-            <div className="x-empty">مفيش جلسات شغالة دلوقتي.</div>
+            <div className="x-empty">{t("مفيش جلسات شغالة دلوقتي.")}</div>
           ) : (
             <div className="x-list">
               {(activeSessionsRows as ActiveSessionRow[]).slice(0, 5).map((session) => {
@@ -598,8 +601,8 @@ export default async function DashboardPage() {
                 return (
                   <Link key={session.id} href={`/bookings/${session.id}`} className="x-row" style={{ textDecoration: "none" }}>
                     <span className="x-kpi-ico tone-blue" style={{ width: 34, height: 34 }}>{session.customerName.charAt(0)}</span>
-                    <div className="x-row-main"><div className="x-row-title">{session.customerName}</div><div className="x-row-sub">بدأ {arTime(session.checkedInAt, tz)}</div></div>
-                    <b className="x-num" style={{ color: "#1d4ed8" }}>{arMoney(currentTotal)}</b>
+                    <div className="x-row-main"><div className="x-row-title">{session.customerName}</div><div className="x-row-sub">{t("بدأ")} {f.time(session.checkedInAt, tz)}</div></div>
+                    <b className="x-num" style={{ color: "#1d4ed8" }}>{f.money(currentTotal)}</b>
                   </Link>
                 );
               })}
@@ -608,16 +611,16 @@ export default async function DashboardPage() {
         </section>
 
         <section className="x-card">
-          <div className="x-card-head"><h2>مخزون قرب يخلص</h2><Link href="/menu" className="x-link">المخزون</Link></div>
+          <div className="x-card-head"><h2>{t("مخزون قرب يخلص")}</h2><Link href="/menu" className="x-link">{t("المخزون")}</Link></div>
           {lowStock.length === 0 ? (
-            <div className="x-empty">كل الأصناف مخزونها كويس.</div>
+            <div className="x-empty">{t("كل الأصناف مخزونها كويس.")}</div>
           ) : (
             <div className="space-y-2">
               {lowStock.map((p) => (
                 <div key={p.id} className="x-row" style={{ background: p.stock === 0 ? "#fef2f2" : "#fffbeb", border: `1px solid ${p.stock === 0 ? "#fecaca" : "#fde68a"}`, borderRadius: 12, padding: "10px 12px" }}>
                   <span style={{ fontSize: 20 }}>{p.icon}</span>
                   <div className="x-row-main x-row-title">{p.name}</div>
-                  <span className={`x-pill ${p.stock === 0 ? "red" : "amber"}`}>{p.stock === 0 ? "خلص" : `باقي ${p.stock}`}</span>
+                  <span className={`x-pill ${p.stock === 0 ? "red" : "amber"}`}>{p.stock === 0 ? t("خلص") : `${t("باقي")} ${p.stock}`}</span>
                 </div>
               ))}
             </div>
@@ -625,15 +628,15 @@ export default async function DashboardPage() {
         </section>
 
         <section className="x-card">
-          <div className="x-card-head"><h2>الحجوزات الجاية</h2><Link href="/meeting-rooms/calendar" className="x-link">التقويم</Link></div>
+          <div className="x-card-head"><h2>{t("الحجوزات الجاية")}</h2><Link href="/meeting-rooms/calendar" className="x-link">{t("التقويم")}</Link></div>
           {upcoming.length === 0 ? (
-            <div className="x-empty">مفيش حجوزات جاية.</div>
+            <div className="x-empty">{t("مفيش حجوزات جاية.")}</div>
           ) : (
             <div className="x-list">
               {upcoming.map((r) => (
                 <div key={r.id} className="x-row">
-                  <span className="x-pill" style={{ background: "#0f172a", color: "#fff", padding: "6px 10px" }}>{arTime(r.startAt, tz)}</span>
-                  <div className="x-row-main"><div className="x-row-title">{r.customerName}</div><div className="x-row-sub">{r.roomName} · {r.attendees} أفراد · {arDate(r.startAt, tz)}</div></div>
+                  <span className="x-pill" style={{ background: "#0f172a", color: "#fff", padding: "6px 10px" }}>{f.time(r.startAt, tz)}</span>
+                  <div className="x-row-main"><div className="x-row-title">{r.customerName}</div><div className="x-row-sub">{r.roomName} · {r.attendees} {t("أفراد")} · {f.date(r.startAt, tz)}</div></div>
                 </div>
               ))}
             </div>
@@ -642,21 +645,21 @@ export default async function DashboardPage() {
       </div>
 
       <section className="x-card">
-        <div className="x-card-head"><h2>آخر الجلسات المقفولة</h2><Link href="/bookings" className="x-link">كل الحجوزات ←</Link></div>
+        <div className="x-card-head"><h2>{t("آخر الجلسات المقفولة")}</h2><Link href="/bookings" className="x-link">{t("كل الحجوزات ←")}</Link></div>
         {recentSessions.length === 0 ? (
-          <div className="x-empty">لسه مفيش جلسات اتقفلت.</div>
+          <div className="x-empty">{t("لسه مفيش جلسات اتقفلت.")}</div>
         ) : (
           <div className="x-table-wrap">
             <table className="x-table">
-              <thead><tr><th>العميل</th><th>الجلسة</th><th>الدفع</th><th>اتقفلت</th><th>الإجمالي</th></tr></thead>
+              <thead><tr><th>{t("العميل")}</th><th>{t("الجلسة")}</th><th>{t("الدفع")}</th><th>{t("اتقفلت")}</th><th>{t("الإجمالي")}</th></tr></thead>
               <tbody>
                 {recentSessions.map((s) => (
                   <tr key={s.id}>
                     <td className="font-bold">{s.customerName}</td>
                     <td className="x-num">#{s.id}</td>
-                    <td><span className="x-pill">{paymentLabel(s.paymentMethod)}</span></td>
-                    <td className="x-num">{s.checkedOutAt ? `${arDate(s.checkedOutAt, tz)} · ${arTime(s.checkedOutAt, tz)}` : "—"}</td>
-                    <td className="font-bold x-num">{arMoney(safeNumber(s.total))}</td>
+                    <td><span className="x-pill">{f.pay(s.paymentMethod)}</span></td>
+                    <td className="x-num">{s.checkedOutAt ? `${f.date(s.checkedOutAt, tz)} · ${f.time(s.checkedOutAt, tz)}` : "—"}</td>
+                    <td className="font-bold x-num">{f.money(safeNumber(s.total))}</td>
                   </tr>
                 ))}
               </tbody>

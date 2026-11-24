@@ -473,13 +473,22 @@ export async function POST(
            * 03:01 -> 4
            * 04:01 -> 5 -> Day Pass
            */
-          const billableHours =
+          const rawBillableHours =
             Math.max(
               1,
               Math.ceil(
                 elapsedHours,
               ),
             );
+          // Optional Settings cap on package hours used per session.
+          // Packages only (cash seat pricing keeps its own day-pass cap).
+          const pkgCapRaw = Math.floor(
+            Number(await getSetting("package_max_hours_per_session")) || 0,
+          );
+          const billableHours =
+            booking.billingMode === "package" && pkgCapRaw > 0
+              ? Math.min(rawBillableHours, pkgCapRaw)
+              : rawBillableHours;
 
           /*
            * BILLING

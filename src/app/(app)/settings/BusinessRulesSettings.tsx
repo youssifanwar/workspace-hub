@@ -13,16 +13,19 @@ const PRESETS = [
 
 export default function BusinessRulesSettings({
   qrMaxPending,
+  packageMaxHours,
   staffMaxDiscount,
   brandColor,
 }: {
   qrMaxPending: string;
+  packageMaxHours: string;
   staffMaxDiscount: string;
   brandColor: string;
 }) {
   const f = useFmt();
   const router = useRouter();
   const [qr, setQr] = useState(qrMaxPending);
+  const [pkgCap, setPkgCap] = useState(packageMaxHours);
   const [disc, setDisc] = useState(staffMaxDiscount);
   const [color, setColor] = useState(brandColor);
   const [loading, setLoading] = useState(false);
@@ -39,6 +42,7 @@ export default function BusinessRulesSettings({
         body: JSON.stringify({
           qr_max_pending_orders: String(Math.max(1, Math.min(50, Math.floor(Number(qr) || 5)))),
           staff_max_discount_percent: String(Math.max(0, Math.min(100, Math.floor(Number(disc) === 0 ? 0 : Number(disc) || 100)))),
+          package_max_hours_per_session: String(Math.max(0, Math.min(24, Math.floor(Number(pkgCap) || 0)))),
           brand_color: color,
         }),
       });
@@ -72,6 +76,16 @@ export default function BusinessRulesSettings({
           {f.en ? "Max pending QR orders per customer session" : "أقصى عدد طلبات QR معلقة للجلسة الواحدة"}
         </label>
         <input id="qr-cap" className="input" type="number" min={1} max={50} value={qr} disabled={loading} onChange={(e) => { setQr(e.target.value); setMsg(null); }} />
+      </div>
+
+      <div>
+        <label className="label" htmlFor="pkg-cap">
+          {f.en ? "Max package hours one session can use" : "أقصى ساعات باقة تتخصم من الجلسة الواحدة"}
+        </label>
+        <input id="pkg-cap" className="input" type="number" min={0} max={24} value={pkgCap} disabled={loading} onChange={(e) => { setPkgCap(e.target.value); setMsg(null); }} />
+        <p className="text-xs text-slate-400 mt-1">
+          {f.en ? "0 = no limit (every started hour is deducted)." : "0 = من غير حد (كل ساعة بتبدأ بتتخصم)."}
+        </p>
       </div>
 
       <div>

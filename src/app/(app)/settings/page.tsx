@@ -157,6 +157,7 @@ export default async function SettingsPage() {
       body: (
         <BusinessRulesSettings
           qrMaxPending={settings.qr_max_pending_orders}
+          packageMaxHours={settings.package_max_hours_per_session}
           staffMaxDiscount={settings.staff_max_discount_percent}
           brandColor={settings.brand_color}
         />

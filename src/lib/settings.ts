@@ -26,6 +26,7 @@ export type SettingKey =
   | "calendar_end_hour"
   | "meeting_room_max_booking_hours"
   | "qr_max_pending_orders"
+  | "package_max_hours_per_session"
   | "staff_max_discount_percent"
   | "brand_color";
 
@@ -106,6 +107,9 @@ export const DEFAULTS: Record<
   /* Open QR orders one customer session may have waiting at once. */
   qr_max_pending_orders:
     "5",
+  /* Most package hours one session can use up (0 = no limit, bill every started hour). */
+  package_max_hours_per_session:
+    "0",
   /* Largest session discount (percent of subtotal) a non-manager may give. */
   staff_max_discount_percent:
     "100",

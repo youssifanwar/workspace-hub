@@ -159,13 +159,13 @@ export default function CustomerBalanceButton({
 
               <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-5">
                 <div className="text-xs uppercase tracking-wide text-white/80">
-                  {tx("Available balance")}
+                  {current < 0 ? tx("Amount owed by customer") : tx("Available balance")}
                 </div>
                 <div className="text-3xl font-bold tabular-nums mt-1">
-                  {f.money(current)}
+                  {f.money(Math.abs(current))}
                 </div>
                 <div className="text-xs text-white/80 mt-1">
-                  {tx("Can be used to pay for sessions and packages.")}
+                  {current < 0 ? tx("Adding balance first cancels this debt.") : tx("Can be used to pay for sessions and packages.")}
                 </div>
               </div>
 

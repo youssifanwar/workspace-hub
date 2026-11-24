@@ -511,6 +511,7 @@ export async function POST(req: Request) {
       packageId?: unknown;
       purchasedAt?: unknown;
       paymentMethod?: unknown;
+      onAccount?: unknown;
       note?: unknown;
     } | null;
     if (!body) throw new SaleError("Invalid request.");
@@ -638,7 +639,8 @@ export async function POST(req: Request) {
           type: "payment",
           shiftId: shift.id,
           userId: user.id,
-          note: `Meeting room package "${pkg.name}"`,
+          note: `Meeting room package "${pkg.name}"${body.onAccount === true ? " (pay later)" : ""}`,
+          allowDebt: body.onAccount === true,
         });
       }
 

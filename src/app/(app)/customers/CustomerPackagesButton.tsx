@@ -71,6 +71,7 @@ export default function CustomerPackagesButton({
   const [payMethod, setPayMethod] = useState<
     "cash" | "visa" | "instapay" | "balance"
   >("cash");
+  const [onAccount, setOnAccount] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +208,7 @@ export default function CustomerPackagesButton({
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
               paymentMethod: payMethod,
+              onAccount: payMethod === "balance" && onAccount,
               note: note || null,
             }
           : {
@@ -214,6 +216,7 @@ export default function CustomerPackagesButton({
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
               paymentMethod: payMethod,
+              onAccount: payMethod === "balance" && onAccount,
               note: note || null,
             };
       const res = await fetch(url, {
@@ -398,6 +401,16 @@ export default function CustomerPackagesButton({
                       ),
                     )}
                   </div>
+                  {payMethod === "balance" && (
+                    <label className="flex items-center gap-2 mt-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={onAccount}
+                        onChange={(e) => setOnAccount(e.target.checked)}
+                      />
+                      {tx("Pay later (put on customer's account)")}
+                    </label>
+                  )}
                 </div>
 
                 <div>

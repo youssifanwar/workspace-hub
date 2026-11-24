@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import ConfirmDialog from "./ConfirmDialog";
+import { useFmt } from "@/lib/lang-context";
 
 type OrderItem = {
   id: number;
@@ -123,6 +124,9 @@ export default function ActiveMeetingRooms({
   categories: MenuCategory[];
   products: MenuProduct[];
 }) {
+  const f = useFmt();
+  const tx = f.t;
+  const arH = (v: string) => (f.en ? v : v.replace("h", "س").replace("m", "د"));
   const router = useRouter();
 
   const [sessions, setSessions] =
@@ -183,7 +187,7 @@ export default function ActiveMeetingRooms({
       if (!response.ok) {
         throw new Error(
           data?.error ||
-            `Could not cancel the session (HTTP ${response.status}).`,
+            (f.en ? `Could not cancel the session (HTTP ${response.status}).` : `مقدرناش نلغي الجلسة (HTTP ${response.status}).`),
         );
       }
       setPendingCancel(null);
@@ -194,7 +198,7 @@ export default function ActiveMeetingRooms({
       setCancelError(
         cancelFailure instanceof Error
           ? cancelFailure.message
-          : "Could not cancel this session.",
+          : tx("Could not cancel this session."),
       );
     } finally {
       setCancellingId(null);
@@ -226,7 +230,7 @@ export default function ActiveMeetingRooms({
         if (!response.ok) {
           throw new Error(
             data?.error ||
-              `Could not load active meeting rooms (HTTP ${response.status}).`,
+              (f.en ? `Could not load active meeting rooms (HTTP ${response.status}).` : `مقدرناش نحمّل غرف الاجتماعات (HTTP ${response.status}).`),
           );
         }
 
@@ -245,7 +249,7 @@ export default function ActiveMeetingRooms({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Could not load active meeting room sessions.",
+            : tx("Could not load active meeting room sessions."),
         );
       } finally {
         if (!silent) {
@@ -312,7 +316,7 @@ export default function ActiveMeetingRooms({
     if (!session || addingProductId !== null) return;
 
     if (!session.bookingId) {
-      setOrderError("This meeting room is not linked to an active customer session, so items cannot be added to its bill.");
+      setOrderError(tx("This meeting room is not linked to an active customer session, so items cannot be added to its bill."));
       return;
     }
 
@@ -335,18 +339,18 @@ export default function ActiveMeetingRooms({
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(
-          data?.error || `Could not add ${product.name} (HTTP ${response.status}).`,
+          data?.error || (f.en ? `Could not add ${product.name} (HTTP ${response.status}).` : `مقدرناش نضيف ${product.name} (HTTP ${response.status}).`),
         );
       }
 
-      setOrderNotice(`${product.name} added to ${session.roomName}'s bill.`);
+      setOrderNotice((f.en ? `${product.name} added to ${session.roomName}'s bill.` : `تمت إضافة ${product.name} لفاتورة ${session.roomName}.`));
       await load(true);
     } catch (addError) {
       console.error("Add meeting room F&B item error:", addError);
       setOrderError(
         addError instanceof Error
           ? addError.message
-          : "Could not add this product to the meeting room bill.",
+          : tx("Could not add this product to the meeting room bill."),
       );
     } finally {
       setAddingProductId(null);
@@ -377,7 +381,7 @@ export default function ActiveMeetingRooms({
       discountAmount > baseTotal
     ) {
       setActionError(
-        "Invalid discount or session total.",
+        tx("Invalid discount or session total."),
       );
       return;
     }
@@ -387,7 +391,7 @@ export default function ActiveMeetingRooms({
       paid < total
     ) {
       setActionError(
-        `Paid amount must be at least ${money(total)} ${currency}.`,
+        (f.en ? `Paid amount must be at least ${money(total)} ${currency}.` : `المبلغ المدفوع لازم يكون ${money(total)} ${currency} على الأقل.`),
       );
       return;
     }
@@ -420,7 +424,7 @@ export default function ActiveMeetingRooms({
       if (!response.ok) {
         throw new Error(
           data?.error ||
-            `Checkout failed (HTTP ${response.status}).`,
+            (f.en ? `Checkout failed (HTTP ${response.status}).` : `فشل الدفع (HTTP ${response.status}).`),
         );
       }
 
@@ -453,7 +457,7 @@ export default function ActiveMeetingRooms({
       setActionError(
         checkoutError instanceof Error
           ? checkoutError.message
-          : "Could not complete meeting room checkout.",
+          : tx("Could not complete meeting room checkout."),
       );
     } finally {
       setCheckingOut(false);
@@ -468,7 +472,7 @@ export default function ActiveMeetingRooms({
     const amount = Number(adjustment.amount);
 
     if (!Number.isSafeInteger(amount) || amount <= 0) {
-      setAdjustmentError("Enter a positive whole number.");
+      setAdjustmentError(tx("Enter a positive whole number."));
       return;
     }
 
@@ -476,7 +480,7 @@ export default function ActiveMeetingRooms({
       adjustment.mode === "people" &&
       amount <= 0
     ) {
-      setAdjustmentError("Enter at least 1 additional person.");
+      setAdjustmentError(tx("Enter at least 1 additional person."));
       return;
     }
 
@@ -484,7 +488,7 @@ export default function ActiveMeetingRooms({
       adjustment.mode === "hours" &&
       amount <= 0
     ) {
-      setAdjustmentError("Enter at least 1 additional hour.");
+      setAdjustmentError(tx("Enter at least 1 additional hour."));
       return;
     }
 
@@ -517,7 +521,7 @@ export default function ActiveMeetingRooms({
       if (!response.ok) {
         throw new Error(
           data?.error ||
-            `Could not adjust the session (HTTP ${response.status}).`,
+            (f.en ? `Could not adjust the session (HTTP ${response.status}).` : `مقدرناش نعدّل الجلسة (HTTP ${response.status}).`),
         );
       }
 
@@ -533,7 +537,7 @@ export default function ActiveMeetingRooms({
       setAdjustmentError(
         adjustmentActionError instanceof Error
           ? adjustmentActionError.message
-          : "Could not adjust the meeting room session.",
+          : tx("Could not adjust the meeting room session."),
       );
     } finally {
       setAdjusting(false);
@@ -544,7 +548,7 @@ export default function ActiveMeetingRooms({
     <section className="space-y-4 meeting-active-section">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <div className="meeting-section-title-stack"><span className="meeting-section-kicker">LIVE OPERATIONS</span><h2 className="text-lg font-bold text-slate-900">In session</h2></div>
+          <div className="meeting-section-title-stack"><span className="meeting-section-kicker">{tx("LIVE OPERATIONS")}</span><h2 className="text-lg font-bold text-slate-900">{tx("In session")}</h2></div>
           <p className="text-sm text-slate-500 mt-0.5">
             Live room sessions, customer QR access and F&amp;B orders.
           </p>
@@ -557,7 +561,7 @@ export default function ActiveMeetingRooms({
 
       {loading && (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Loading active meeting rooms...
+          {tx("Loading active meeting rooms...")}
         </div>
       )}
 
@@ -569,7 +573,7 @@ export default function ActiveMeetingRooms({
 
       {!loading && !error && sessions.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-          No active meeting room sessions.
+          {tx("No active meeting room sessions.")}
         </div>
       )}
 
@@ -589,7 +593,7 @@ export default function ActiveMeetingRooms({
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
-                        Meeting Room
+                        {tx("Meeting Room")}
                       </div>
                       <h3 className="text-xl font-black text-slate-900 mt-1">
                         {session.roomName}
@@ -602,38 +606,37 @@ export default function ActiveMeetingRooms({
                       </p>
                       {new Date(session.endAt).getTime() < now && (
                         <span className="inline-block mt-2 text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
-                          ⚠️ Overdue — past the booked end time, check out
-                          when the room is free
+                          {tx("⚠️ Overdue — past the booked end time, check out when the room is free")}
                         </span>
                       )}
                     </div>
 
                     <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-right">
                       <div className="text-[11px] uppercase font-bold text-emerald-700">
-                        Elapsed
+                        {tx("Elapsed")}
                       </div>
                       <div className="text-lg font-black text-emerald-900 tabular-nums">
-                        {formatElapsed(
+                        {arH(formatElapsed(
                           session.startAt,
                           now,
-                        )}
+                        ))}
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
                     <Info
-                      label="People"
+                      label={tx("People")}
                       value={String(
                         session.attendeeCount,
                       )}
                     />
                     <Info
-                      label="Planned"
-                      value={`${session.durationHours}h`}
+                      label={tx("Planned")}
+                      value={`${session.durationHours}${tx("h")}`}
                     />
                     <Info
-                      label="Ends"
+                      label={tx("Ends")}
                       value={new Date(
                         session.endAt,
                       ).toLocaleTimeString([], {
@@ -642,7 +645,7 @@ export default function ActiveMeetingRooms({
                       })}
                     />
                     <Info
-                      label="QR Code"
+                      label={tx("QR Code")}
                       value={
                         session.accessCode ||
                         "—"
@@ -655,15 +658,13 @@ export default function ActiveMeetingRooms({
                   {session.accessCode && (
                     <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4">
                       <div className="text-xs uppercase tracking-wide text-indigo-700 font-bold">
-                        Customer QR access code
+                        {tx("Customer QR access code")}
                       </div>
                       <div className="text-3xl font-black tracking-[0.25em] text-indigo-900 mt-1">
                         {session.accessCode}
                       </div>
                       <div className="text-xs text-indigo-700 mt-1">
-                        Everyone in the meeting can scan the room QR and enter this
-                        same code on their own phone. All orders go on this one
-                        bill.
+                        {tx("Everyone in the meeting can scan the room QR and enter this same code on their own phone. All orders go on this one bill.")}
                       </div>
                       <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white border border-indigo-200 px-2.5 py-1 text-xs font-semibold text-indigo-800">
                         <span
@@ -684,7 +685,7 @@ export default function ActiveMeetingRooms({
                   <div className="meeting-active-room-bill rounded-2xl border border-slate-200 p-4">
                     <div className="flex items-center justify-between font-semibold">
                       <span className="text-slate-600">
-                        Room
+                        {tx("Room")}
                       </span>
                       <span className="tabular-nums">
                         {money(
@@ -705,7 +706,7 @@ export default function ActiveMeetingRooms({
                     </div>
 
                     <div className="border-t border-slate-100 mt-3 pt-3 flex items-center justify-between text-lg font-black">
-                      <span>Total</span>
+                      <span>{tx("Total")}</span>
                       <span className="text-indigo-700 tabular-nums">
                         {money(total)} {currency}
                       </span>
@@ -725,7 +726,7 @@ export default function ActiveMeetingRooms({
                         className="btn btn-primary px-3 py-2 text-sm"
                         onClick={() => openFnbOrder(session)}
                         disabled={checkingOut || adjusting || cancellingId !== null || !session.bookingId}
-                        title={!session.bookingId ? "This session has no linked customer booking" : "Add food and drinks to this meeting room bill"}
+                        title={!session.bookingId ? tx("This session has no linked customer booking") : tx("Add food and drinks to this meeting room bill")}
                       >
                         ＋ Add food &amp; drinks
                       </button>
@@ -771,7 +772,7 @@ export default function ActiveMeetingRooms({
                       }}
                       disabled={checkingOut || adjusting}
                     >
-                      👥 Add People
+                      {tx("👥 Add People")}
                     </button>
 
                     <button
@@ -787,7 +788,7 @@ export default function ActiveMeetingRooms({
                       }}
                       disabled={checkingOut || adjusting}
                     >
-                      ⏱️ Add Time
+                      {tx("⏱️ Add Time")}
                     </button>
                   </div>
 
@@ -821,8 +822,8 @@ export default function ActiveMeetingRooms({
                     }
                   >
                     {cancellingId === session.reservationId
-                      ? "Cancelling…"
-                      : "✕ Cancel session"}
+                      ? tx("Cancelling…")
+                      : tx("✕ Cancel session")}
                   </button>
                 </div>
               </div>
@@ -856,7 +857,7 @@ export default function ActiveMeetingRooms({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-[0.16em] text-indigo-600 font-bold">
-                    Staff order · Meeting room
+                    {tx("Staff order · Meeting room")}
                   </div>
                   <h3 id="meeting-room-add-fnb-title" className="text-2xl font-black text-slate-900 mt-1">
                     Add food &amp; drinks
@@ -873,7 +874,7 @@ export default function ActiveMeetingRooms({
                   className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold"
                   onClick={() => addingProductId === null && setOrderSession(null)}
                   disabled={addingProductId !== null}
-                  aria-label="Close add food and drinks"
+                  aria-label={tx("Close add food and drinks")}
                 >
                   ✕
                 </button>
@@ -883,9 +884,9 @@ export default function ActiveMeetingRooms({
                   type="search"
                   value={orderSearch}
                   onChange={(event) => setOrderSearch(event.target.value)}
-                  placeholder="Search drinks and food…"
+                  placeholder={tx("Search drinks and food…")}
                   className="input w-full bg-white"
-                  aria-label="Search menu products"
+                  aria-label={tx("Search menu products")}
                   autoFocus
                 />
               </div>
@@ -900,7 +901,7 @@ export default function ActiveMeetingRooms({
                         : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300"
                     }`}
                   >
-                    All items
+                    {tx("All items")}
                   </button>
                   {categories.map((category) => (
                     <button
@@ -935,8 +936,8 @@ export default function ActiveMeetingRooms({
               {filteredMenuProducts.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
                   {products.length === 0
-                    ? "No active menu products are available. Add products in Menu & F&B first."
-                    : "No products match this search or category."}
+                    ? tx("No active menu products are available. Add products in Menu & F&B first.")
+                    : tx("No products match this search or category.")}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -965,7 +966,7 @@ export default function ActiveMeetingRooms({
                           {money(product.price)} {currency}
                         </div>
                         <div className="mt-3 rounded-xl bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition">
-                          {addingProductId === product.id ? "Adding…" : "+ Add 1"}
+                          {addingProductId === product.id ? tx("Adding…") : tx("+ Add 1")}
                         </div>
                       </div>
                     </button>
@@ -984,7 +985,7 @@ export default function ActiveMeetingRooms({
                 onClick={() => addingProductId === null && setOrderSession(null)}
                 disabled={addingProductId !== null}
               >
-                Done
+                {tx("Done")}
               </button>
             </div>
           </div>
@@ -996,7 +997,7 @@ export default function ActiveMeetingRooms({
           <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100">
               <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
-                Adjust Active Session
+                {tx("Adjust Active Session")}
               </div>
               <h3 className="text-2xl font-black text-slate-900 mt-1">
                 {adjustment.session.roomName}
@@ -1009,12 +1010,12 @@ export default function ActiveMeetingRooms({
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <Info
-                  label="Current People"
+                  label={tx("Current People")}
                   value={String(adjustment.session.attendeeCount)}
                 />
                 <Info
-                  label="Current Time"
-                  value={`${adjustment.session.durationHours}h`}
+                  label={tx("Current Time")}
+                  value={`${adjustment.session.durationHours}${tx("h")}`}
                 />
               </div>
 
@@ -1024,8 +1025,8 @@ export default function ActiveMeetingRooms({
                   className="block text-sm font-semibold text-slate-700 mb-2"
                 >
                   {adjustment.mode === "people"
-                    ? "Additional people"
-                    : "Additional hours"}
+                    ? tx("Additional people")
+                    : tx("Additional hours")}
                 </label>
                 <input
                   id="meeting-room-adjustment"
@@ -1068,15 +1069,15 @@ export default function ActiveMeetingRooms({
                 return (
                   <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
                     <Row
-                      label="New People"
+                      label={tx("New People")}
                       value={String(newPeople)}
                     />
                     <Row
-                      label="New Duration"
-                      value={`${newHours}h`}
+                      label={tx("New Duration")}
+                      value={`${newHours}${tx("h")}`}
                     />
                     <div className="border-t border-slate-200 pt-2 text-sm text-slate-500">
-                      The server will recalculate the room pricing tier and total before saving.
+                      {tx("The server will recalculate the room pricing tier and total before saving.")}
                     </div>
                   </div>
                 );
@@ -1101,7 +1102,7 @@ export default function ActiveMeetingRooms({
                 }}
                 disabled={adjusting}
               >
-                Cancel
+                {tx("Cancel")}
               </button>
               <button
                 type="button"
@@ -1110,10 +1111,10 @@ export default function ActiveMeetingRooms({
                 disabled={adjusting}
               >
                 {adjusting
-                  ? "Saving..."
+                  ? tx("Saving...")
                   : adjustment.mode === "people"
-                    ? "Add People"
-                    : "Add Time"}
+                    ? tx("Add People")
+                    : tx("Add Time")}
               </button>
             </div>
           </div>
@@ -1125,7 +1126,7 @@ export default function ActiveMeetingRooms({
           <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100">
               <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">
-                Checkout
+                {tx("Checkout")}
               </div>
               <h3 className="text-2xl font-black text-slate-900 mt-1">
                 {checkout.session.roomName}
@@ -1138,24 +1139,24 @@ export default function ActiveMeetingRooms({
             <div className="p-5 space-y-4">
               <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
                 <Row
-                  label="Room"
+                  label={tx("Room")}
                   value={`${money(checkout.session.roomTotal)} ${currency}`}
                 />
                 <Row
-                  label="F&B"
+                  label={tx("F&B")}
                   value={`${money(checkout.session.fnbTotal)} ${currency}`}
                 />
                 <Row
-                  label="Subtotal"
+                  label={tx("Subtotal")}
                   value={`${money(checkout.session.grandTotal)} ${currency}`}
                 />
                 <Row
-                  label="Discount"
+                  label={tx("Discount")}
                   value={`${money(checkout.discountAmount)} ${currency}`}
                 />
                 <div className="border-t border-slate-200 pt-2">
                   <Row
-                    label="Total"
+                    label={tx("Total")}
                     value={`${money(
                       Math.max(
                         0,
@@ -1170,16 +1171,16 @@ export default function ActiveMeetingRooms({
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Payment method
+                  {tx("Payment method")}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {([
-                    ["cash", "Cash"],
-                    ["visa", "Visa"],
-                    ["instapay", "InstaPay"],
+                    ["cash", tx("Cash")],
+                    ["visa", tx("Visa")],
+                    ["instapay", tx("InstaPay")],
                     [
                       "balance",
-                      `Balance · ${checkout.session.customerBalance.toFixed(2)}`,
+                      `${tx("Balance")} · ${checkout.session.customerBalance.toFixed(2)}`,
                     ],
                   ] as const).map(
                     ([value, label]) => (
@@ -1217,7 +1218,7 @@ export default function ActiveMeetingRooms({
                   htmlFor="meeting-room-discount"
                   className="block text-sm font-semibold text-slate-700 mb-2"
                 >
-                  Discount
+                  {tx("Discount")}
                 </label>
                 <input
                   id="meeting-room-discount"
@@ -1248,7 +1249,7 @@ export default function ActiveMeetingRooms({
                   disabled={checkingOut}
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Additional manual discount for this checkout.
+                  {tx("Additional manual discount for this checkout.")}
                 </p>
               </div>
 
@@ -1257,7 +1258,7 @@ export default function ActiveMeetingRooms({
                   htmlFor="meeting-room-paid"
                   className="block text-sm font-semibold text-slate-700 mb-2"
                 >
-                  Paid amount
+                  {tx("Paid amount")}
                 </label>
                 <input
                   id="meeting-room-paid"
@@ -1314,12 +1315,12 @@ export default function ActiveMeetingRooms({
                   return (
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
                       <Row
-                        label="Remaining"
+                        label={tx("Remaining")}
                         value={`${money(due)} ${currency}`}
                       />
                       <div className="border-t border-slate-200 pt-2">
                         <Row
-                          label="Change"
+                          label={tx("Change")}
                           value={`${money(
                             checkout.paymentMethod === "cash"
                               ? change
@@ -1352,7 +1353,7 @@ export default function ActiveMeetingRooms({
                 }}
                 disabled={checkingOut}
               >
-                Cancel
+                {tx("Cancel")}
               </button>
               <button
                 type="button"
@@ -1363,8 +1364,8 @@ export default function ActiveMeetingRooms({
                 disabled={checkingOut}
               >
                 {checkingOut
-                  ? "Closing..."
-                  : "Confirm Checkout"}
+                  ? tx("Closing...")
+                  : tx("Confirm Checkout")}
               </button>
             </div>
           </div>
@@ -1373,17 +1374,15 @@ export default function ActiveMeetingRooms({
 
       {pendingCancel && (
         <ConfirmDialog
-          title="Cancel this session?"
+          title={tx("Cancel this session?")}
           message={
             <>
               <b>{pendingCancel.customerName}</b> · {pendingCancel.roomName}
               <br />
-              The room is freed immediately and nothing is charged. Package
-              hours (if used) go back to the customer. This can&apos;t be
-              undone.
+              {tx("The room is freed immediately and nothing is charged. Package hours (if used) go back to the customer. This can't be undone.")}
             </>
           }
-          confirmLabel="Cancel session"
+          confirmLabel={tx("Cancel session")}
           busy={cancellingId !== null}
           error={cancelError}
           onConfirm={() => void confirmCancelSession()}

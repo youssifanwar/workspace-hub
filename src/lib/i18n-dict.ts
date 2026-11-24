@@ -356,7 +356,7 @@ export const AR_EXTRA: Record<string, string> = {
  "Duration": "المدة",
  "Active": "نشط",
  "PACKAGE": "باقة",
- "Package": "الباقة",
+ "Package": "باقة",
  "Regular": "عادي",
  "Seat": "المقعد",
  "Package time": "وقت الباقة",
@@ -1322,5 +1322,11 @@ export const AR_EXTRA: Record<string, string> = {
  "package": "باقة",
  "packages": "باقات",
  "Finance": "المالية",
- "Amount": "المبلغ"
+ "Amount": "المبلغ",
+ "Products": "المنتجات",
+ "Low stock": "مخزون قليل",
+ "Out of stock": "خلصان",
+ "In stock": "متوفر",
+ "Operations": "التشغيل",
+ "Live sessions": "الجلسات الشغالة"
 };

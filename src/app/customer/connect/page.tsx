@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 export default function CustomerConnectPage() {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [code, setCode] = useState("");
@@ -17,7 +20,7 @@ export default function CustomerConnectPage() {
     if (loading) return;
 
     if (!/^\d{4}$/.test(code)) {
-      setError("Enter the 4-digit access code.");
+      setError(tx("Enter the 4-digit access code."));
       return;
     }
 
@@ -43,7 +46,7 @@ export default function CustomerConnectPage() {
       if (!res.ok) {
         setError(
           data?.error ||
-            "Could not connect this phone.",
+            tx("Could not connect this phone."),
         );
         setLoading(false);
         return;
@@ -55,7 +58,7 @@ export default function CustomerConnectPage() {
         router.replace("/customer/connected");
       }, 500);
     } catch {
-      setError("Network error. Please try again.");
+      setError(tx("Network error. Please try again."));
       setLoading(false);
     }
   }
@@ -67,16 +70,15 @@ export default function CustomerConnectPage() {
           <div className="text-6xl mb-4">✅</div>
 
           <h1 className="text-2xl font-bold text-slate-900">
-            Phone connected
+            {tx("Phone connected")}
           </h1>
 
           <p className="text-slate-500 mt-2">
-            Your phone is now connected to your active session.
+            {tx("Your phone is now connected to your active session.")}
           </p>
 
           <div className="mt-6 p-4 rounded-2xl bg-indigo-50 text-indigo-700 text-sm font-medium">
-            Now scan the QR code on your desk or meeting room
-            to open the menu.
+            {tx("Now scan the QR code on your desk or meeting room to open the menu.")}
           </div>
         </div>
       </main>
@@ -88,23 +90,22 @@ export default function CustomerConnectPage() {
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200 p-6">
         <div className="text-center">
           <div className="text-xs uppercase tracking-wider text-indigo-600 font-semibold">
-            Connect device
+            {tx("Connect device")}
           </div>
 
           <h1 className="text-3xl font-bold text-slate-900 mt-2">
-            Connect your phone
+            {tx("Connect your phone")}
           </h1>
 
           <p className="text-slate-500 mt-2">
-            Enter the 4-digit access code given to you by the
-            staff.
+            {tx("Enter the 4-digit access code given to you by the staff.")}
           </p>
         </div>
 
         <form onSubmit={connect} className="mt-8 space-y-4">
           <div>
             <label className="label">
-              Access code
+              {tx("Access code")}
             </label>
 
             <input
@@ -141,8 +142,8 @@ export default function CustomerConnectPage() {
             className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-lg disabled:opacity-50"
           >
             {loading
-              ? "Connecting…"
-              : "Connect phone"}
+              ? tx("Connecting…")
+              : tx("Connect phone")}
           </button>
         </form>
       </div>

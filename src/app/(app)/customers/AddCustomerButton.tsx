@@ -27,7 +27,7 @@ export default function AddCustomerButton() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not add customer.");
+        setError(data?.error || tx("Could not add customer."));
         return;
       }
       setOpen(false);
@@ -37,7 +37,7 @@ export default function AddCustomerButton() {
       setNotes("");
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -55,9 +55,9 @@ export default function AddCustomerButton() {
       {open && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">
           <div className="card w-full max-w-md p-6 space-y-4">
-            <h2 className="text-xl font-bold">New customer</h2>
+            <h2 className="text-xl font-bold">{tx("New customer")}</h2>
             <div>
-              <label className="text-sm font-medium">Name *</label>
+              <label className="text-sm font-medium">{tx("Name *")}</label>
               <input
                 className="input w-full"
                 value={name}
@@ -65,7 +65,7 @@ export default function AddCustomerButton() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Phone *</label>
+              <label className="text-sm font-medium">{tx("Phone *")}</label>
               <input
                 className="input w-full"
                 inputMode="tel"
@@ -74,7 +74,7 @@ export default function AddCustomerButton() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Email</label>
+              <label className="text-sm font-medium">{tx("Email")}</label>
               <input
                 className="input w-full"
                 type="email"
@@ -83,7 +83,7 @@ export default function AddCustomerButton() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Notes</label>
+              <label className="text-sm font-medium">{tx("Notes")}</label>
               <textarea
                 className="input w-full"
                 rows={2}
@@ -102,7 +102,7 @@ export default function AddCustomerButton() {
                 className="btn btn-ghost"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {tx("Cancel")}
               </button>
               <button
                 type="button"
@@ -110,7 +110,7 @@ export default function AddCustomerButton() {
                 disabled={saving}
                 onClick={save}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? tx("Saving…") : tx("Save")}
               </button>
             </div>
           </div>

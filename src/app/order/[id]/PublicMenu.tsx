@@ -167,7 +167,7 @@ export default function PublicMenu({
           data = text ? JSON.parse(text) : null;
         } catch {
           throw new Error(
-            "The menu API returned invalid JSON.",
+            tx("The menu API returned invalid JSON."),
           );
         }
 
@@ -180,19 +180,19 @@ export default function PublicMenu({
 
         if (!data?.desk) {
           throw new Error(
-            "Menu API returned no desk data.",
+            tx("Menu API returned no desk data."),
           );
         }
 
         if (!Array.isArray(data.categories)) {
           throw new Error(
-            "Menu API returned invalid categories data.",
+            tx("Menu API returned invalid categories data."),
           );
         }
 
         if (!Array.isArray(data.products)) {
           throw new Error(
-            "Menu API returned invalid products data.",
+            tx("Menu API returned invalid products data."),
           );
         }
 
@@ -224,13 +224,13 @@ export default function PublicMenu({
           err.name === "AbortError"
         ) {
           setError(
-            "Menu request timed out after 8 seconds. Check that the server and database are reachable.",
+            tx("Menu request timed out after 8 seconds. Check that the server and database are reachable."),
           );
         } else {
           setError(
             err instanceof Error
               ? err.message
-              : "Could not load menu.",
+              : tx("Could not load menu."),
           );
         }
       } finally {
@@ -573,7 +573,7 @@ export default function PublicMenu({
         null;
     } catch {
       setError(
-        "Network error. Please try again.",
+        tx("Network error. Please try again."),
       );
     } finally {
       setPlacing(false);

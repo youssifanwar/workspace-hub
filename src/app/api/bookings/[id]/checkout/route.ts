@@ -15,7 +15,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canManage } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 import {
   applyBalanceChange,
@@ -26,6 +26,7 @@ import {
 import {
   calculateCustomerSessionSeatCharge,
   getCustomerSessionPricing,
+  getSetting,
   type CustomerSessionPricing,
 } from "@/lib/settings";
 
@@ -532,6 +533,20 @@ export async function POST(
               "Discount cannot exceed the session subtotal",
               400,
             );
+          }
+
+          // Staff (non-managers) may only discount up to the limit set in Settings.
+          if (!canManage(user.role)) {
+            const rawCap = Number(await getSetting("staff_max_discount_percent"));
+            const staffCap = Number.isFinite(rawCap)
+              ? Math.min(100, Math.max(0, rawCap))
+              : 100;
+            if (discount > (subtotal * staffCap) / 100 + 0.005) {
+              throw new CheckoutError(
+                `Discount is above the ${staffCap}% limit for staff. Ask a manager.`,
+                403,
+              );
+            }
           }
 
           const total =

@@ -23,6 +23,7 @@ import {
 import { detectLocalIp } from "@/lib/network";
 
 import AccountSettings from "./AccountSettings";
+import BusinessRulesSettings from "./BusinessRulesSettings";
 import WorkspaceSettings from "./WorkspaceSettings";
 import UsersAdmin from "./UsersAdmin";
 import DesksAdmin from "./DesksAdmin";
@@ -150,6 +151,17 @@ export default async function SettingsPage() {
     },
   ];
   if (isMgr) {
+    sections.push({
+      id: "rules",
+      title: tx("⚙️ Business rules and look"),
+      body: (
+        <BusinessRulesSettings
+          qrMaxPending={settings.qr_max_pending_orders}
+          staffMaxDiscount={settings.staff_max_discount_percent}
+          brandColor={settings.brand_color}
+        />
+      ),
+    });
     sections.push({
       id: "workspace",
       title: tx("🏢 Workspace"),

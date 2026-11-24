@@ -27,6 +27,9 @@ const ALLOWED_KEYS: SettingKey[] = [
   "calendar_start_hour",
   "calendar_end_hour",
   "meeting_room_max_booking_hours",
+  "qr_max_pending_orders",
+  "staff_max_discount_percent",
+  "brand_color",
 ];
 
 /**
@@ -109,8 +112,16 @@ export async function PATCH(req: Request) {
       calendar_end_hour: [1, 24, "Calendar end hour must be 1–24."],
       meeting_room_max_booking_hours: [1, 24, "Max booking hours must be 1–24."],
       stale_session_hours: [1, 72, "Stale session hours must be 1–72."],
+      qr_max_pending_orders: [1, 50, "Pending QR orders limit must be 1–50."],
+      staff_max_discount_percent: [0, 100, "Discount limit must be 0–100."],
       meeting_room_early_checkin_minutes: [0, 1440, "Early check-in minutes must be 0–1440."],
     };
+    if (k === "brand_color" && !(typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()))) {
+      return NextResponse.json(
+        { error: "Brand color must be a hex value like #4f46e5." },
+        { status: 400 },
+      );
+    }
     if (k === "timezone") {
       if (typeof v !== "string" || !isValidTimeZone(v.trim())) {
         return NextResponse.json(

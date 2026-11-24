@@ -24,7 +24,10 @@ export type SettingKey =
   | "calendar_week_starts_on"
   | "calendar_start_hour"
   | "calendar_end_hour"
-  | "meeting_room_max_booking_hours";
+  | "meeting_room_max_booking_hours"
+  | "qr_max_pending_orders"
+  | "staff_max_discount_percent"
+  | "brand_color";
 
 /* ============================================================================
  * DEFAULTS
@@ -100,6 +103,15 @@ export const DEFAULTS: Record<
     "23",
   meeting_room_max_booking_hours:
     "8",
+  /* Open QR orders one customer session may have waiting at once. */
+  qr_max_pending_orders:
+    "5",
+  /* Largest session discount (percent of subtotal) a non-manager may give. */
+  staff_max_discount_percent:
+    "100",
+  /* Accent color of the app (hex). */
+  brand_color:
+    "#4f46e5",
 };
 
 /* ============================================================================

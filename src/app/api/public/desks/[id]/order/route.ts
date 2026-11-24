@@ -23,6 +23,7 @@ import {
 } from "drizzle-orm";
 
 import { publish } from "@/lib/events";
+import { getSetting } from "@/lib/settings";
 
 export const dynamic =
   "force-dynamic";
@@ -1143,7 +1144,9 @@ export async function POST(
               sql`${orderTickets.bookingId} = ${lockedBooking.id} AND ${orderTickets.source} = 'qr' AND ${orderTickets.status} = 'pending'`,
             );
 
-          if (Number(pendingRow?.n ?? 0) >= 5) {
+          const pendingCap = Math.max(1, Math.floor(Number(await getSetting("qr_max_pending_orders")) || 5));
+
+          if (Number(pendingRow?.n ?? 0) >= pendingCap) {
             throw new OrderError(
               "Too many pending orders. Please wait for staff to serve the current ones.",
               429,

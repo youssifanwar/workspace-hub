@@ -1615,5 +1615,9 @@ export const AR_EXTRA: Record<string, string> = {
  "A normal desk must have capacity 1.": "المكتب العادي سعته فرد واحد.",
  "A meeting room package with the same definition already exists.": "فيه باقة اجتماعات بنفس التعريف.",
  "Too many pending orders. Please wait for staff to serve the current ones.": "عندك طلبات كتير لسه معلقة. استنى الموظف يخلّص اللي قبلها.",
- "This category name is reserved. Choose another category.": "اسم التصنيف ده محجوز. اختار اسم تاني."
+ "This category name is reserved. Choose another category.": "اسم التصنيف ده محجوز. اختار اسم تاني.",
+ "⚙️ Business rules and look": "⚙️ قواعد الشغل والشكل",
+ "Pending QR orders limit must be 1–50.": "حد طلبات QR المعلقة لازم يكون من 1 لـ50.",
+ "Discount limit must be 0–100.": "حد الخصم لازم يكون من 0 لـ100.",
+ "Brand color must be a hex value like #4f46e5.": "اللون لازم يكون كود زي #4f46e5."
 };

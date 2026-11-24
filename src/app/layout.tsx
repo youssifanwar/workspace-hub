@@ -1,3 +1,4 @@
+import { getSetting } from "@/lib/settings";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -37,6 +38,13 @@ export default async function RootLayout({
   children: ReactNode;
 }) {
   const lang = await getLang();
+  let brand = "#4f46e5";
+  try {
+    const raw = (await getSetting("brand_color")).trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(raw)) brand = raw;
+  } catch {
+    /* database unavailable: keep the default accent */
+  }
   return (
     <html
       lang={lang}
@@ -44,6 +52,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="antialiased">
+        {brand !== "#4f46e5" && (
+          <style>{`:root{--v2-brand:${brand};--v2-brand-soft:color-mix(in srgb, ${brand} 12%, white);}`}</style>
+        )}
         <LangProvider lang={lang}>{children}</LangProvider>
       </body>
     </html>

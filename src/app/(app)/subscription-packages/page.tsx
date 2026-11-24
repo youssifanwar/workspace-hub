@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type SubscriptionPackage = {
   id: number;
@@ -33,6 +34,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function SubscriptionPackagesPage() {
+  const f = useFmt();
+  const tx = f.t;
   const [packages, setPackages] =
     useState<SubscriptionPackage[]>(
       [],
@@ -86,7 +89,7 @@ export default function SubscriptionPackagesPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            "Could not load packages.",
+            tx("Could not load packages."),
         );
       }
 
@@ -102,7 +105,7 @@ export default function SubscriptionPackagesPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not load packages.",
+          : tx("Could not load packages."),
       );
     } finally {
       setLoading(false);
@@ -343,14 +346,14 @@ export default function SubscriptionPackagesPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            "Could not save package.",
+            tx("Could not save package."),
         );
       }
 
       setSuccess(
         editingId === null
-          ? "Package created successfully."
-          : "Package updated successfully.",
+          ? tx("Package created successfully.")
+          : tx("Package updated successfully."),
       );
 
       resetForm();
@@ -365,7 +368,7 @@ export default function SubscriptionPackagesPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not save package.",
+          : tx("Could not save package."),
       );
     } finally {
       setSaving(false);
@@ -414,14 +417,14 @@ export default function SubscriptionPackagesPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            "Could not change package status.",
+            tx("Could not change package status."),
         );
       }
 
       setSuccess(
         pkg.active
-          ? "Package deactivated."
-          : "Package activated.",
+          ? tx("Package deactivated.")
+          : tx("Package activated."),
       );
 
       await loadPackages();
@@ -434,7 +437,7 @@ export default function SubscriptionPackagesPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not change package status.",
+          : tx("Could not change package status."),
       );
     } finally {
       setSaving(false);
@@ -455,8 +458,8 @@ export default function SubscriptionPackagesPage() {
     const confirmed =
       window.confirm(
         pkg.active
-          ? `Deactivate "${pkg.name}"?`
-          : `Remove "${pkg.name}" if it has never been sold?`,
+          ? (f.en ? `Deactivate "${pkg.name}"?` : `إيقاف "${pkg.name}"؟`)
+          : (f.en ? `Remove "${pkg.name}" if it has never been sold?` : `حذف "${pkg.name}" لو عمرها ما اتباعت؟`),
       );
 
     if (!confirmed) {
@@ -484,7 +487,7 @@ export default function SubscriptionPackagesPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            "Could not remove package.",
+            tx("Could not remove package."),
         );
       }
 
@@ -498,14 +501,14 @@ export default function SubscriptionPackagesPage() {
         );
 
         setSuccess(
-          "Package archived because it has historical purchases. Its history is preserved.",
+          tx("Package archived because it has historical purchases. Its history is preserved."),
         );
       } else {
         setPackages((current) =>
           current.filter((item) => item.id !== pkg.id),
         );
 
-        setSuccess("Package deleted.");
+        setSuccess(tx("Package deleted."));
       }
 
       if (editingId === pkg.id) {
@@ -522,7 +525,7 @@ export default function SubscriptionPackagesPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not remove package.",
+          : tx("Could not remove package."),
       );
     } finally {
       setSaving(false);
@@ -550,16 +553,15 @@ export default function SubscriptionPackagesPage() {
 
         <div>
           <div className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">
-            Subscriptions
+            {tx("Subscriptions")}
           </div>
 
           <h1 className="text-3xl font-bold text-slate-900 mt-1">
-            Subscription Packages
+            {tx("Subscription Packages")}
           </h1>
 
           <p className="text-slate-500 mt-1">
-            Create and manage the packages
-            customers can purchase.
+            {tx("Create and manage the packages customers can purchase.")}
           </p>
         </div>
 
@@ -595,14 +597,12 @@ export default function SubscriptionPackagesPage() {
           <div>
             <h2 className="text-xl font-bold text-slate-900">
               {editingId === null
-                ? "Create package"
-                : "Edit package"}
+                ? tx("Create package")
+                : tx("Edit package")}
             </h2>
 
             <p className="text-sm text-slate-500 mt-1">
-              The values entered here become
-              the package definition for future
-              purchases.
+              {tx("The values entered here become the package definition for future purchases.")}
             </p>
           </div>
 
@@ -613,7 +613,7 @@ export default function SubscriptionPackagesPage() {
               className="btn btn-ghost"
               disabled={saving}
             >
-              Cancel edit
+              {tx("Cancel edit")}
             </button>
           )}
 
@@ -628,7 +628,7 @@ export default function SubscriptionPackagesPage() {
 
           <div className="md:col-span-2">
             <label className="label">
-              Package name
+              {tx("Package name")}
             </label>
 
             <input
@@ -640,7 +640,7 @@ export default function SubscriptionPackagesPage() {
                   e.target.value,
                 )
               }
-              placeholder="e.g. 60 Hours"
+              placeholder={tx("e.g. 60 Hours")}
               disabled={saving}
             />
           </div>
@@ -649,7 +649,7 @@ export default function SubscriptionPackagesPage() {
 
           <div>
             <label className="label">
-              Total hours
+              {tx("Total hours")}
             </label>
 
             <input
@@ -675,7 +675,7 @@ export default function SubscriptionPackagesPage() {
 
           <div>
             <label className="label">
-              Price
+              {tx("Price")}
             </label>
 
             <input
@@ -699,7 +699,7 @@ export default function SubscriptionPackagesPage() {
 
           <div>
             <label className="label">
-              Validity
+              {tx("Validity")}
             </label>
 
             <input
@@ -721,7 +721,7 @@ export default function SubscriptionPackagesPage() {
             />
 
             <p className="text-xs text-slate-400 mt-1">
-              Leave empty for no expiry.
+              {tx("Leave empty for no expiry.")}
             </p>
           </div>
 
@@ -746,7 +746,7 @@ export default function SubscriptionPackagesPage() {
               htmlFor="package-active"
               className="text-sm font-semibold text-slate-700"
             >
-              Available for new purchases
+              {tx("Available for new purchases")}
             </label>
           </div>
 
@@ -754,7 +754,7 @@ export default function SubscriptionPackagesPage() {
 
           <div className="md:col-span-2">
             <label className="label">
-              Description
+              {tx("Description")}
             </label>
 
             <textarea
@@ -768,7 +768,7 @@ export default function SubscriptionPackagesPage() {
                   e.target.value,
                 )
               }
-              placeholder="Optional package details..."
+              placeholder={tx("Optional package details...")}
               disabled={saving}
             />
           </div>
@@ -783,10 +783,10 @@ export default function SubscriptionPackagesPage() {
               disabled={saving}
             >
               {saving
-                ? "Saving…"
+                ? tx("Saving…")
                 : editingId === null
-                  ? "Create package"
-                  : "Save changes"}
+                  ? tx("Create package")
+                  : tx("Save changes")}
             </button>
 
             {editingId !== null && (
@@ -796,7 +796,7 @@ export default function SubscriptionPackagesPage() {
                 className="btn btn-ghost"
                 disabled={saving}
               >
-                Cancel
+                {tx("Cancel")}
               </button>
             )}
 
@@ -810,8 +810,8 @@ export default function SubscriptionPackagesPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-slate-500">
           {showInactive
-            ? "Showing active and inactive packages."
-            : "Showing active packages only."}
+            ? tx("Showing active and inactive packages.")
+            : tx("Showing active packages only.")}
         </div>
 
         {inactiveCount > 0 && (
@@ -822,8 +822,8 @@ export default function SubscriptionPackagesPage() {
             disabled={saving}
           >
             {showInactive
-              ? "Hide inactive packages"
-              : `Show inactive packages (${inactiveCount})`}
+              ? tx("Hide inactive packages")
+              : (f.en ? `Show inactive packages (${inactiveCount})` : `عرض الباقات غير النشطة (${inactiveCount})`)}
           </button>
         )}
       </div>
@@ -832,20 +832,17 @@ export default function SubscriptionPackagesPage() {
 
         <div className="p-5 border-b border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">
-            Package definitions
+            {tx("Package definitions")}
           </h2>
 
           <p className="text-sm text-slate-500 mt-1">
-            Changing these values affects
-            future purchases only. Historical
-            customer subscriptions keep their
-            original price and hours.
+            {tx("Changing these values affects future purchases only. Historical customer subscriptions keep their original price and hours.")}
           </p>
         </div>
 
         {loading ? (
           <div className="p-10 text-center text-slate-500">
-            Loading packages…
+            {tx("Loading packages…")}
           </div>
         ) : visiblePackages.length ===
           0 ? (
@@ -856,12 +853,11 @@ export default function SubscriptionPackagesPage() {
             </div>
 
             <h3 className="font-bold text-slate-900">
-              No packages yet
+              {tx("No packages yet")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Create your first subscription
-              package above.
+              {tx("Create your first subscription package above.")}
             </p>
 
           </div>
@@ -892,8 +888,8 @@ export default function SubscriptionPackagesPage() {
                         }`}
                       >
                         {pkg.active
-                          ? "Active"
-                          : "Inactive"}
+                          ? tx("Active")
+                          : tx("Inactive")}
                       </span>
 
                     </div>
@@ -920,7 +916,7 @@ export default function SubscriptionPackagesPage() {
                       className="btn btn-ghost"
                       disabled={saving}
                     >
-                      Edit
+                      {tx("Edit")}
                     </button>
 
                     <button
@@ -934,8 +930,8 @@ export default function SubscriptionPackagesPage() {
                       disabled={saving}
                     >
                       {pkg.active
-                        ? "Deactivate"
-                        : "Activate"}
+                        ? tx("Deactivate")
+                        : tx("Activate")}
                     </button>
 
                     <button
@@ -948,7 +944,7 @@ export default function SubscriptionPackagesPage() {
                       className="btn btn-ghost text-red-600"
                       disabled={saving}
                     >
-                      Delete
+                      {tx("Delete")}
                     </button>
 
                   </div>
@@ -960,26 +956,26 @@ export default function SubscriptionPackagesPage() {
                 <div className="grid sm:grid-cols-3 gap-3 mt-4">
 
                   <InfoCard
-                    label="Hours"
+                    label={tx("Hours")}
                     value={`${formatNumber(
                       pkg.totalHours,
                     )} h`}
                   />
 
                   <InfoCard
-                    label="Price"
+                    label={tx("Price")}
                     value={formatNumber(
                       pkg.price,
                     )}
                   />
 
                   <InfoCard
-                    label="Validity"
+                    label={tx("Validity")}
                     value={
                       pkg.validityDays ===
                       null
-                        ? "No expiry"
-                        : `${pkg.validityDays} days`
+                        ? tx("No expiry")
+                        : `${pkg.validityDays} ${tx("days")}`
                     }
                   />
 

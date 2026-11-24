@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type LoginResponse = {
   error?: string;
 };
 
 export default function LoginForm() {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -23,22 +26,22 @@ export default function LoginForm() {
     const normalizedUsername = username.trim();
 
     if (!normalizedUsername) {
-      setError("Please enter your username.");
+      setError(tx("Please enter your username."));
       return;
     }
 
     if (!password) {
-      setError("Please enter your password.");
+      setError(tx("Please enter your password."));
       return;
     }
 
     if (normalizedUsername.length > 100) {
-      setError("Invalid username.");
+      setError(tx("Invalid username."));
       return;
     }
 
     if (password.length > 128) {
-      setError("Invalid password.");
+      setError(tx("Invalid password."));
       return;
     }
 
@@ -67,20 +70,32 @@ export default function LoginForm() {
       }
 
       if (!res.ok) {
-        setError(data.error || "Invalid username or password.");
+        setError(data.error || tx("Invalid username or password."));
         return;
       }
 
       router.replace("/dashboard");
       router.refresh();
     } catch {
-      setError("Unable to connect to the server. Please try again.");
+      setError(tx("Unable to connect to the server. Please try again."));
     } finally {
       setLoading(false);
     }
   }
 
   return (
+    <>
+    <button
+      type="button"
+      className="btn w-full"
+      style={{ marginBottom: 12 }}
+      onClick={() => {
+        document.cookie = `wh_lang=${f.en ? "ar" : "en"}; path=/; max-age=31536000; samesite=lax`;
+        window.location.reload();
+      }}
+    >
+      {f.en ? "العربية" : "English"}
+    </button>
     <form
       onSubmit={onSubmit}
       className="space-y-4"
@@ -88,7 +103,7 @@ export default function LoginForm() {
     >
       <div>
         <label htmlFor="login-username" className="label">
-          Username
+          {tx("Username")}
         </label>
 
         <input
@@ -114,7 +129,7 @@ export default function LoginForm() {
 
       <div>
         <label htmlFor="login-password" className="label">
-          Password
+          {tx("Password")}
         </label>
 
         <input
@@ -151,8 +166,9 @@ export default function LoginForm() {
         disabled={loading}
         aria-busy={loading}
       >
-        {loading ? "Signing in…" : "Sign in →"}
+        {loading ? tx("Signing in…") : f.en ? "Sign in →" : "تسجيل الدخول ←"}
       </button>
     </form>
+    </>
   );
 }

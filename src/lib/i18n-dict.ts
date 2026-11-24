@@ -1,4 +1,4 @@
-// Generated Arabic -> English strings for page content.
+// Generated page-content strings. EN_EXTRA: Arabic -> English. AR_EXTRA: English -> Arabic.
 export const EN_EXTRA: Record<string, string> = {
  "النهارده": "Today",
  "صباح الخير": "Good morning",
@@ -243,4 +243,26 @@ export const EN_EXTRA: Record<string, string> = {
  "أصناف في السلة": "items in cart",
  "إرسال الطلب": "Send order",
  "مراجعة الطلب": "Review order"
+};
+export const AR_EXTRA: Record<string, string> = {
+ "Please enter your username.": "من فضلك اكتب اسم المستخدم.",
+ "Please enter your password.": "من فضلك اكتب كلمة المرور.",
+ "Invalid username.": "اسم المستخدم غير صحيح.",
+ "Invalid password.": "كلمة المرور غير صحيحة.",
+ "Invalid username or password.": "اسم المستخدم أو كلمة المرور غير صحيحة.",
+ "Unable to connect to the server. Please try again.": "مفيش اتصال بالسيرفر. جرّب تاني.",
+ "Signing in…": "بيسجّل الدخول…",
+ "Username": "اسم المستخدم",
+ "Password": "كلمة المرور",
+ "🪑 Desk & Meeting Room Booking": "🪑 حجز المكاتب وغرف الاجتماعات",
+ "☕ Food & Beverage POS": "☕ كاشير الأكل والمشروبات",
+ "⏱️ Automatic Hourly Billing": "⏱️ حساب الساعات تلقائياً",
+ "🧾 Shift & Cash Drawer Tracking": "🧾 متابعة الشيفتات والدرج",
+ "📊 Real-time Dashboard & Reports": "📊 لوحة تحكم وتقارير لحظية",
+ "Modern coworking management. Book desks, run shifts, manage F&B orders, and track revenue, all in one clean interface.": "إدارة كوورك سبيس حديثة. احجز المكاتب، شغّل الشيفتات، ادير طلبات الكافيه، وتابع الإيراد في واجهة واحدة نظيفة.",
+ "Protected workspace · Authorized team members only": "مساحة محمية · للفريق المصرّح له فقط",
+ "Welcome back": "أهلاً بيك تاني",
+ "Sign in to continue to your operations console.": "سجّل الدخول عشان تكمل على لوحة التشغيل.",
+ "THE WORKSPACE OPERATING SYSTEM": "نظام تشغيل مساحة العمل",
+ "SECURE WORKSPACE ACCESS": "دخول آمن للمساحة"
 };

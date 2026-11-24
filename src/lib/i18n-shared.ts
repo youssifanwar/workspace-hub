@@ -1,6 +1,6 @@
 // Arabic is the source text; EN maps it to English for the app shell.
 // Pages not listed here keep their Arabic/English text as written.
-import { EN_EXTRA } from "./i18n-dict";
+import { EN_EXTRA, AR_EXTRA } from "./i18n-dict";
 export type Lang = "ar" | "en";
 
 const EN: Record<string, string> = {
@@ -42,7 +42,8 @@ const EN: Record<string, string> = {
 };
 
 export function tr(lang: Lang, s: string): string {
-  return lang === "en" ? (EN[s] ?? EN_EXTRA[s] ?? s) : s;
+  if (lang === "en") return EN[s] ?? EN_EXTRA[s] ?? s;
+  return AR_EXTRA[s] ?? s;
 }
 
 // ---- formatting + text helper bound to a language ----

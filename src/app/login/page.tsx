@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import LoginForm from "./LoginForm";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,8 @@ const FEATURES = [
 
 export default async function LoginPage() {
   await ensureSeeded();
+  const f = makeFmt(await getLang());
+  const tx = f.t;
 
   const user = await getCurrentUser();
 
@@ -37,14 +41,13 @@ export default async function LoginPage() {
         <div className="login-brand-content relative z-10 max-w-md">
           <div className="login-brand-mark mb-6" aria-hidden="true"><svg viewBox="0 0 36 36" width="34" height="34" fill="none"><path d="M6 28V13.5L18 6l12 7.5V28H6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 28V18h12v10M18 18v10M6 13.5h24" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M11 11l7 4 7-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
 
-          <div className="login-showcase-eyebrow">THE WORKSPACE OPERATING SYSTEM</div>
+          <div className="login-showcase-eyebrow">{tx("THE WORKSPACE OPERATING SYSTEM")}</div>
           <h1 className="text-4xl font-bold mb-4">
             WorkSpace Hub
           </h1>
 
           <p className="text-lg text-white/90 leading-relaxed">
-            Modern coworking management. Book desks, run shifts, manage
-            F&amp;B orders, and track revenue — all in one clean interface.
+            {tx("Modern coworking management. Book desks, run shifts, manage F&B orders, and track revenue, all in one clean interface.")}
           </p>
 
           <div className="mt-10 space-y-3">
@@ -57,7 +60,7 @@ export default async function LoginPage() {
                   className="w-2 h-2 rounded-full bg-white/80 shrink-0"
                   aria-hidden="true"
                 />
-                <span>{feature}</span>
+                <span>{tx(feature)}</span>
               </div>
             ))}
           </div>
@@ -68,19 +71,19 @@ export default async function LoginPage() {
         <div className="login-card w-full max-w-md card p-8">
           <div className="mb-6">
             <div className="login-form-mark mb-4" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 3v18M3 12h18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.4"/></svg></div>
-            <div className="login-form-eyebrow">SECURE WORKSPACE ACCESS</div>
+            <div className="login-form-eyebrow">{tx("SECURE WORKSPACE ACCESS")}</div>
 
             <h2 className="text-2xl font-bold text-slate-900 mt-2">
-              Welcome back
+              {tx("Welcome back")}
             </h2>
 
             <p className="text-sm text-slate-500 mt-1">
-              Sign in to continue to your operations console.
+              {tx("Sign in to continue to your operations console.")}
             </p>
           </div>
 
           <LoginForm />
-          <div className="login-card-footer"><span className="login-footer-shield" aria-hidden="true">✓</span> Protected workspace · Authorized team members only</div>
+          <div className="login-card-footer"><span className="login-footer-shield" aria-hidden="true">✓</span> {tx("Protected workspace · Authorized team members only")}</div>
         </div>
       </section>
     </main>

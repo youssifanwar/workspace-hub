@@ -208,3 +208,18 @@ html[dir="rtl"] body { letter-spacing: 0; }
 .v2-wallet .btn { background: rgba(255,255,255,.14) !important; border-color: rgba(255,255,255,.3) !important; color: #fff !important; }
 .v2-wallet .btn:hover { background: rgba(255,255,255,.24) !important; }
 .v2-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+/* packages */
+.v2-pkgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.v2-pkg { background: #fff; border: 1px solid var(--x-line, #e5e7eb); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .15s, border-color .15s; }
+.v2-pkg:hover { box-shadow: 0 8px 24px rgba(15,23,42,.07); }
+.v2-pkg.off { opacity: .65; background: #f8fafc; }
+.v2-pkg.sel { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+.v2-pkg h3 { font-size: 16px; font-weight: 800; margin: 0; }
+.v2-pkg-price { font-size: 30px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: #4338ca; }
+.v2-pkg-price small { font-size: 13px; font-weight: 700; color: #64748b; margin-inline-start: 6px; }
+.v2-pkg ul { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px dashed #e2e8f0; display: flex; flex-direction: column; gap: 6px; }
+.v2-pkg li { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; }
+.v2-pkg li b { color: #0f172a; }
+.v2-pkg p { font-size: 12.5px; color: #64748b; margin: 0; }
+.v2-pkg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+.v2-pkg-actions .btn { padding: 6px 10px; font-size: 12.5px; }

@@ -513,8 +513,11 @@ export async function POST(
            * the cashier entered.
            */
           const subtotal =
-            seatCharge +
-            ordersTotal;
+            Math.round(
+              (seatCharge +
+                ordersTotal) *
+                100,
+            ) / 100;
 
           if (
             discount >
@@ -527,11 +530,13 @@ export async function POST(
           }
 
           const total =
-            Math.max(
-              0,
-              subtotal -
-                discount,
-            );
+            Math.round(
+              Math.max(
+                0,
+                subtotal -
+                  discount,
+              ) * 100,
+            ) / 100;
 
           /*
            * For non-cash payments we still keep the supplied paid amount
@@ -543,7 +548,8 @@ export async function POST(
 
           if (
             !payFromBalance &&
-            paid < total
+            Math.round(paid * 100) <
+              Math.round(total * 100)
           ) {
             throw new CheckoutError(
               "Insufficient payment",

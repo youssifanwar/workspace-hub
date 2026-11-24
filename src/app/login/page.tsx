@@ -40,7 +40,7 @@ export default async function LoginPage() {
 
         <div className="login-brand-content relative z-10 max-w-md">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="login-logo" src="/scope-logo-cream.png" alt="Scope Space" width={909} height={486} />
+          <img className="login-logo" src="/scope-logo-cream.png" alt="Scope Space" width={981} height={558} />
 
           <div className="login-showcase-eyebrow">{tx("THE WORKSPACE OPERATING SYSTEM")}</div>
 

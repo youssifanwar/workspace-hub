@@ -296,7 +296,7 @@ export default async function InvoicePage({
           {/* HEADER */}
           <div className="text-center border-b border-dashed border-slate-300 pb-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/scope-logo-brown.png" alt="" width={909} height={486} style={{ height: 56, width: "auto", margin: "0 auto 6px" }} />
+            <img src="/scope-logo-brown.png" alt="" width={981} height={558} style={{ height: 56, width: "auto", margin: "0 auto 6px" }} />
 
             <div className="text-lg font-bold">
               {workspaceName}

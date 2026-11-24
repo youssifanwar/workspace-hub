@@ -98,10 +98,10 @@ export function canManage(role: Role): boolean {
 }
 
 // The single owner account. Set OWNER_USERNAME in the environment to the
-// owner's login; defaults to the seeded "admin" username. Must also have the
+// owner's login; defaults to "Youssif". Must also have the
 // admin role. Used for the owner-only admin page.
 export function isOwner(user: { username: string; role: Role }): boolean {
-  const owner = (process.env.OWNER_USERNAME || "admin").trim().toLowerCase();
+  const owner = (process.env.OWNER_USERNAME || "Youssif").trim().toLowerCase();
   return user.role === "admin" && user.username.trim().toLowerCase() === owner;
 }
 

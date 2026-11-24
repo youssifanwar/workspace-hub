@@ -5,7 +5,8 @@ import { desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, bookings, customers, shifts, users } from "@/db/schema";
 import { getCurrentUser, isOwner } from "@/lib/auth";
-import { arDate, arDateTime, arDuration, arMoney, arNumber, arTime, paymentLabel } from "@/lib/ar";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 import Icon from "../_components/Icon";
 
@@ -35,6 +36,8 @@ function num(v: unknown): number {
 
 export default async function OwnerAdminPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const user = await getCurrentUser();
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   await loadTimezone();
   if (!user) redirect("/login");
   // Owner-only page: same rule the staff-shifts settings page already uses.
@@ -162,47 +165,47 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
   }
   const handoversInRange = handoverRows.filter((h) => h.createdAt >= from);
 
-  const roleLabel: Record<string, string> = { admin: "مالك", manager: "مدير", employee: "موظف" };
+  const roleLabel: Record<string, string> = { admin: tx("مالك"), manager: tx("مدير"), employee: tx("موظف") };
 
   return (
     <div className="x-page space-y-5">
       <div className="x-head">
         <div>
-          <h1>لوحة المالك</h1>
-          <p>كل الجلسات والفلوس الداخلة والخارجة، ومين فتح كل شيفت وتسليم الشيفتات.</p>
+          <h1>{tx("لوحة المالك")}</h1>
+          <p>{tx("كل الجلسات والفلوس الداخلة والخارجة، ومين فتح كل شيفت وتسليم الشيفتات.")}</p>
         </div>
-        <div className="x-tabs" role="tablist" aria-label="الفترة">
+        <div className="x-tabs" role="tablist" aria-label={tx("الفترة")}>
           {Object.entries(RANGES).map(([k, v]) => (
-            <Link key={k} href={`/admin?range=${k}`} className={`x-tab ${k === key ? "active" : ""}`}>{v.label}</Link>
+            <Link key={k} href={`/admin?range=${k}`} className={`x-tab ${k === key ? "active" : ""}`}>{tx(v.label)}</Link>
           ))}
         </div>
       </div>
 
       <section className="x-grid x-kpis">
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">فلوس داخلة</span><span className="x-kpi-ico tone-green"><Icon name="trending" size={19} /></span></div>
-          <div className="x-kpi-value x-num x-in">{arNumber(moneyIn)}<small>ج.م</small></div>
-          <div className="x-row-sub">جلسات {arMoney(num(t.sessions))} · بيع مباشر {arMoney(num(t.fnb))}</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{tx("فلوس داخلة")}</span><span className="x-kpi-ico tone-green"><Icon name="trending" size={19} /></span></div>
+          <div className="x-kpi-value x-num x-in">{f.number(moneyIn)}<small>{f.cur}</small></div>
+          <div className="x-row-sub">{tx("جلسات")} {f.money(num(t.sessions))} · {tx("بيع مباشر")} {f.money(num(t.fnb))}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">فلوس خارجة</span><span className="x-kpi-ico tone-red"><Icon name="wallet" size={19} /></span></div>
-          <div className="x-kpi-value x-num x-out">{arNumber(moneyOut)}<small>ج.م</small></div>
-          <div className="x-row-sub">مصاريف مسجّلة في الفترة</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{tx("فلوس خارجة")}</span><span className="x-kpi-ico tone-red"><Icon name="wallet" size={19} /></span></div>
+          <div className="x-kpi-value x-num x-out">{f.number(moneyOut)}<small>{f.cur}</small></div>
+          <div className="x-row-sub">{tx("مصاريف مسجّلة في الفترة")}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">الصافي</span><span className="x-kpi-ico tone-blue"><Icon name="cash" size={19} /></span></div>
-          <div className="x-kpi-value x-num">{arNumber(moneyIn - moneyOut)}<small>ج.م</small></div>
-          <div className="x-row-sub">باقات {arMoney(num(t.packages))} · يدوي {arMoney(num(t.manual))}</div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{tx("الصافي")}</span><span className="x-kpi-ico tone-blue"><Icon name="cash" size={19} /></span></div>
+          <div className="x-kpi-value x-num">{f.number(moneyIn - moneyOut)}<small>{f.cur}</small></div>
+          <div className="x-row-sub">{tx("باقات")} {f.money(num(t.packages))} · {tx("يدوي")} {f.money(num(t.manual))}</div>
         </div>
         <div className="x-card x-kpi">
-          <div className="x-kpi-top"><span className="x-kpi-label">الشيفت الشغال دلوقتي</span><span className="x-kpi-ico tone-violet"><Icon name="clock" size={19} /></span></div>
+          <div className="x-kpi-top"><span className="x-kpi-label">{tx("الشيفت الشغال دلوقتي")}</span><span className="x-kpi-ico tone-violet"><Icon name="clock" size={19} /></span></div>
           {openShiftRows.length === 0 ? (
-            <div className="x-kpi-value" style={{ fontSize: 20 }}>مفيش شيفت مفتوح</div>
+            <div className="x-kpi-value" style={{ fontSize: 20 }}>{tx("مفيش شيفت مفتوح")}</div>
           ) : (
             openShiftRows.map((s) => (
               <div key={s.id}>
                 <div className="x-kpi-value" style={{ fontSize: 20 }}>{s.staff}</div>
-                <div className="x-row-sub">فتحه {arTime(s.openedAt, tz)} · كاش افتتاحي {arMoney(Number(s.openingCash))}</div>
+                <div className="x-row-sub">{tx("فتحه")} {f.time(s.openedAt, tz)} · {tx("كاش افتتاحي")} {f.money(Number(s.openingCash))}</div>
               </div>
             ))
           )}
@@ -210,11 +213,11 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
       </section>
 
       <section className="x-card">
-        <div className="x-card-head"><h2>الشيفتات وتسليمها</h2><span className="x-pill blue">{handoversInRange.length} تسليم في الفترة</span></div>
-        {shiftRows.length === 0 ? <div className="x-empty">مفيش شيفتات في الفترة دي.</div> : (
+        <div className="x-card-head"><h2>{tx("الشيفتات وتسليمها")}</h2><span className="x-pill blue">{handoversInRange.length} {tx("تسليم في الفترة")}</span></div>
+        {shiftRows.length === 0 ? <div className="x-empty">{tx("مفيش شيفتات في الفترة دي.")}</div> : (
           <div className="x-table-wrap">
             <table className="x-table">
-              <thead><tr><th>الشيفت</th><th>فتحه</th><th>من</th><th>إلى</th><th>المدة</th><th>كاش افتتاحي</th><th>كاش الإقفال</th><th>اتسلّم لـ</th><th>فرق الكاش</th><th /></tr></thead>
+              <thead><tr><th>{tx("الشيفت")}</th><th>{tx("فتحه")}</th><th>{tx("من")}</th><th>{tx("إلى")}</th><th>{tx("المدة")}</th><th>{tx("كاش افتتاحي")}</th><th>{tx("كاش الإقفال")}</th><th>{tx("اتسلّم لـ")}</th><th>{tx("فرق الكاش")}</th><th /></tr></thead>
               <tbody>
                 {shiftRows.map((s) => {
                   const h = handoverByShift.get(s.id);
@@ -222,14 +225,14 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
                     <tr key={s.id}>
                       <td className="x-num font-bold">#{s.id}</td>
                       <td className="font-bold">{s.staff}</td>
-                      <td className="x-num">{arDateTime(s.openedAt, tz)}</td>
-                      <td className="x-num">{s.closedAt ? arDateTime(s.closedAt, tz) : <span className="x-pill green">مفتوح</span>}</td>
-                      <td className="x-num">{arDuration(s.openedAt, s.closedAt)}</td>
-                      <td className="x-num">{arMoney(Number(s.openingCash))}</td>
-                      <td className="x-num">{s.closingCash == null ? "—" : arMoney(Number(s.closingCash))}</td>
-                      <td>{h ? <span className="x-pill violet">{h.to}</span> : s.closedAt ? <span className="x-pill">اتقفل من غير تسليم</span> : "—"}</td>
-                      <td className="x-num">{h && h.diff != null ? (h.diff === 0 ? <span className="x-pill green">مظبوط</span> : <span className={`x-pill ${h.diff < 0 ? "red" : "amber"}`} dir="ltr">{h.diff > 0 ? "+" : ""}{arNumber(h.diff)}</span>) : "—"}</td>
-                      <td><Link href={`/shift/summary/${s.id}`} className="x-link">ملخص</Link></td>
+                      <td className="x-num">{f.dateTime(s.openedAt, tz)}</td>
+                      <td className="x-num">{s.closedAt ? f.dateTime(s.closedAt, tz) : <span className="x-pill green">{tx("مفتوح")}</span>}</td>
+                      <td className="x-num">{f.duration(s.openedAt, s.closedAt)}</td>
+                      <td className="x-num">{f.money(Number(s.openingCash))}</td>
+                      <td className="x-num">{s.closingCash == null ? "—" : f.money(Number(s.closingCash))}</td>
+                      <td>{h ? <span className="x-pill violet">{h.to}</span> : s.closedAt ? <span className="x-pill">{tx("اتقفل من غير تسليم")}</span> : "—"}</td>
+                      <td className="x-num">{h && h.diff != null ? (h.diff === 0 ? <span className="x-pill green">{tx("مظبوط")}</span> : <span className={`x-pill ${h.diff < 0 ? "red" : "amber"}`} dir="ltr">{h.diff > 0 ? "+" : ""}{f.number(h.diff)}</span>) : "—"}</td>
+                      <td><Link href={`/shift/summary/${s.id}`} className="x-link">{tx("ملخص")}</Link></td>
                     </tr>
                   );
                 })}
@@ -241,20 +244,20 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
 
       <div className="x-grid x-cols-2">
         <section className="x-card">
-          <div className="x-card-head"><h2>حركة الفلوس</h2><span className="x-row-sub">آخر {moves.length} حركة</span></div>
-          {moves.length === 0 ? <div className="x-empty">مفيش حركات في الفترة دي.</div> : (
+          <div className="x-card-head"><h2>{tx("حركة الفلوس")}</h2><span className="x-row-sub">{tx("آخر")} {moves.length} {tx("حركة")}</span></div>
+          {moves.length === 0 ? <div className="x-empty">{tx("مفيش حركات في الفترة دي.")}</div> : (
             <div className="x-table-wrap">
               <table className="x-table">
-                <thead><tr><th>الوقت</th><th>النوع</th><th>التفاصيل</th><th>الدفع</th><th>الموظف</th><th>المبلغ</th></tr></thead>
+                <thead><tr><th>{tx("الوقت")}</th><th>{tx("النوع")}</th><th>{tx("التفاصيل")}</th><th>{tx("الدفع")}</th><th>{tx("الموظف")}</th><th>{tx("المبلغ")}</th></tr></thead>
                 <tbody>
                   {moves.map((m, i) => (
                     <tr key={i}>
-                      <td className="x-num" style={{ whiteSpace: "nowrap" }}>{arDate(m.at, tz)} · {arTime(m.at, tz)}</td>
-                      <td><span className={`x-pill ${m.kind === "in" ? "green" : "red"}`}>{m.source}</span></td>
+                      <td className="x-num" style={{ whiteSpace: "nowrap" }}>{f.date(m.at, tz)} · {f.time(m.at, tz)}</td>
+                      <td><span className={`x-pill ${m.kind === "in" ? "green" : "red"}`}>{tx(m.source)}</span></td>
                       <td className="truncate" style={{ maxWidth: 200 }}>{m.detail || "—"}</td>
-                      <td>{paymentLabel(m.method)}</td>
-                      <td>{m.staff ?? "—"}{m.shift_id ? <span className="x-row-sub x-num"> · ش#{m.shift_id}</span> : null}</td>
-                      <td className={`x-num ${m.kind === "in" ? "x-in" : "x-out"}`} dir="ltr" style={{ textAlign: "start" }}>{m.kind === "in" ? "+" : "−"}{arNumber(m.amount)}</td>
+                      <td>{f.pay(m.method)}</td>
+                      <td>{m.staff ?? "—"}{m.shift_id ? <span className="x-row-sub x-num"> · {tx("ش")}#{m.shift_id}</span> : null}</td>
+                      <td className={`x-num ${m.kind === "in" ? "x-in" : "x-out"}`} dir="ltr" style={{ textAlign: "start" }}>{m.kind === "in" ? "+" : "−"}{f.number(m.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -265,32 +268,32 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
 
         <div className="space-y-4">
           <section className="x-card">
-            <div className="x-card-head"><h2>تحكم كامل</h2></div>
+            <div className="x-card-head"><h2>{tx("تحكم كامل")}</h2></div>
             <div className="x-list">
               {[
-                { href: "/settings/shifts", label: "الموظفين والشيفتات", sub: "مين على الشيفت وحسابات الموظفين" },
-                { href: "/settings", label: "الإعدادات والحسابات", sub: "المستخدمين، الأسعار، الطباعة، جوجل" },
-                { href: "/expenses", label: "المصاريف والإيرادات", sub: "سجّل أو راجع الحركات" },
-                { href: "/reports", label: "التقارير", sub: "تحليل كامل للإيراد والمصاريف" },
-                { href: "/bank", label: "البنك", sub: "إيداع وسحب" },
+                { href: "/settings/shifts", label: tx("الموظفين والشيفتات"), sub: tx("مين على الشيفت وحسابات الموظفين") },
+                { href: "/settings", label: tx("الإعدادات والحسابات"), sub: tx("المستخدمين، الأسعار، الطباعة، جوجل") },
+                { href: "/expenses", label: tx("المصاريف والإيرادات"), sub: tx("سجّل أو راجع الحركات") },
+                { href: "/reports", label: tx("التقارير"), sub: tx("تحليل كامل للإيراد والمصاريف") },
+                { href: "/bank", label: tx("البنك"), sub: tx("إيداع وسحب") },
               ].map((l) => (
                 <Link key={l.href} href={l.href} className="x-row" style={{ textDecoration: "none" }}>
-                  <div className="x-row-main"><div className="x-row-title">{l.label}</div><div className="x-row-sub">{l.sub}</div></div>
-                  <span aria-hidden="true">←</span>
+                  <div className="x-row-main"><div className="x-row-title">{tx(l.label)}</div><div className="x-row-sub">{tx(l.sub)}</div></div>
+                  <span aria-hidden="true">{f.en ? "→" : "←"}</span>
                 </Link>
               ))}
             </div>
           </section>
 
           <section className="x-card">
-            <div className="x-card-head"><h2>الفريق</h2></div>
+            <div className="x-card-head"><h2>{tx("الفريق")}</h2></div>
             <div className="x-list">
               {userRows.map((u) => (
                 <div key={u.id} className="x-row">
                   <span className="x-avatar" style={{ width: 32, height: 32, borderRadius: 10, fontSize: 13 }}>{u.fullName.charAt(0)}</span>
                   <div className="x-row-main x-row-title">{u.fullName}</div>
-                  <span className="x-pill">{roleLabel[u.role] ?? u.role}</span>
-                  {!u.active && <span className="x-pill red">موقوف</span>}
+                  <span className="x-pill">{tx(roleLabel[u.role] ?? u.role)}</span>
+                  {!u.active && <span className="x-pill red">{tx("موقوف")}</span>}
                 </div>
               ))}
             </div>
@@ -299,22 +302,22 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
       </div>
 
       <section className="x-card">
-        <div className="x-card-head"><h2>كل الجلسات</h2><span className="x-row-sub">آخر {sessionRows.length} جلسة في الفترة</span></div>
-        {sessionRows.length === 0 ? <div className="x-empty">مفيش جلسات في الفترة دي.</div> : (
+        <div className="x-card-head"><h2>{tx("كل الجلسات")}</h2><span className="x-row-sub">{tx("آخر")} {sessionRows.length} {tx("جلسة في الفترة")}</span></div>
+        {sessionRows.length === 0 ? <div className="x-empty">{tx("مفيش جلسات في الفترة دي.")}</div> : (
           <div className="x-table-wrap">
             <table className="x-table">
-              <thead><tr><th>العميل</th><th>دخل</th><th>خرج</th><th>المدة</th><th>فتحها</th><th>الكافيه</th><th>الدفع</th><th>الإجمالي</th></tr></thead>
+              <thead><tr><th>{tx("العميل")}</th><th>{tx("دخل")}</th><th>{tx("خرج")}</th><th>{tx("المدة")}</th><th>{tx("فتحها")}</th><th>{tx("الكافيه")}</th><th>{tx("الدفع")}</th><th>{tx("الإجمالي")}</th></tr></thead>
               <tbody>
                 {sessionRows.map((b) => (
                   <tr key={b.id}>
                     <td><Link href={`/bookings/${b.id}`} className="font-bold" style={{ color: "inherit" }}>{b.customer}</Link></td>
-                    <td className="x-num">{b.checkedInAt ? arDate(b.checkedInAt, tz) + " · " + arTime(b.checkedInAt, tz) : "—"}</td>
-                    <td className="x-num">{b.status === "active" ? <span className="x-pill green">شغالة</span> : b.checkedOutAt ? arTime(b.checkedOutAt, tz) : "—"}</td>
-                    <td className="x-num">{b.checkedInAt ? arDuration(b.checkedInAt, b.checkedOutAt) : "—"}</td>
-                    <td>{b.staff ?? "—"}<span className="x-row-sub x-num"> · ش#{b.shiftId}</span></td>
-                    <td className="x-num">{arMoney(Number(b.ordersTotal ?? 0))}</td>
-                    <td>{b.status === "active" ? "—" : paymentLabel(b.method)}</td>
-                    <td className="font-bold x-num">{b.status === "active" ? "—" : arMoney(Number(b.total ?? 0))}</td>
+                    <td className="x-num">{b.checkedInAt ? f.date(b.checkedInAt, tz) + " · " + f.time(b.checkedInAt, tz) : "—"}</td>
+                    <td className="x-num">{b.status === "active" ? <span className="x-pill green">{tx("شغالة")}</span> : b.checkedOutAt ? f.time(b.checkedOutAt, tz) : "—"}</td>
+                    <td className="x-num">{b.checkedInAt ? f.duration(b.checkedInAt, b.checkedOutAt) : "—"}</td>
+                    <td>{b.staff ?? "—"}<span className="x-row-sub x-num"> · {tx("ش")}#{b.shiftId}</span></td>
+                    <td className="x-num">{f.money(Number(b.ordersTotal ?? 0))}</td>
+                    <td>{b.status === "active" ? "—" : f.pay(b.method)}</td>
+                    <td className="font-bold x-num">{b.status === "active" ? "—" : f.money(Number(b.total ?? 0))}</td>
                   </tr>
                 ))}
               </tbody>

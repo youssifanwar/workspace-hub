@@ -568,8 +568,8 @@ export default function SubscriptionPackagesPage() {
         <div className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm">
           {packages.length}{" "}
           {packages.length === 1
-            ? "package"
-            : "packages"}
+            ? tx("package")
+            : tx("packages")}
         </div>
 
       </div>

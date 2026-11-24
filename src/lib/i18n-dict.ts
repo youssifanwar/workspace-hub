@@ -1134,7 +1134,7 @@ export const AR_EXTRA: Record<string, string> = {
  "No shift is open right now.": "مفيش شيفت مفتوح دلوقتي.",
  "⚠️ More than one shift is open at the same time. This should not normally happen — close the extra shift(s) from the Shift page.": "⚠️ أكتر من شيفت مفتوح في نفس الوقت. ده مفروض ميحصلش، اقفل الشيفتات الزيادة من صفحة الشيفت.",
  "No shift opened today yet.": "لسه مفيش شيفت اتفتح النهارده.",
- "Staff": "الموظفين",
+ "Staff": "الموظف",
  "Closed": "اتقفل",
  "Closing cash": "كاش القفل",
  "Sessions registered": "الجلسات المسجلة",
@@ -1318,5 +1318,9 @@ export const AR_EXTRA: Record<string, string> = {
  "Network error while updating order.": "في مشكلة في الشبكة وقت تحديث الطلب.",
  "Could not cancel order.": "مقدرناش نلغي الطلب.",
  "Network error while cancelling order.": "في مشكلة في الشبكة وقت إلغاء الطلب.",
- "Billing": "نوع الفوترة"
+ "Billing": "نوع الفوترة",
+ "package": "باقة",
+ "packages": "باقات",
+ "Finance": "المالية",
+ "Amount": "المبلغ"
 };

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 
 import CustomerSearchField from "./CustomerSearchField";
 import WalkInRoomModal from "./WalkInRoomModal";
+import { useFmt } from "@/lib/lang-context";
 
 type PricingTier = {
   id: number;
@@ -194,6 +195,8 @@ export default function RoomsGrid({
   currency: string;
   canEditRate: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [
@@ -233,7 +236,7 @@ export default function RoomsGrid({
       rate <= 0
     ) {
       setRateError(
-        "Hourly rate must be greater than zero.",
+        tx("Hourly rate must be greater than zero."),
       );
       return;
     }
@@ -266,7 +269,7 @@ export default function RoomsGrid({
         setRateError(
           getErrorMessage(
             data,
-            `Could not update rate (HTTP ${response.status}).`,
+            (f.en ? `Could not update rate (HTTP ${response.status}).` : `مقدرناش نحدّث السعر (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -277,7 +280,7 @@ export default function RoomsGrid({
       router.refresh();
     } catch {
       setRateError(
-        "Could not connect to the server.",
+        tx("Could not connect to the server."),
       );
     } finally {
       setSavingRate(false);
@@ -290,19 +293,15 @@ export default function RoomsGrid({
 
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
           <div className="font-bold text-indigo-900">
-            Meeting Rooms
+            {tx("Meeting Rooms")}
           </div>
 
           <div className="text-sm text-indigo-700 mt-1">
-            Pricing depends on the room,
-            number of people and booking
-            duration.
+            {tx("Pricing depends on the room, number of people and booking duration.")}
           </div>
 
           <div className="text-xs text-indigo-600 mt-2">
-            Booking duration must be a whole
-            number of hours. 1:30 is not
-            allowed.
+            {tx("Booking duration must be a whole number of hours. 1:30 is not allowed.")}
           </div>
         </div>
 
@@ -336,7 +335,7 @@ export default function RoomsGrid({
                   </div>
 
                   <span className="badge badge-green">
-                    Available
+                    {tx("Available")}
                   </span>
                 </div>
 
@@ -381,8 +380,8 @@ export default function RoomsGrid({
                         disabled={savingRate}
                       >
                         {savingRate
-                          ? "Saving..."
-                          : "Save"}
+                          ? tx("Saving...")
+                          : tx("Save")}
                       </button>
 
                       <button
@@ -395,7 +394,7 @@ export default function RoomsGrid({
                           setEditValue("");
                         }}
                         disabled={savingRate}
-                        aria-label="Cancel rate editing"
+                        aria-label={tx("Cancel rate editing")}
                       >
                         ✕
                       </button>
@@ -423,7 +422,7 @@ export default function RoomsGrid({
                           }}
                           className="text-xs text-indigo-600 font-semibold hover:underline"
                         >
-                          ✏️ edit
+                          {tx("✏️ edit")}
                         </button>
                       )}
                     </div>
@@ -435,7 +434,7 @@ export default function RoomsGrid({
                     0 && (
                     <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                       <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Pricing
+                        {tx("Pricing")}
                       </div>
 
                       <div className="mt-2 space-y-1.5">
@@ -460,7 +459,7 @@ export default function RoomsGrid({
                                   {
                                     tier.maxPeople
                                   }{" "}
-                                  people
+                                  {tx("people")}
                                 </span>
 
                                 <span className="font-semibold text-slate-900">
@@ -480,13 +479,11 @@ export default function RoomsGrid({
 
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
                   <div className="font-semibold text-slate-800">
-                    Physical location
+                    {tx("Physical location")}
                   </div>
 
                   <div className="mt-1">
-                    Customers use the
-                    reservation system to
-                    book this room.
+                    {tx("Customers use the reservation system to book this room.")}
                   </div>
                 </div>
 
@@ -500,7 +497,7 @@ export default function RoomsGrid({
                       )
                     }
                   >
-                    📅 Reserve
+                    {tx("📅 Reserve")}
                   </button>
 
                   <button
@@ -512,7 +509,7 @@ export default function RoomsGrid({
                       )
                     }
                   >
-                    🟢 Start Now
+                    {tx("🟢 Start Now")}
                   </button>
                 </div>
               </div>
@@ -549,6 +546,8 @@ function ReservationModal({
   currency,
   onClose,
 }: ReservationModalProps) {
+  const f = useFmt();
+  const tx = f.t;
   const [customerName, setCustomerName] =
     useState("");
 
@@ -755,7 +754,7 @@ function ReservationModal({
 
     if (!phone) {
       setPackageLoadError(
-        "Enter the customer phone number first.",
+        tx("Enter the customer phone number first."),
       );
       return;
     }
@@ -788,7 +787,7 @@ function ReservationModal({
         setPackageLoadError(
           getErrorMessage(
             data,
-            `Could not load customer packages (HTTP ${response.status}).`,
+            (f.en ? `Could not load customer packages (HTTP ${response.status}).` : `مقدرناش نحمّل باقات العميل (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -809,7 +808,7 @@ function ReservationModal({
       );
     } catch {
       setPackageLoadError(
-        "Could not connect to the customer package service.",
+        tx("Could not connect to the customer package service."),
       );
     } finally {
       setLoadingPackages(false);
@@ -829,7 +828,7 @@ function ReservationModal({
       people <= 0
     ) {
       setError(
-        "Number of people must be a positive whole number.",
+        tx("Number of people must be a positive whole number."),
       );
       return;
     }
@@ -840,7 +839,7 @@ function ReservationModal({
       people > room.capacity
     ) {
       setError(
-        `This room can accommodate up to ${room.capacity} people.`,
+        (f.en ? `This room can accommodate up to ${room.capacity} people.` : `الغرفة دي بتسع لحد ${room.capacity} أشخاص.`),
       );
       return;
     }
@@ -852,7 +851,7 @@ function ReservationModal({
       )
     ) {
       setError(
-        "Please choose a valid start and end time.",
+        tx("Please choose a valid start and end time."),
       );
       return;
     }
@@ -863,7 +862,7 @@ function ReservationModal({
       )
     ) {
       setError(
-        "Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed.",
+        tx("Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed."),
       );
       return;
     }
@@ -881,7 +880,7 @@ function ReservationModal({
         count > 52
       ) {
         setError(
-          "Number of weeks must be between 1 and 52.",
+          tx("Number of weeks must be between 1 and 52."),
         );
         return;
       }
@@ -935,7 +934,7 @@ function ReservationModal({
         setError(
           getErrorMessage(
             data,
-            `Could not calculate price (HTTP ${response.status}).`,
+            (f.en ? `Could not calculate price (HTTP ${response.status}).` : `مقدرناش نحسب السعر (HTTP ${response.status}).`),
           ),
         );
         return;
@@ -943,7 +942,7 @@ function ReservationModal({
 
       if (!isRecord(data)) {
         setError(
-          "The pricing service returned an invalid response.",
+          tx("The pricing service returned an invalid response."),
         );
         return;
       }
@@ -1042,7 +1041,7 @@ function ReservationModal({
       });
     } catch {
       setError(
-        "Could not calculate the reservation price.",
+        tx("Could not calculate the reservation price."),
       );
     } finally {
       setLoadingPrice(false);
@@ -1055,7 +1054,7 @@ function ReservationModal({
 
     if (!startAt || !endAt) {
       setError(
-        "Choose the start and end time.",
+        tx("Choose the start and end time."),
       );
       return;
     }
@@ -1073,7 +1072,7 @@ function ReservationModal({
       end <= start
     ) {
       setError(
-        "Please enter a valid time range.",
+        tx("Please enter a valid time range."),
       );
       return;
     }
@@ -1089,7 +1088,7 @@ function ReservationModal({
       )
     ) {
       setError(
-        "Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed.",
+        tx("Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed."),
       );
       return;
     }
@@ -1109,7 +1108,7 @@ function ReservationModal({
         count > 52
       ) {
         setError(
-          "Number of weeks must be between 1 and 52.",
+          tx("Number of weeks must be between 1 and 52."),
         );
         return;
       }
@@ -1158,12 +1157,12 @@ function ReservationModal({
         setAvailable(false);
         setAvailabilityMessage(
           reason ||
-            `Could not check availability (HTTP ${response.status}).`,
+            (f.en ? `Could not check availability (HTTP ${response.status}).` : `مقدرناش نفحص التوافر (HTTP ${response.status}).`),
         );
 
         setError(
           reason ||
-            `Could not check availability (HTTP ${response.status}).`,
+            (f.en ? `Could not check availability (HTTP ${response.status}).` : `مقدرناش نفحص التوافر (HTTP ${response.status}).`),
         );
 
         return;
@@ -1172,7 +1171,7 @@ function ReservationModal({
       if (!isRecord(data)) {
         setAvailable(false);
         setError(
-          "The availability service returned an invalid response.",
+          tx("The availability service returned an invalid response."),
         );
         return;
       }
@@ -1188,7 +1187,7 @@ function ReservationModal({
         const reason =
           getErrorMessage(
             data,
-            "This room is not available for the selected time.",
+            tx("This room is not available for the selected time."),
           );
 
         setAvailabilityMessage(
@@ -1201,7 +1200,7 @@ function ReservationModal({
         null,
       );
       setError(
-        "Could not connect to the reservation service.",
+        tx("Could not connect to the reservation service."),
       );
     } finally {
       setChecking(false);
@@ -1217,7 +1216,7 @@ function ReservationModal({
       !Number.isInteger(people) ||
       people <= 0
     ) {
-      return "Number of people must be a positive whole number.";
+      return tx("Number of people must be a positive whole number.");
     }
 
     if (
@@ -1225,7 +1224,7 @@ function ReservationModal({
         undefined &&
       people > room.capacity
     ) {
-      return `This room can accommodate up to ${room.capacity} people.`;
+      return (f.en ? `This room can accommodate up to ${room.capacity} people.` : `الغرفة دي بتسع لحد ${room.capacity} أشخاص.`);
     }
 
     if (
@@ -1238,7 +1237,7 @@ function ReservationModal({
             tier.maxPeople,
       )
     ) {
-      return "No pricing tier is configured for this number of people.";
+      return tx("No pricing tier is configured for this number of people.");
     }
 
     if (!customerName.trim()) {
@@ -1250,7 +1249,7 @@ function ReservationModal({
     }
 
     if (!startAt || !endAt) {
-      return "Choose the start and end time.";
+      return tx("Choose the start and end time.");
     }
 
     const { start, end } =
@@ -1264,7 +1263,7 @@ function ReservationModal({
         end.getTime(),
       )
     ) {
-      return "Please enter a valid time range.";
+      return tx("Please enter a valid time range.");
     }
 
     if (end <= start) {
@@ -1285,7 +1284,7 @@ function ReservationModal({
         duration,
       )
     ) {
-      return "Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed.";
+      return tx("Meeting room duration must be a whole number of hours. 1:30 bookings are not allowed.");
     }
 
     if (
@@ -1300,7 +1299,7 @@ function ReservationModal({
         count < 1 ||
         count > 52
       ) {
-        return "Number of weeks must be between 1 and 52.";
+        return tx("Number of weeks must be between 1 and 52.");
       }
     }
 
@@ -1369,7 +1368,7 @@ function ReservationModal({
 
     if (!pricePreview) {
       setError(
-        "Calculate the price before confirming the reservation.",
+        tx("Calculate the price before confirming the reservation."),
       );
       return;
     }
@@ -1451,7 +1450,7 @@ function ReservationModal({
         const message =
           getErrorMessage(
             data,
-            `Could not create reservation (HTTP ${response.status}).`,
+            (f.en ? `Could not create reservation (HTTP ${response.status}).` : `مقدرناش نعمل الحجز (HTTP ${response.status}).`),
           );
 
         setError(message);
@@ -1460,7 +1459,7 @@ function ReservationModal({
 
       if (!isRecord(data)) {
         setError(
-          "The reservation service returned an invalid response.",
+          tx("The reservation service returned an invalid response."),
         );
         return;
       }
@@ -1498,14 +1497,14 @@ function ReservationModal({
 
       setSuccess(
         recurrence !== "none"
-          ? `${room.name} was reserved successfully for ${reservedCount} occurrence(s). Total: ${total} ${currency}${
+          ? `${room.name} ${f.en ? "was reserved successfully for" : "اتحجزت بنجاح لـ"} ${reservedCount} ${f.en ? "occurrence(s). Total:" : "مرة. الإجمالي:"} ${total} ${currency}${
               discountValue > 0
-                ? ` — package discount: ${discount} ${currency}`
+                ? ` — ${tx("package discount")}: ${discount} ${currency}`
                 : ""
             }`
-          : `${room.name} was reserved successfully. Total: ${total} ${currency}${
+          : `${room.name} ${f.en ? "was reserved successfully. Total:" : "اتحجزت بنجاح. الإجمالي:"} ${total} ${currency}${
               discountValue > 0
-                ? ` — package discount: ${discount} ${currency}`
+                ? ` — ${tx("package discount")}: ${discount} ${currency}`
                 : ""
             }`,
       );
@@ -1593,7 +1592,7 @@ function ReservationModal({
       });
     } catch {
       setError(
-        "Could not create reservation. Please try again.",
+        tx("Could not create reservation. Please try again."),
       );
     } finally {
       setChecking(false);
@@ -1657,13 +1656,13 @@ function ReservationModal({
       className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`Reserve ${room.name}`}
+      aria-label={(f.en ? `Reserve ${room.name}` : `احجز ${room.name}`)}
     >
       <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
         <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
           <div>
             <div className="text-xs font-bold tracking-wider text-indigo-600">
-              ROOM RESERVATION
+              {tx("ROOM RESERVATION")}
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 mt-1">
@@ -1694,7 +1693,7 @@ function ReservationModal({
             type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 text-2xl"
-            aria-label="Close reservation dialog"
+            aria-label={tx("Close reservation dialog")}
           >
             ×
           </button>
@@ -1704,7 +1703,7 @@ function ReservationModal({
           {/* CUSTOMER */}
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
-              Customer
+              {tx("Customer")}
             </div>
 
             <div className="mb-4">
@@ -1742,7 +1741,7 @@ function ReservationModal({
                   htmlFor="meeting-room-customer-name"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Customer name
+                  {tx("Customer name")}
                 </label>
 
                 <input
@@ -1762,7 +1761,7 @@ function ReservationModal({
                     resetMessages();
                     resetPrice();
                   }}
-                  placeholder="e.g. Ahmed Ali"
+                  placeholder={tx("e.g. Ahmed Ali")}
                   disabled={isBusy}
                 />
               </div>
@@ -1772,7 +1771,7 @@ function ReservationModal({
                   htmlFor="meeting-room-customer-phone"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Phone number
+                  {tx("Phone number")}
                 </label>
 
                 <div className="flex gap-2">
@@ -1787,7 +1786,7 @@ function ReservationModal({
                       resetMessages();
                       resetPrice();
                     }}
-                    placeholder="e.g. 0100 000 0000"
+                    placeholder={tx("e.g. 0100 000 0000")}
                     disabled={isBusy}
                   />
 
@@ -1803,8 +1802,8 @@ function ReservationModal({
                     }
                   >
                     {loadingPackages
-                      ? "Loading..."
-                      : "Load packages"}
+                      ? tx("Loading...")
+                      : tx("Load packages")}
                   </button>
                 </div>
 
@@ -1823,7 +1822,7 @@ function ReservationModal({
           {/* ATTENDEES */}
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
-              Attendees
+              {tx("Attendees")}
             </div>
 
             <div className="max-w-xs">
@@ -1831,7 +1830,7 @@ function ReservationModal({
                 htmlFor="meeting-room-attendees"
                 className="block text-sm font-semibold text-slate-700 mb-1"
               >
-                Number of people
+                {tx("Number of people")}
               </label>
 
               <input
@@ -1856,14 +1855,14 @@ function ReservationModal({
               <div className="text-xs text-slate-500 mt-1">
                 {room.capacity !==
                 undefined
-                  ? `Maximum ${room.capacity} people`
-                  : "Enter the number of attendees"}
+                  ? (f.en ? `Maximum ${room.capacity} people` : `الحد الأقصى ${room.capacity} أشخاص`)
+                  : tx("Enter the number of attendees")}
               </div>
 
               {selectedTier && (
                 <div className="mt-3 rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-sm">
                   <div className="text-indigo-700 font-semibold">
-                    Current rate
+                    {tx("Current rate")}
                   </div>
 
                   <div className="text-indigo-950 font-bold mt-1">
@@ -1877,7 +1876,7 @@ function ReservationModal({
                     For{" "}
                     {selectedTier.minPeople}–
                     {selectedTier.maxPeople}{" "}
-                    people
+                    {tx("people")}
                   </div>
                 </div>
               )}
@@ -1888,9 +1887,7 @@ function ReservationModal({
                 ) &&
                 people > 0 && (
                   <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                    No pricing tier is
-                    configured for this
-                    number of people.
+                    {tx("No pricing tier is configured for this number of people.")}
                   </div>
                 )}
             </div>
@@ -1899,7 +1896,7 @@ function ReservationModal({
           {/* TIME */}
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="font-bold text-slate-900 mb-3">
-              Reservation time
+              {tx("Reservation time")}
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -1908,7 +1905,7 @@ function ReservationModal({
                   htmlFor="meeting-room-start"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Start
+                  {tx("Start")}
                 </label>
 
                 <input
@@ -1930,7 +1927,7 @@ function ReservationModal({
                   htmlFor="meeting-room-end"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  End
+                  {tx("End")}
                 </label>
 
                 <input
@@ -1950,20 +1947,18 @@ function ReservationModal({
 
             <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
               <strong>
-                Booking rule:
+                {tx("Booking rule:")}
               </strong>{" "}
-              duration must be a whole
-              number of hours. 1:30 is not
-              available.
+              {tx("duration must be a whole number of hours. 1:30 is not available.")}
             </div>
 
             {durationHours !== null && (
               <div className="mt-3 text-sm text-slate-600">
-                Duration:{" "}
+                {tx("Duration")}:{" "}
                 <strong>
                   {durationHours}
                 </strong>{" "}
-                hour(s)
+                {tx("hour(s)")}
               </div>
             )}
           </div>
@@ -1975,7 +1970,7 @@ function ReservationModal({
                 htmlFor="meeting-room-repeat"
                 className="block text-sm font-semibold text-slate-700 mb-1"
               >
-                Repeat
+                {tx("Repeat")}
               </label>
 
               <select
@@ -1998,15 +1993,15 @@ function ReservationModal({
                 disabled={isBusy}
               >
                 <option value="none">
-                  One time
+                  {tx("One time")}
                 </option>
 
                 <option value="daily">
-                  Every day
+                  {tx("Every day")}
                 </option>
 
                 <option value="weekly">
-                  Every week
+                  {tx("Every week")}
                 </option>
               </select>
             </div>
@@ -2018,7 +2013,7 @@ function ReservationModal({
                   htmlFor="meeting-room-weeks"
                   className="block text-sm font-semibold text-slate-700 mb-1"
                 >
-                  Number of {recurrence === "weekly" ? "weeks" : "days"}
+                  {tx("Number of")} {recurrence === "weekly" ? tx("weeks") : tx("days")}
                 </label>
 
                 <input
@@ -2049,7 +2044,7 @@ function ReservationModal({
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <div className="font-bold text-slate-900">
-                  Meeting Room Package
+                  {tx("Meeting Room Package")}
                 </div>
 
                 <div className="text-xs text-slate-600 mt-1">
@@ -2071,7 +2066,7 @@ function ReservationModal({
                     isBusy
                   }
                 >
-                  Refresh
+                  {tx("Refresh")}
                 </button>
               )}
             </div>
@@ -2099,7 +2094,7 @@ function ReservationModal({
               }
             >
               <option value="">
-                Regular booking
+                {tx("Regular booking")}
               </option>
 
               {customerPackages
@@ -2133,7 +2128,7 @@ function ReservationModal({
               <div className="mt-3 grid sm:grid-cols-3 gap-3">
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Remaining
+                    {tx("Remaining")}
                   </div>
 
                   <div className="font-bold text-slate-900 mt-1">
@@ -2146,7 +2141,7 @@ function ReservationModal({
 
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Discount
+                    {tx("Discount")}
                   </div>
 
                   <div className="font-bold text-emerald-700 mt-1">
@@ -2159,7 +2154,7 @@ function ReservationModal({
 
                 <div className="rounded-xl bg-white border border-emerald-200 p-3">
                   <div className="text-xs text-slate-500">
-                    Package
+                    {tx("Package")}
                   </div>
 
                   <div className="font-bold text-slate-900 mt-1">
@@ -2176,10 +2171,7 @@ function ReservationModal({
               0 &&
               !loadingPackages && (
                 <div className="text-xs text-slate-500 mt-2">
-                  Load the customer's
-                  packages using the phone
-                  number above. Regular
-                  booking remains available.
+                  {tx("Load the customer's packages using the phone number above. Regular booking remains available.")}
                 </div>
               )}
           </div>
@@ -2189,13 +2181,11 @@ function ReservationModal({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-bold text-indigo-950">
-                  Price preview
+                  {tx("Price preview")}
                 </div>
 
                 <div className="text-xs text-indigo-700 mt-1">
-                  The final amount is
-                  recalculated and validated
-                  on the server.
+                  {tx("The final amount is recalculated and validated on the server.")}
                 </div>
               </div>
 
@@ -2211,8 +2201,8 @@ function ReservationModal({
                 }
               >
                 {loadingPrice
-                  ? "Calculating..."
-                  : "Calculate price"}
+                  ? tx("Calculating...")
+                  : tx("Calculate price")}
               </button>
             </div>
 
@@ -2220,7 +2210,7 @@ function ReservationModal({
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Hourly rate
+                    {tx("Hourly rate")}
                   </span>
 
                   <strong>
@@ -2233,20 +2223,20 @@ function ReservationModal({
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Duration
+                    {tx("Duration")}
                   </span>
 
                   <strong>
                     {
                       pricePreview.durationHours
                     }{" "}
-                    hour(s)
+                    {tx("hour(s)")}
                   </strong>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Subtotal
+                    {tx("Subtotal")}
                   </span>
 
                   <strong>
@@ -2281,7 +2271,7 @@ function ReservationModal({
 
                 <div className="border-t border-indigo-200 pt-3 mt-3 flex justify-between gap-4 text-lg">
                   <span className="font-bold text-indigo-950">
-                    Total
+                    {tx("Total")}
                   </span>
 
                   <strong className="text-indigo-950">
@@ -2296,7 +2286,7 @@ function ReservationModal({
                   null && (
                   <div className="flex justify-between gap-4 text-xs text-slate-600">
                     <span>
-                      Package hours required
+                      {tx("Package hours required")}
                     </span>
 
                     <strong>
@@ -2310,9 +2300,7 @@ function ReservationModal({
               </div>
             ) : (
               <div className="mt-4 text-sm text-indigo-700">
-                Choose the attendees, time
-                and package, then calculate
-                the price.
+                {tx("Choose the attendees, time and package, then calculate the price.")}
               </div>
             )}
           </div>
@@ -2323,8 +2311,7 @@ function ReservationModal({
               className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 font-semibold"
               role="status"
             >
-              🟢 This room is available for
-              the selected time.
+              {tx("🟢 This room is available for the selected time.")}
             </div>
           )}
 
@@ -2335,7 +2322,7 @@ function ReservationModal({
             >
               🔴{" "}
               {availabilityMessage ||
-                "This room is not available for the selected time."}
+                tx("This room is not available for the selected time.")}
             </div>
           )}
 
@@ -2363,7 +2350,7 @@ function ReservationModal({
               htmlFor="meeting-room-notes"
               className="block text-sm font-semibold text-slate-700 mb-1"
             >
-              Notes
+              {tx("Notes")}
             </label>
 
             <textarea
@@ -2376,7 +2363,7 @@ function ReservationModal({
                 );
                 resetMessages();
               }}
-              placeholder="Optional notes"
+              placeholder={tx("Optional notes")}
               maxLength={1000}
               disabled={isBusy}
             />
@@ -2395,7 +2382,7 @@ function ReservationModal({
             onClick={onClose}
             disabled={isBusy}
           >
-            Close
+            {tx("Close")}
           </button>
 
           <button
@@ -2407,8 +2394,8 @@ function ReservationModal({
             disabled={isBusy}
           >
             {checking
-              ? "Checking..."
-              : "Check availability"}
+              ? tx("Checking...")
+              : tx("Check availability")}
           </button>
 
           <button
@@ -2420,8 +2407,8 @@ function ReservationModal({
             disabled={isBusy}
           >
             {loadingPrice
-              ? "Calculating..."
-              : "Calculate price"}
+              ? tx("Calculating...")
+              : tx("Calculate price")}
           </button>
 
           <button
@@ -2433,10 +2420,10 @@ function ReservationModal({
             disabled={isBusy}
           >
             {checking
-              ? "Processing..."
+              ? tx("Processing...")
               : pricePreview
-              ? "Confirm reservation →"
-              : "Calculate price →"}
+              ? tx("Confirm reservation →")
+              : tx("Calculate price →")}
           </button>
         </div>
       </div>

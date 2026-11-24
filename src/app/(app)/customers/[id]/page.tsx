@@ -157,7 +157,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
             </div>
           </Panel>
 
-          <div className="v2-wallet">
+          <div className="v2-wallet" style={balance < 0 ? { background: "linear-gradient(135deg,#991b1b,#dc2626)" } : undefined}>
             <span className="v2-wallet-label">{balance < 0 ? (f.en ? "Outstanding debt (owes us)" : "مديونية على العميل") : tx("الرصيد المدفوع مقدماً")}</span>
             <span className="v2-wallet-value" style={balance < 0 ? { color: "#fecaca" } : undefined}>{f.money(Math.abs(balance))}</span>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>

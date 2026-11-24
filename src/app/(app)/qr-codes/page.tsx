@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getPublicBaseUrl, detectLocalIp } from "@/lib/network";
 import { getSetting } from "@/lib/settings";
+import { PageBar } from "../_components/ui";
 import QrGrid from "./QrGrid";
 import Link from "next/link";
 import { getLang } from "@/lib/i18n";
@@ -30,20 +31,15 @@ export default async function QrCodesPage() {
   const publicBaseConfigured = await getSetting("public_base_url");
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">{tx("QR Codes")}</h1>
-          <p className="text-slate-500">
-            {tx("Each desk has a unique QR that opens the mobile ordering menu.")}
-          </p>
-        </div>
-        <Link href="/settings" className="btn btn-ghost">
-          {tx("⚙️ Change base URL")}
-        </Link>
-      </div>
+    <div>
+      <PageBar
+        crumb={tx("F&B")}
+        title={tx("QR Codes")}
+        description={tx("Each desk has a unique QR that opens the mobile ordering menu.")}
+        actions={<Link href="/settings" className="btn btn-ghost">{tx("⚙️ Change base URL")}</Link>}
+      />
 
-      <div className="card p-5">
+      <div className="card p-5" style={{ marginBottom: 20 }}>
         <div className="text-xs uppercase font-semibold text-slate-500">
           {tx("Public order URL")}
         </div>

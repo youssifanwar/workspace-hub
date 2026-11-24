@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -17,6 +18,8 @@ export default function EditArrivalTime({
   bookingId: number;
   checkedInAt: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(toLocalInput(new Date(checkedInAt)));
@@ -34,13 +37,13 @@ export default function EditArrivalTime({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Could not update arrival time.");
+        setError(data?.error || tx("Could not update arrival time."));
         return;
       }
       setOpen(false);
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(tx("Network error. Try again."));
     } finally {
       setSaving(false);
     }
@@ -63,7 +66,7 @@ export default function EditArrivalTime({
 
   return (
     <div className="border border-slate-200 rounded-xl p-3 space-y-2">
-      <label className="text-sm font-medium">Actual arrival time</label>
+      <label className="text-sm font-medium">{tx("Actual arrival time")}</label>
       <input
         type="datetime-local"
         className="input w-full"
@@ -72,7 +75,7 @@ export default function EditArrivalTime({
         onChange={(e) => setValue(e.target.value)}
       />
       <p className="text-xs text-slate-500">
-        The bill is calculated from this time. Changes are logged.
+        {tx("The bill is calculated from this time. Changes are logged.")}
       </p>
       {error && <div className="text-sm text-red-600">{error}</div>}
       <div className="flex gap-2">
@@ -81,7 +84,7 @@ export default function EditArrivalTime({
           className="btn btn-ghost flex-1"
           onClick={() => setOpen(false)}
         >
-          Close
+          {tx("Close")}
         </button>
         <button
           type="button"
@@ -89,7 +92,7 @@ export default function EditArrivalTime({
           disabled={saving}
           onClick={save}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? tx("Saving…") : tx("Save")}
         </button>
       </div>
     </div>

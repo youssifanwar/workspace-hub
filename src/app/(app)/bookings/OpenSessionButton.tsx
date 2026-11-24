@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import CheckInModal from "./CheckInModal";
+import { useFmt } from "@/lib/lang-context";
 
 export default function OpenSessionButton({
   currency,
 }: {
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -31,7 +34,7 @@ export default function OpenSessionButton({
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        + Open Session
+        {tx("+ Open Session")}
       </button>
 
       {open && (

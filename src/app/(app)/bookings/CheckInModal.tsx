@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type CustomerSubscription = {
   id: number;
@@ -71,6 +72,8 @@ export default function CheckInModal({
   currency: string;
   onClose: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   // ---------------------------------------------------------------------------
@@ -217,7 +220,7 @@ export default function CheckInModal({
             typeof data.error === "string" &&
             data.error.trim()
             ? data.error
-            : "Could not search for the customer.",
+            : tx("Could not search for the customer."),
         );
 
         clearCustomerLookup();
@@ -282,7 +285,7 @@ export default function CheckInModal({
       console.error("Customer lookup failed:", err);
 
       setLookupError(
-        "Could not connect to the server while searching for the customer.",
+        tx("Could not connect to the server while searching for the customer."),
       );
 
       clearCustomerLookup();
@@ -344,7 +347,7 @@ export default function CheckInModal({
 
     if (activeSubscriptions.length === 0) {
       setError(
-        "This customer has no active package with available hours.",
+        tx("This customer has no active package with available hours."),
       );
       return;
     }
@@ -400,7 +403,7 @@ export default function CheckInModal({
     }
 
     if (activeSubscriptions.length === 0) {
-      return "This customer has no active package with available hours.";
+      return tx("This customer has no active package with available hours.");
     }
 
     if (selectedSubscriptionId === null) {
@@ -484,7 +487,7 @@ export default function CheckInModal({
 
       if (!res.ok) {
         setError(
-          data?.error || "Failed to start session.",
+          data?.error || tx("Failed to start session."),
         );
         return;
       }
@@ -498,7 +501,7 @@ export default function CheckInModal({
         !/^\d{4}$/.test(accessCode)
       ) {
         setError(
-          "Session started, but the access code was not returned correctly.",
+          tx("Session started, but the access code was not returned correctly."),
         );
         return;
       }
@@ -589,14 +592,14 @@ export default function CheckInModal({
         <div className="card w-full max-w-md p-6">
           <div className="text-center">
             <div className="text-xs uppercase text-emerald-600 font-semibold">
-              Session Started
+              {tx("Session Started")}
             </div>
 
             <h3
               id="session-started-title"
               className="text-2xl font-bold mt-1"
             >
-              Customer checked in
+              {tx("Customer checked in")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-2">
@@ -605,7 +608,7 @@ export default function CheckInModal({
 
             <div className="mt-6 rounded-2xl bg-indigo-50 border border-indigo-100 p-6">
               <div className="text-sm text-indigo-700 font-semibold">
-                Customer Access Code
+                {tx("Customer Access Code")}
               </div>
 
               <div
@@ -616,31 +619,30 @@ export default function CheckInModal({
               </div>
 
               <p className="text-xs text-indigo-600 mt-3">
-                Give this 4-digit code to the customer.
+                {tx("Give this 4-digit code to the customer.")}
               </p>
             </div>
 
             <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 text-left">
               <div className="font-semibold text-slate-800">
-                Active customer session
+                {tx("Active customer session")}
               </div>
 
               <div className="mt-1">
-                Session #{createdSession.bookingId}
+                {tx("Session")} #{createdSession.bookingId}
               </div>
 
               <div className="mt-2">
-                Billing:{" "}
+                {tx("Billing:")}{" "}
                 <strong>
                   {createdSession.billingMode === "package"
-                    ? "Package"
-                    : "Regular"}
+                    ? tx("Package") : tx("Regular")}
                 </strong>
               </div>
 
               {selectedPackage && (
                 <div className="mt-2">
-                  Package:{" "}
+                  {tx("Package:")}{" "}
                   <strong>
                     {selectedPackage.packageName}
                   </strong>
@@ -648,8 +650,7 @@ export default function CheckInModal({
               )}
 
               <div className="mt-2">
-                The customer can move between desks and meeting rooms
-                without resetting the timer or invoice.
+                {tx("The customer can move between desks and meeting rooms without resetting the timer or invoice.")}
               </div>
             </div>
 
@@ -659,7 +660,7 @@ export default function CheckInModal({
                 onClick={closeModal}
                 className="btn btn-ghost flex-1"
               >
-                Close
+                {tx("Close")}
               </button>
 
               <button
@@ -667,7 +668,7 @@ export default function CheckInModal({
                 onClick={openSession}
                 className="btn btn-primary flex-1"
               >
-                Open session →
+                {tx("Open session →")}
               </button>
             </div>
           </div>
@@ -691,19 +692,18 @@ export default function CheckInModal({
         <div className="flex items-start justify-between mb-5">
           <div>
             <div className="text-xs uppercase text-indigo-600 font-semibold">
-              Start Session
+              {tx("Start Session")}
             </div>
 
             <h3
               id="customer-session-title"
               className="text-xl font-bold"
             >
-              Customer session
+              {tx("Customer session")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Search by phone to find an existing customer or create a
-              new one.
+              {tx("Search by phone to find an existing customer or create a new one.")}
             </p>
           </div>
 
@@ -711,7 +711,7 @@ export default function CheckInModal({
             type="button"
             onClick={closeModal}
             className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center"
-            aria-label="Close"
+            aria-label={tx("Close")}
             disabled={loading}
           >
             ✕
@@ -725,7 +725,7 @@ export default function CheckInModal({
         >
           <CustomerSearchField
             compact
-            label="Search customer by name or phone"
+            label={tx("Search customer by name or phone")}
             disabled={loading}
             onPick={(c) => {
               // Setting the phone triggers the normal lookup below, which
@@ -742,7 +742,7 @@ export default function CheckInModal({
               htmlFor="customer-phone"
               className="label"
             >
-              Phone number
+              {tx("Phone number")}
             </label>
 
             <input
@@ -771,7 +771,7 @@ export default function CheckInModal({
                   void lookupCustomer(normalizedInputPhone);
                 }
               }}
-              placeholder="e.g. 0100 000 0000"
+              placeholder={tx("e.g. 0100 000 0000")}
               inputMode="tel"
               autoComplete="tel"
               maxLength={20}
@@ -782,7 +782,7 @@ export default function CheckInModal({
 
             {lookupLoading && (
               <p className="text-xs text-indigo-600 mt-1">
-                Searching customer…
+                {tx("Searching customer…")}
               </p>
             )}
 
@@ -807,7 +807,7 @@ export default function CheckInModal({
 
                 <div className="min-w-0 flex-1">
                   <div className="text-xs uppercase text-emerald-700 font-semibold">
-                    Existing customer
+                    {tx("Existing customer")}
                   </div>
 
                   <div className="font-bold text-slate-900 mt-0.5">
@@ -821,24 +821,24 @@ export default function CheckInModal({
                   {customerStats && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
                       <Stat
-                        label="Visits"
+                        label={tx("Visits")}
                         value={String(customerStats.visits)}
                       />
 
                       <Stat
-                        label="Hours"
+                        label={tx("Hours")}
                         value={customerStats.totalHours.toFixed(2)}
                       />
 
                       <Stat
-                        label="Spent"
+                        label={tx("Spent")}
                         value={`${customerStats.totalSpent.toFixed(
                           2,
                         )} ${currency}`}
                       />
 
                       <Stat
-                        label="Balance"
+                        label={tx("Balance")}
                         value={`${(customerStats.balance ?? 0).toFixed(
                           2,
                         )} ${currency}`}
@@ -854,7 +854,7 @@ export default function CheckInModal({
                 htmlFor="customer-name"
                 className="label"
               >
-                Customer name
+                {tx("Customer name")}
               </label>
 
               <input
@@ -866,7 +866,7 @@ export default function CheckInModal({
                   setName(e.target.value);
                   setError(null);
                 }}
-                placeholder="e.g. Ahmed Ali"
+                placeholder={tx("e.g. Ahmed Ali")}
                 autoComplete="name"
                 maxLength={200}
                 required
@@ -874,8 +874,7 @@ export default function CheckInModal({
               />
 
               <p className="text-xs text-slate-400 mt-1">
-                New customer — this information will be saved
-                permanently.
+                {tx("New customer — this information will be saved permanently.")}
               </p>
             </div>
           )}
@@ -883,7 +882,7 @@ export default function CheckInModal({
           {existingCustomer && (
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
               <div className="text-xs text-slate-500">
-                Customer name
+                {tx("Customer name")}
               </div>
 
               <div className="font-semibold text-slate-800 mt-1">
@@ -894,7 +893,7 @@ export default function CheckInModal({
 
           <div>
             <label className="label">
-              Session billing
+              {tx("Session billing")}
             </label>
 
             <div className="grid grid-cols-2 gap-2">
@@ -911,11 +910,11 @@ export default function CheckInModal({
                 }`}
               >
                 <div className="font-bold">
-                  Regular
+                  {tx("Regular")}
                 </div>
 
                 <div className="text-xs mt-1 opacity-70">
-                  Pay normal session price
+                  {tx("Pay normal session price")}
                 </div>
               </button>
 
@@ -936,27 +935,25 @@ export default function CheckInModal({
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className="font-bold">
-                  Package
+                  {tx("Package")}
                 </div>
 
                 <div className="text-xs mt-1 opacity-70">
-                  Use customer package hours
+                  {tx("Use customer package hours")}
                 </div>
               </button>
             </div>
 
             {!existingCustomer && (
               <p className="text-xs text-slate-400 mt-1">
-                Package billing is available for existing customers
-                only.
+                {tx("Package billing is available for existing customers only.")}
               </p>
             )}
 
             {existingCustomer &&
               activeSubscriptions.length === 0 && (
                 <p className="text-xs text-slate-400 mt-1">
-                  This customer has no active package with available
-                  hours.
+                  {tx("This customer has no active package with available hours.")}
                 </p>
               )}
           </div>
@@ -965,7 +962,7 @@ export default function CheckInModal({
             activeSubscriptions.length > 0 && (
               <div>
                 <label className="label">
-                  Select package
+                  {tx("Select package")}
                 </label>
 
                 <div className="space-y-2">
@@ -1010,19 +1007,18 @@ export default function CheckInModal({
                             <div className="font-bold text-indigo-600">
                               {Number.isFinite(remaining)
                                 ? remaining.toFixed(2)
-                                : "0.00"}{" "}
-                              hours
+                                : "0.00"}{" "} {tx("hours")}
                             </div>
 
                             <div className="text-[11px] text-slate-400">
-                              remaining
+                              {tx("remaining")}
                             </div>
                           </div>
                         </div>
 
                         {subscription.expiresAt && (
                           <div className="text-xs text-slate-400 mt-2">
-                            Expires{" "}
+                            {tx("Expires")}{" "}
                             {formatDate(
                               subscription.expiresAt,
                             )}
@@ -1052,7 +1048,7 @@ export default function CheckInModal({
               className="btn btn-ghost flex-1"
               disabled={loading}
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -1062,8 +1058,8 @@ export default function CheckInModal({
               aria-busy={loading}
             >
               {loading
-                ? "Starting…"
-                : "Start session →"}
+                ? tx("Starting…")
+                : tx("Start session →")}
             </button>
           </div>
         </form>

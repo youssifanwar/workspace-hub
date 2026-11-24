@@ -9,6 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import EditArrivalTime from "./EditArrivalTime";
+import { useFmt } from "@/lib/lang-context";
 
 type Booking = {
   id: number;
@@ -164,6 +165,8 @@ export default function BookingView({
 
   sessionPricing: CustomerSessionPricing;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router =
     useRouter();
 
@@ -530,7 +533,7 @@ export default function BookingView({
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="text-xs uppercase text-slate-500 font-semibold">
-                Active Session
+                {tx("Active Session")}
               </div>
 
               <div className="flex items-center gap-3 mt-1">
@@ -555,7 +558,7 @@ export default function BookingView({
 
                     {" · "}
 
-                    Session #
+                    {tx("Session")} #
                     {
                       booking.id
                     }
@@ -566,7 +569,7 @@ export default function BookingView({
 
             <div className="text-right">
               <div className="text-xs uppercase text-slate-500 font-semibold">
-                Time
+                {tx("Time")}
               </div>
 
               <div className="text-2xl font-bold tabular-nums">
@@ -577,18 +580,17 @@ export default function BookingView({
 
               {isPackage ? (
                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
-                  📦 Package
+                  {tx("📦 Package")}
                 </div>
               ) : (
                 <div className="text-xs font-semibold text-indigo-600 mt-1">
                   {regularPricing.pricingType ===
                   "day"
-                    ? `Day Pass · ${sessionPricing.dayPass.toFixed(2)} ${currency}`
+                    ? `${tx("Day Pass")} · ${sessionPricing.dayPass.toFixed(2)} ${currency}`
                     : `${billableHours} ${
                         billableHours ===
                         1
-                          ? "hour"
-                          : "hours"
+                          ? tx("hour") : tx("hours")
                       } · ${seatCharge.toFixed(2)} ${currency}`}
                 </div>
               )}
@@ -601,7 +603,7 @@ export default function BookingView({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs uppercase text-indigo-600 font-bold">
-                      Active Package
+                      {tx("Active Package")}
                     </div>
 
                     <div className="text-lg font-bold text-indigo-900 mt-1">
@@ -614,7 +616,7 @@ export default function BookingView({
 
                   <div className="text-right">
                     <div className="text-xs text-indigo-600">
-                      Remaining
+                      {tx("Remaining")}
                     </div>
 
                     <div className="text-xl font-bold text-indigo-900">
@@ -631,19 +633,19 @@ export default function BookingView({
 
                 <div className="grid sm:grid-cols-3 gap-3 mt-4">
                   <PackageInfo
-                    label="Total hours"
+                    label={tx("Total hours")}
                     value={`${subscription.totalHours.toFixed(
                       0,
                     )}h`}
                   />
 
                   <PackageInfo
-                    label="This session"
-                    value={`${billableHours}h`}
+                    label={tx("This session")}
+                    value={`${billableHours}{tx("h")}`}
                   />
 
                   <PackageInfo
-                    label="Expires"
+                    label={tx("Expires")}
                     value={
                       subscription.expiresAt
                         ? new Date(
@@ -651,23 +653,20 @@ export default function BookingView({
                           ).toLocaleDateString(
                             "en-GB",
                           )
-                        : "No expiry"
+                        : tx("No expiry")
                     }
                   />
                 </div>
 
                 {!packageEnough && (
                   <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
-                    ⚠️ Not enough package
-                    hours for this session.
-
-                    Remaining{" "}
+                    {tx("⚠️ Not enough package hours for this session.")} {tx("Remaining")}{" "}
                     {
                       packageRemaining?.toFixed(
                         2,
                       )
                     }
-                    h · required{" "}
+                    {tx("h")} · {tx("required")}{" "}
                     {billableHours}h
                   </div>
                 )}
@@ -712,8 +711,7 @@ export default function BookingView({
           {filteredProducts.length ===
             0 && (
             <div className="col-span-full text-center py-10 text-slate-400 text-sm">
-              No products in this
-              category
+              {tx("No products in this category")}
             </div>
           )}
 
@@ -785,12 +783,12 @@ export default function BookingView({
         <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold">
-              Session Bill
+              {tx("Session Bill")}
             </h3>
 
             {isPackage && (
               <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
-                📦 Package
+                {tx("📦 Package")}
               </span>
             )}
           </div>
@@ -799,7 +797,7 @@ export default function BookingView({
             {groupedItems.length ===
             0 ? (
               <div className="text-center py-8 text-slate-400 text-sm">
-                🛒 No items yet
+                {tx("🛒 No items yet")}
               </div>
             ) : (
               groupedItems.map(
@@ -888,24 +886,23 @@ export default function BookingView({
             {isPackage ? (
               <>
                 <Row
-                  label="Package"
-                  value="Included"
+                  label={tx("Package")}
+                  value={tx("Included")}
                 />
 
                 <Row
-                  label="Package usage"
+                  label={tx("Package usage")}
                   value={`${billableHours} ${
                     billableHours ===
                     1
-                      ? "hour"
-                      : "hours"
+                      ? tx("hour") : tx("hours")
                   }`}
                 />
               </>
             ) : (
               <>
                 <Row
-                  label="Seat charge"
+                  label={tx("Seat charge")}
                   value={`${seatCharge.toFixed(
                     2,
                   )} ${currency}`}
@@ -915,8 +912,8 @@ export default function BookingView({
                   label={
                     regularPricing.pricingType ===
                     "day"
-                      ? "Day Pass"
-                      : "Billable hours"
+                      ? tx("Day Pass")
+                      : tx("Billable hours")
                   }
                   value={
                     regularPricing.pricingType ===
@@ -929,7 +926,7 @@ export default function BookingView({
             )}
 
             <Row
-              label="F&B"
+              label={tx("F&B")}
               value={`${ordersTotal.toFixed(
                 2,
               )} ${currency}`}
@@ -937,7 +934,7 @@ export default function BookingView({
 
             <div className="flex items-center justify-between">
               <span className="text-slate-600">
-                Discount
+                {tx("Discount")}
               </span>
 
               <input
@@ -964,7 +961,7 @@ export default function BookingView({
 
             <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-lg font-bold">
               <span>
-                Total
+                {tx("Total")}
               </span>
 
               <span className="tabular-nums text-indigo-700">
@@ -978,10 +975,7 @@ export default function BookingView({
 
           {isPackage && (
             <div className="mt-3 p-3 rounded-xl bg-indigo-50 text-indigo-800 text-xs font-semibold">
-              💡 Seat time is included
-              in the package. Only F&B
-              and applicable discounts
-              affect the amount due.
+              {tx("💡 Seat time is included in the package. Only F&B and applicable discounts affect the amount due.")}
             </div>
           )}
 
@@ -997,7 +991,7 @@ export default function BookingView({
             }
             className="btn btn-primary w-full mt-4 py-3"
           >
-            💳 Checkout
+            {tx("💳 Checkout")}
           </button>
         </div>
 
@@ -1010,7 +1004,7 @@ export default function BookingView({
           onClick={async () => {
             if (
               !confirm(
-                "Cancel this session? This will remove it.",
+                tx("Cancel this session? This will remove it."),
               )
             ) {
               return;
@@ -1043,12 +1037,12 @@ export default function BookingView({
 
             alert(
               failure?.error ||
-                "Could not cancel this session.",
+                tx("Could not cancel this session."),
             );
           }}
           className="btn btn-ghost w-full text-red-600"
         >
-          Cancel session
+          {tx("Cancel session")}
         </button>
       </div>
 
@@ -1169,6 +1163,8 @@ function CheckoutModal({
 
   onSuccess: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [
     method,
     setMethod,
@@ -1218,9 +1214,7 @@ function CheckoutModal({
         packageHoursUsed
     ) {
       setError(
-        `Not enough package hours. Remaining ${packageRemaining.toFixed(
-          2,
-        )}h, required ${packageHoursUsed}h.`,
+        f.en ? `Not enough package hours. Remaining ${packageRemaining.toFixed(2)}h, required ${packageHoursUsed}h.` : `ساعات الباقة مش كفاية. المتبقي ${packageRemaining.toFixed(2)} س، المطلوب ${packageHoursUsed} س.`,
       );
 
       return;
@@ -1269,7 +1263,7 @@ function CheckoutModal({
       ) {
         setError(
           data?.error ??
-            "Checkout failed. Please try again.",
+            tx("Checkout failed. Please try again."),
         );
 
         setLoading(false);
@@ -1280,7 +1274,7 @@ function CheckoutModal({
       onSuccess();
     } catch {
       setError(
-        "Network error. Please try again.",
+        tx("Network error. Please try again."),
       );
 
       setLoading(false);
@@ -1294,12 +1288,12 @@ function CheckoutModal({
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="text-xs uppercase text-indigo-600 font-semibold">
-              Checkout
+              {tx("Checkout")}
             </div>
 
             {isPackage && (
               <div className="text-xs text-indigo-600 font-semibold mt-1">
-                📦 Package session
+                {tx("📦 Package session")}
               </div>
             )}
 
@@ -1327,21 +1321,15 @@ function CheckoutModal({
         {isPackage && (
           <div className="mb-4 p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm">
             <div className="font-bold text-indigo-900">
-              Package usage
+              {tx("Package usage")}
             </div>
 
             <div className="mt-1 text-indigo-700">
-              This session:
-              {" "}
-              {
-                packageHoursUsed
-              }
-              h
+              {tx("This session:")} {" "} { packageHoursUsed } {tx("h")}
             </div>
 
             <div className="text-indigo-700">
-              Remaining:
-              {" "}
+              {tx("Remaining:")} {" "}
               {packageRemaining !==
               null
                 ? packageRemaining.toFixed(
@@ -1397,11 +1385,11 @@ function CheckoutModal({
 
                 {paymentMethod ===
                 "instapay"
-                  ? "InstaPay"
+                  ? f.pay("instapay")
                   : paymentMethod ===
                       "balance"
-                  ? `Balance · ${customerBalance.toFixed(2)}`
-                  : paymentMethod}
+                  ? `${tx("Balance")} · ${customerBalance.toFixed(2)}`
+                  : f.pay(paymentMethod)}
               </button>
             ),
           )}
@@ -1410,7 +1398,7 @@ function CheckoutModal({
         <div className="space-y-3">
           <div>
             <label className="label">
-              Paid amount
+              {tx("Paid amount")}
             </label>
 
             <input
@@ -1445,13 +1433,13 @@ function CheckoutModal({
             >
               {paidNum <
               total
-                ? `Short by ${(
+                ? `${f.en ? "Short by" : "ناقص"} ${(
                     total -
                     paidNum
                   ).toFixed(
                     2,
                   )} ${currency}`
-                : `Change: ${change.toFixed(
+                : `${f.en ? "Change:" : "الباقي:"} ${change.toFixed(
                     2,
                   )} ${currency}`}
             </div>
@@ -1477,10 +1465,10 @@ function CheckoutModal({
             className="btn btn-success w-full py-3"
           >
             {loading
-              ? "Processing…"
+              ? tx("Processing…")
               : isPackage
-              ? "Confirm package checkout 🧾"
-              : "Confirm & print invoice 🧾"}
+              ? tx("Confirm package checkout 🧾")
+              : tx("Confirm & print invoice 🧾")}
           </button>
         </div>
       </div>

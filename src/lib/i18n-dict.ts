@@ -1331,5 +1331,6 @@ export const AR_EXTRA: Record<string, string> = {
  "Live sessions": "الجلسات الشغالة",
  "Insights": "التحليلات",
  "Units": "الوحدات",
- "Share": "النسبة"
+ "Share": "النسبة",
+ "💳 Customer session pricing": "💳 تسعير جلسات العملاء"
 };

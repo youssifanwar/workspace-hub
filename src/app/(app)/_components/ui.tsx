@@ -109,7 +109,7 @@ export function PageBar({
   description,
   actions,
 }: {
-  crumb?: string;
+  crumb?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;

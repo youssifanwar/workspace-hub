@@ -1332,5 +1332,6 @@ export const AR_EXTRA: Record<string, string> = {
  "Insights": "التحليلات",
  "Units": "الوحدات",
  "Share": "النسبة",
- "💳 Customer session pricing": "💳 تسعير جلسات العملاء"
+ "💳 Customer session pricing": "💳 تسعير جلسات العملاء",
+ "Directory": "الدليل"
 };

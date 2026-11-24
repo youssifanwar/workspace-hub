@@ -11,6 +11,8 @@ import {
   users,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import { getAllSettings, formatMoney } from "@/lib/settings";
 
 import PrintButton from "@/app/(app)/shift/summary/[id]/PrintButton";
@@ -92,6 +94,8 @@ export default async function InvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const { id } = await params;
 
   const user = await getCurrentUser();
@@ -239,7 +243,7 @@ export default async function InvoicePage({
 
   const customerName =
     booking.customerName?.trim() ||
-    "Walk-in Customer";
+    tx("Walk-in Customer");
 
   const customerPhone =
     booking.customerPhone?.trim() || "-";
@@ -269,7 +273,7 @@ export default async function InvoicePage({
             href="/dashboard"
             className="btn btn-ghost"
           >
-            ← Dashboard
+            {tx("← Dashboard")}
           </Link>
 
           <div className="flex gap-2">
@@ -277,7 +281,7 @@ export default async function InvoicePage({
               href="/bookings"
               className="btn btn-primary"
             >
-              + New Session
+              {tx("+ New Session")}
             </Link>
 
             <PrintButton />
@@ -318,43 +322,43 @@ export default async function InvoicePage({
           {/* BASIC INFO */}
           <div className="text-xs space-y-1">
             <Line
-              label="Invoice #"
+              label={tx("Invoice #")}
               value={String(booking.id).padStart(6, "0")}
             />
 
             <Line
-              label="Date"
-              value={formatDateTime(
+              label={tx("Date")}
+              value={f.dateTime(
                 booking.checkedOutAt ||
                   booking.checkedInAt,
               )}
             />
 
             <Line
-              label="Cashier"
+              label={tx("Cashier")}
               value={cashierName}
             />
 
             <Line
-              label="Customer"
+              label={tx("Customer")}
               value={customerName}
             />
 
             <Line
-              label="Phone"
+              label={tx("Phone")}
               value={customerPhone}
             />
 
             <Line
-              label="Session"
+              label={tx("Session")}
               value={`#${booking.id}`}
             />
 
             <Line
-              label="Location"
+              label={tx("Location")}
               value={
                 booking.deskName?.trim() ||
-                "Workspace Session"
+                tx("Workspace Session")
               }
             />
           </div>
@@ -362,34 +366,34 @@ export default async function InvoicePage({
           {/* TIME */}
           <div className="border-t border-b border-dashed border-slate-300 py-3">
             <div className="text-xs font-bold mb-2">
-              TIME
+              {tx("TIME")}
             </div>
 
             <Line
-              label="Check-in"
-              value={formatTime(
+              label={tx("Check-in")}
+              value={f.time(
                 booking.checkedInAt,
               )}
             />
 
             <Line
-              label="Check-out"
-              value={formatTime(
+              label={tx("Check-out")}
+              value={f.time(
                 booking.checkedOutAt,
               )}
             />
 
             <Line
-              label="Duration"
+              label={tx("Duration")}
               value={
                 durationH > 0
-                  ? `${durationH.toFixed(2)} hours`
+                  ? `${durationH.toFixed(2)} ${tx("hours")}`
                   : "-"
               }
             />
 
             <Line
-              label="Billed hours"
+              label={tx("Billed hours")}
               value={
                 billableHours > 0
                   ? String(billableHours)
@@ -398,13 +402,13 @@ export default async function InvoicePage({
             />
 
             <Line
-              label="Rate"
+              label={tx("Rate")}
               value={
                 hourlyRate > 0
                   ? `${hourlyRate.toFixed(
                       2,
-                    )} ${currency}/h`
-                  : "Package / Included"
+                    )} ${currency}/${tx("h")}`
+                  : tx("Package / Included")
               }
             />
           </div>
@@ -413,7 +417,7 @@ export default async function InvoicePage({
           {items.length > 0 && (
             <div className="border-b border-dashed border-slate-300 pb-3">
               <div className="text-xs font-bold mb-2">
-                ITEMS
+                {tx("ITEMS")}
               </div>
 
               {items.map((item) => {
@@ -438,7 +442,7 @@ export default async function InvoicePage({
                     <div className="flex-1 min-w-0 pr-2">
                       <div className="break-words">
                         {item.nameSnapshot ||
-                          "Unnamed item"}
+                          tx("Unnamed item")}
                       </div>
 
                       <div className="text-[10px] text-slate-500">
@@ -459,7 +463,7 @@ export default async function InvoicePage({
           {/* TOTALS */}
           <div className="space-y-1 text-xs">
             <Line
-              label="Seat charge"
+              label={tx("Seat charge")}
               value={formatMoney(
                 seatCharge,
                 currency,
@@ -467,7 +471,7 @@ export default async function InvoicePage({
             />
 
             <Line
-              label="F&B"
+              label={tx("F&B")}
               value={formatMoney(
                 ordersTotal,
                 currency,
@@ -476,7 +480,7 @@ export default async function InvoicePage({
 
             {discount > 0 && (
               <Line
-                label="Discount"
+                label={tx("Discount")}
                 value={`- ${formatMoney(
                   discount,
                   currency,
@@ -485,7 +489,7 @@ export default async function InvoicePage({
             )}
 
             <div className="flex items-center justify-between text-lg font-bold pt-2 border-t border-slate-300">
-              <span>TOTAL</span>
+              <span>{tx("TOTAL")}</span>
 
               <span className="tabular-nums">
                 {formatMoney(
@@ -499,12 +503,12 @@ export default async function InvoicePage({
           {/* PAYMENT */}
           <div className="border-t border-dashed border-slate-300 pt-3 space-y-1 text-xs">
             <Line
-              label="Payment"
-              value={paymentMethod.toUpperCase()}
+              label={tx("Payment")}
+              value={f.pay(paymentMethod)}
             />
 
             <Line
-              label="Paid"
+              label={tx("Paid")}
               value={formatMoney(
                 paidAmount,
                 currency,
@@ -513,7 +517,7 @@ export default async function InvoicePage({
 
             {changeAmount > 0 && (
               <Line
-                label="Change"
+                label={tx("Change")}
                 value={formatMoney(
                   changeAmount,
                   currency,

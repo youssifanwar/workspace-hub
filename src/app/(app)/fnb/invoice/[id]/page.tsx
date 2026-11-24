@@ -4,6 +4,8 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import { getAllSettings, formatMoney } from "@/lib/settings";
 import PrintButton from "@/app/(app)/shift/summary/[id]/PrintButton";
 
@@ -35,6 +37,8 @@ export default async function FnbInvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -115,7 +119,7 @@ export default async function FnbInvoicePage({
       <div className="max-w-md mx-auto space-y-4">
         <div className="no-print flex items-center justify-between gap-2">
           <Link href="/fnb" className="btn btn-ghost">
-            ← F&B
+            {tx("← F&B")}
           </Link>
           <PrintButton />
         </div>
@@ -129,11 +133,11 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="text-xs space-y-1">
-            <Line label="Invoice #" value={`FNB-${String(sale.id).padStart(6, "0")}`} />
-            <Line label="Date" value={formatDateTime(sale.created_at)} />
-            <Line label="Cashier" value={cashierName} />
-            <Line label="Customer" value="Walk-in Customer" />
-            <Line label="Shift" value={`#${String(sale.shift_id)}`} />
+            <Line label={tx("Invoice #")} value={`FNB-${String(sale.id).padStart(6, "0")}`} />
+            <Line label={tx("Date")} value={f.dateTime(sale.created_at as string | Date | null)} />
+            <Line label={tx("Cashier")} value={cashierName} />
+            <Line label={tx("Customer")} value={tx("Walk-in Customer")} />
+            <Line label={tx("Shift")} value={`#${String(sale.shift_id)}`} />
           </div>
 
           <div className="border-t border-b border-dashed border-slate-300 py-3">
@@ -148,7 +152,7 @@ export default async function FnbInvoicePage({
                 return (
                   <div key={`${String(item.id ?? index)}`} className="flex items-start justify-between text-xs py-0.5 gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="break-words">{String(item.name_snapshot ?? "Unnamed item")}</div>
+                      <div className="break-words">{String(item.name_snapshot ?? tx("Unnamed item"))}</div>
                       <div className="text-[10px] text-slate-500">
                         {unitPrice.toFixed(2)} × {quantity}
                       </div>
@@ -164,32 +168,32 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="space-y-1 text-xs">
-            <Line label="Subtotal" value={formatMoney(subtotal, currency)} />
+            <Line label={tx("Subtotal")} value={formatMoney(subtotal, currency)} />
             {discount > 0 && (
-              <Line label="Discount" value={`- ${formatMoney(discount, currency)}`} />
+              <Line label={tx("Discount")} value={`- ${formatMoney(discount, currency)}`} />
             )}
             <div className="flex items-center justify-between text-lg font-bold pt-2 border-t border-slate-300">
-              <span>TOTAL</span>
+              <span>{tx("TOTAL")}</span>
               <span className="tabular-nums">{formatMoney(total, currency)}</span>
             </div>
           </div>
 
           <div className="border-t border-dashed border-slate-300 pt-3 space-y-1 text-xs">
-            <Line label="Payment" value={paymentMethod.toUpperCase()} />
-            <Line label="Paid" value={formatMoney(paidAmount, currency)} />
-            <Line label="Change" value={formatMoney(changeAmount, currency)} />
+            <Line label={tx("Payment")} value={f.pay(paymentMethod)} />
+            <Line label={tx("Paid")} value={formatMoney(paidAmount, currency)} />
+            <Line label={tx("Change")} value={formatMoney(changeAmount, currency)} />
           </div>
 
           {note && (
             <div className="text-xs border-t border-dashed border-slate-300 pt-3">
-              <div className="font-bold">Note</div>
+              <div className="font-bold">{tx("Note")}</div>
               <div className="text-slate-500 whitespace-pre-wrap mt-1">{note}</div>
             </div>
           )}
 
           {(Math.abs(itemSubtotal - subtotal) > 0.01 || Math.abs(reconciledTotal - total) > 0.01) && (
             <div className="text-[10px] text-amber-700 border border-amber-200 bg-amber-50 rounded-xl p-2">
-              Stored sale totals differ slightly from item-line totals. The invoice uses the stored sale total as the accounting source of truth.
+              {tx("Stored sale totals differ slightly from item-line totals. The invoice uses the stored sale total as the accounting source of truth.")}
             </div>
           )}
 

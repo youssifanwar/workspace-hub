@@ -235,8 +235,6 @@ export default async function InvoicePage({
     booking.changeAmount,
   );
 
-  const currency =
-    settings.currency?.trim() || "EGP";
 
   const paymentMethod =
     booking.paymentMethod?.trim() || "-";
@@ -401,9 +399,7 @@ export default async function InvoicePage({
               label={tx("Rate")}
               value={
                 hourlyRate > 0
-                  ? `${hourlyRate.toFixed(
-                      2,
-                    )} ${currency}/${tx("h")}`
+                  ? `${f.money(hourlyRate)} / ${tx("h")}`
                   : tx("Package / Included")
               }
             />

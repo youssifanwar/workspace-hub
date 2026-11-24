@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import type { SessionUser } from "@/lib/auth";
 import Icon from "./Icon";
+import { tr, type Lang } from "@/lib/i18n-shared";
 
 const PAGE_LABELS: Array<[string, string]> = [
   ["/dashboard", "لوحة التحكم"],
@@ -30,7 +31,9 @@ export default function Topbar({
   activeShift,
   onMenuClick,
   menuOpen = false,
+  lang = "ar",
 }: {
+  lang?: Lang;
   onMenuClick?: () => void;
   menuOpen?: boolean;
   user: SessionUser;
@@ -51,8 +54,8 @@ export default function Topbar({
 
   const pageTitle = useMemo(() => {
     const match = PAGE_LABELS.find(([route]) => pathname === route || pathname.startsWith(`${route}/`));
-    return match?.[1] ?? "ورك سبيس هب";
-  }, [pathname]);
+    return tr(lang, match?.[1] ?? "ورك سبيس هب");
+  }, [pathname, lang]);
 
   async function logout() {
     if (loggingOut) return;
@@ -65,7 +68,7 @@ export default function Topbar({
         headers: { Accept: "application/json" },
       });
       if (!response.ok) {
-        let message = "تعذر تسجيل الخروج.";
+        let message = tr(lang, "تعذر تسجيل الخروج.");
         try {
           const data = (await response.json()) as { error?: string };
           if (typeof data.error === "string" && data.error.trim()) message = data.error;
@@ -79,7 +82,7 @@ export default function Topbar({
       router.refresh();
     } catch (error) {
       console.error("Logout failed:", error);
-      setLogoutError("مفيش اتصال بالسيرفر. جرّب تاني.");
+      setLogoutError(tr(lang, "مفيش اتصال بالسيرفر. جرّب تاني."));
     } finally {
       setLoggingOut(false);
     }
@@ -93,7 +96,7 @@ export default function Topbar({
   return (
     <header className="x-top">
       {onMenuClick && (
-        <button type="button" onClick={onMenuClick} aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"} aria-controls="app-sidebar" aria-expanded={menuOpen} className="x-iconbtn x-menu-btn">
+        <button type="button" onClick={onMenuClick} aria-label={tr(lang, menuOpen ? "إغلاق القائمة" : "فتح القائمة")} aria-controls="app-sidebar" aria-expanded={menuOpen} className="x-iconbtn x-menu-btn">
           <Icon name={menuOpen ? "close" : "menu"} size={18} />
         </button>
       )}
@@ -102,11 +105,11 @@ export default function Topbar({
       <div className="x-top-spacer" />
 
       {activeShift ? (
-        <span className="x-chip green" title={`الشيفت رقم ${activeShift.id} مفتوح بقاله ${duration}`}>
-          <span className="x-dot" /> شيفت #{activeShift.id} · <span className="x-num" dir="ltr">{duration || "..."}</span>
+        <span className="x-chip green" title={lang === "en" ? `Shift #${activeShift.id} open for ${duration}` : `الشيفت رقم ${activeShift.id} مفتوح بقاله ${duration}`}>
+          <span className="x-dot" /> {lang === "en" ? "Shift" : "شيفت"} #{activeShift.id} · <span className="x-num" dir="ltr">{duration || "..."}</span>
         </span>
       ) : (
-        <span className="x-chip amber">مفيش شيفت مفتوح</span>
+        <span className="x-chip amber">{tr(lang, "مفيش شيفت مفتوح")}</span>
       )}
 
       <span className="x-chip hidden sm:inline-flex">
@@ -114,14 +117,28 @@ export default function Topbar({
         {user.fullName}
       </span>
 
-      <button type="button" onClick={() => void logout()} className="x-iconbtn" disabled={loggingOut} aria-busy={loggingOut} title="تسجيل الخروج">
+      <button
+        type="button"
+        className="x-chip"
+        style={{ cursor: "pointer" }}
+        onClick={() => {
+          document.cookie = `wh_lang=${lang === "ar" ? "en" : "ar"}; path=/; max-age=31536000; samesite=lax`;
+          router.refresh();
+        }}
+        aria-label="Language"
+        title="Language / اللغة"
+      >
+        {lang === "ar" ? "English" : "العربية"}
+      </button>
+
+      <button type="button" onClick={() => void logout()} className="x-iconbtn" disabled={loggingOut} aria-busy={loggingOut} title={tr(lang, "تسجيل الخروج")}>
         <Icon name="logout" size={18} />
       </button>
 
       {logoutError && (
         <div role="alert" className="x-chip" style={{ background: "#fee2e2", color: "#991b1b" }}>
           {logoutError}
-          <button type="button" onClick={() => setLogoutError(null)} aria-label="إغلاق">×</button>
+          <button type="button" onClick={() => setLogoutError(null)} aria-label={tr(lang, "إغلاق")}>×</button>
         </div>
       )}
     </header>

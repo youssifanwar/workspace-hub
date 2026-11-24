@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import type { Role } from "@/lib/auth";
 
+import type { Lang } from "@/lib/i18n-shared";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import PageMotion from "./PageMotion";
@@ -23,8 +24,10 @@ export default function AppShell({
   user,
   activeShift,
   pendingOrders = 0,
+  lang = "ar",
   children,
 }: {
+  lang?: Lang;
   role: Role;
   hasShift: boolean;
   workspaceName: string;
@@ -64,6 +67,7 @@ export default function AppShell({
         workspaceName={workspaceName}
         pendingOrders={pendingOrders}
         activeShift={activeShift}
+        lang={lang}
         open={open}
         onClose={() => setOpen(false)}
       />
@@ -72,6 +76,7 @@ export default function AppShell({
         <Topbar
           user={user}
           activeShift={activeShift}
+          lang={lang}
           menuOpen={open}
           onMenuClick={() => setOpen((v) => !v)}
         />

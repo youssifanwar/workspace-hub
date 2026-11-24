@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { orderTickets } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
+import { getLang } from "@/lib/i18n";
 import AppShell from "./_components/AppShell";
 import GlobalOrderAlerts from "./GlobalOrderAlerts";
 
@@ -20,6 +21,7 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await getCurrentUser();
+  const lang = await getLang();
 
   if (!user) {
     redirect("/login");
@@ -40,6 +42,7 @@ export default async function AppLayout({
         role={user.role}
         hasShift={activeShift !== null}
         workspaceName={workspaceName}
+        lang={lang}
         user={user}
         pendingOrders={Number(pendingRows[0]?.c ?? 0)}
         activeShift={

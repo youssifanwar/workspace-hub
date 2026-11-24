@@ -4,6 +4,7 @@ import Icon, { type IconName } from "./Icon";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@/lib/auth";
+import { tr, type Lang } from "@/lib/i18n-shared";
 
 type Group = "التشغيل" | "الكافيه والمبيعات" | "الإدارة";
 
@@ -47,7 +48,9 @@ export default function Sidebar({
   activeShift,
   open = false,
   onClose,
+  lang = "ar",
 }: {
+  lang?: Lang;
   role: Role;
   hasShift: boolean;
   workspaceName: string;
@@ -64,28 +67,28 @@ export default function Sidebar({
     <>
       <button
         type="button"
-        aria-label="إغلاق القائمة"
+        aria-label={tr(lang, "إغلاق القائمة")}
         onClick={onClose}
         className={`x-side-backdrop ${open ? "open" : ""}`}
         tabIndex={open ? 0 : -1}
       />
 
-      <aside id="app-sidebar" className={`x-side ${open ? "open" : ""}`} aria-label="قائمة التنقل">
+      <aside id="app-sidebar" className={`x-side ${open ? "open" : ""}`} aria-label={tr(lang, "قائمة التنقل")}>
         <div className="x-brand">
           <div className="x-brand-mark" aria-hidden="true">WS</div>
           <div className="min-w-0">
-            <div className="x-brand-name truncate" title={workspaceName}>{workspaceName || "ورك سبيس هب"}</div>
-            <div className="x-brand-sub">لوحة التحكم</div>
+            <div className="x-brand-name truncate" title={workspaceName}>{workspaceName || tr(lang, "ورك سبيس هب")}</div>
+            <div className="x-brand-sub">{tr(lang, "لوحة التحكم")}</div>
           </div>
         </div>
 
-        <nav className="x-nav" aria-label="التنقل الرئيسي">
+        <nav className="x-nav" aria-label={tr(lang, "التنقل الرئيسي")}>
           {GROUPS.map((group) => {
             const groupItems = items.filter((item) => item.group === group);
             if (!groupItems.length) return null;
             return (
-              <section key={group} aria-label={group}>
-                <div className="x-nav-label">{group}</div>
+              <section key={group} aria-label={tr(lang, group)}>
+                <div className="x-nav-label">{tr(lang, group)}</div>
                 {groupItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const disabled = Boolean(item.needsShift && !hasShift);
@@ -96,16 +99,16 @@ export default function Sidebar({
                       href={href}
                       onClick={onClose}
                       aria-current={isActive ? "page" : undefined}
-                      title={disabled ? "افتح شيفت الأول" : item.label}
+                      title={disabled ? tr(lang, "افتح شيفت الأول") : tr(lang, item.label)}
                       className={`${isActive ? "active" : ""} ${disabled ? "locked" : ""}`}
                     >
                       <Icon name={item.icon} size={18} />
-                      <span className="flex-1">{item.label}</span>
+                      <span className="flex-1">{tr(lang, item.label)}</span>
                       {item.href === "/orders" && pendingOrders > 0 ? (
                         <span className="x-count" style={{ background: "#dc2626", color: "#fff", minWidth: 22, height: 22, fontSize: 12 }}>{pendingOrders}</span>
                       ) : null}
                       {disabled ? (
-                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-label="يحتاج شيفت مفتوح"><rect x="3.5" y="7" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-label={tr(lang, "يحتاج شيفت مفتوح")}><rect x="3.5" y="7" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
                       ) : null}
                     </Link>
                   );
@@ -118,12 +121,12 @@ export default function Sidebar({
         <div className={`x-shift-card ${activeShift ? "" : "idle"}`}>
           <b>
             <span className="x-dot" style={activeShift ? undefined : { background: "#94a3b8", boxShadow: "none" }} />
-            {activeShift ? "الشيفت مفتوح" : "مفيش شيفت مفتوح"}
+            {activeShift ? tr(lang, "الشيفت مفتوح") : tr(lang, "مفيش شيفت مفتوح")}
           </b>
           <small>
             {activeShift
-              ? `شيفت رقم ${activeShift.id}`
-              : "افتح شيفت عشان تبدأ الشغل"}
+              ? (lang === "en" ? `Shift #${activeShift.id}` : `شيفت رقم ${activeShift.id}`)
+              : tr(lang, "افتح شيفت عشان تبدأ الشغل")}
           </small>
         </div>
       </aside>

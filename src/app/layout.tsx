@@ -13,6 +13,7 @@ import "@fontsource-variable/noto-sans-arabic";
 
 import "./globals.css";
 import "./redesign.css";
+import { getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: {
@@ -27,15 +28,16 @@ export const metadata: Metadata = {
   ),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const lang = await getLang();
   return (
     <html
-      lang="ar"
-      dir="rtl"
+      lang={lang}
+      dir={lang === "ar" ? "rtl" : "ltr"}
       suppressHydrationWarning
     >
       <body className="antialiased">

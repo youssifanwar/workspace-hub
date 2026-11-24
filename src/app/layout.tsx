@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   description:
     "Modern coworking space management system.",
   applicationName: "WorkSpace Hub",
+  icons: { icon: "/icon.png", apple: "/apple-icon.png" },
   metadataBase: new URL(
     "http://localhost:3000",
   ),

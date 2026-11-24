@@ -144,7 +144,9 @@ export default async function CustomersPage({
       acc.visits += Number(customer.totalVisits) || 0;
       acc.hours += Number(customer.totalHours) || 0;
       acc.spent += Number(customer.totalSpent) || 0;
-      acc.wallet += Number(customer.balance) || 0;
+      const bal = Number(customer.balance) || 0;
+      if (bal >= 0) acc.wallet += bal;
+      else { acc.owed += -bal; acc.owing += 1; }
       acc.activeMeetingPackages += customer.activeMeetingPackageCount;
       acc.meetingPackageSpend += customer.meetingPackageSpend;
       return acc;
@@ -154,6 +156,8 @@ export default async function CustomersPage({
       hours: 0,
       spent: 0,
       wallet: 0,
+      owed: 0,
+      owing: 0,
       activeMeetingPackages: 0,
       meetingPackageSpend: 0,
     },
@@ -174,7 +178,7 @@ export default async function CustomersPage({
         items={[
           { label: tx("العملاء"), value: customerRows.length, hint: term ? tx("مطابقين للبحث") : tx("آخر 500 سجل"), tone: "brand" },
           { label: tx("إجمالي الزيارات"), value: summary.visits.toLocaleString("en-US"), hint: `${summary.hours.toFixed(1)} ${tx("ساعة استخدام")}`, tone: "slate" },
-          { label: tx("إجمالي الإنفاق"), value: f.money(summary.spent), hint: `${tx("أرصدة العملاء:")} ${f.money(summary.wallet)}`, tone: "green" },
+          { label: tx("إجمالي الإنفاق"), value: f.money(summary.spent), hint: `${tx("أرصدة العملاء:")} ${f.money(summary.wallet)}${summary.owed > 0 ? ` · ${f.en ? "Owed to us" : "مديونيات"}: ${f.money(summary.owed)} (${summary.owing})` : ""}`, tone: "green" },
           { label: tx("باقات غرف الاجتماعات"), value: summary.activeMeetingPackages, hint: `${tx("شغالة")} · ${tx("قيمة المبيعات")} ${f.money(summary.meetingPackageSpend)}`, tone: "amber" },
         ]}
       />
@@ -238,7 +242,11 @@ export default async function CustomersPage({
                     </td>
                     <td className="num">{f.money(parseFloat(c.totalSpent))}</td>
                     <td className="num">
-                      <span className={`v2-tag ${Number(c.balance) > 0 ? "blue" : "slate"}`}>{f.money(Number(c.balance))}</span>
+                      {Number(c.balance) < 0 ? (
+                        <span className="v2-debt">{f.en ? "Owes" : "عليه"} {f.money(Math.abs(Number(c.balance)))}</span>
+                      ) : (
+                        <span className={`v2-tag ${Number(c.balance) > 0 ? "blue" : "slate"}`}>{f.money(Number(c.balance))}</span>
+                      )}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>

@@ -1133,6 +1133,23 @@ export async function POST(
                 `,
               );
 
+          // Limit how many open QR orders one customer session can pile up.
+          const [pendingRow] = await tx
+            .select({
+              n: sql<number>`count(*)::int`,
+            })
+            .from(orderTickets)
+            .where(
+              sql`${orderTickets.bookingId} = ${lockedBooking.id} AND ${orderTickets.source} = 'qr' AND ${orderTickets.status} = 'pending'`,
+            );
+
+          if (Number(pendingRow?.n ?? 0) >= 5) {
+            throw new OrderError(
+              "Too many pending orders. Please wait for staff to serve the current ones.",
+              429,
+            );
+          }
+
           const ticketNumber =
             Number(
               ticketRow?.max ??

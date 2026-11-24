@@ -1613,5 +1613,7 @@ export const AR_EXTRA: Record<string, string> = {
  "A package subscription must be selected.": "لازم تختار اشتراك باقة.",
  "A note explaining the adjustment is required.": "لازم تكتب ملاحظة بسبب التعديل.",
  "A normal desk must have capacity 1.": "المكتب العادي سعته فرد واحد.",
- "A meeting room package with the same definition already exists.": "فيه باقة اجتماعات بنفس التعريف."
+ "A meeting room package with the same definition already exists.": "فيه باقة اجتماعات بنفس التعريف.",
+ "Too many pending orders. Please wait for staff to serve the current ones.": "عندك طلبات كتير لسه معلقة. استنى الموظف يخلّص اللي قبلها.",
+ "This category name is reserved. Choose another category.": "اسم التصنيف ده محجوز. اختار اسم تاني."
 };

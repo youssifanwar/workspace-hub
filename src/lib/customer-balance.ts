@@ -27,6 +27,8 @@ export type BalanceChange = {
   userId?: number | null;
   bookingId?: number | null;
   note?: string | null;
+  /** Staff explicitly chose "pay later": the balance may go below zero (debt). */
+  allowDebt?: boolean;
 };
 
 function round2(n: number): number {
@@ -60,7 +62,7 @@ export async function applyBalanceChange(
   const before = Number(customer.balance);
   const after = round2(before + delta);
 
-  if (after < 0) {
+  if (after < 0 && !(change.allowDebt && delta < 0)) {
     throw new BalanceError(
       `Not enough balance. Available: ${before.toFixed(2)}, needed: ${Math.abs(delta).toFixed(2)}.`,
       409,

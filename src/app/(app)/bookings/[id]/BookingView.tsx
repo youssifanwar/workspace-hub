@@ -1171,6 +1171,8 @@ function CheckoutModal({
   ] = useState<
     "cash" | "visa" | "instapay" | "balance"
   >("cash");
+  // "Pay later": the total goes on the customer's account (balance may go negative).
+  const [onAccount, setOnAccount] = useState(false);
 
   const [paid, setPaid] =
     useState(
@@ -1245,6 +1247,9 @@ function CheckoutModal({
                 paidNum,
 
               discount,
+
+              onAccount:
+                method === "balance" && onAccount,
             }),
           },
         );
@@ -1341,7 +1346,7 @@ function CheckoutModal({
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
           {(
             [
               "cash",
@@ -1355,17 +1360,18 @@ function CheckoutModal({
                 key={
                   paymentMethod
                 }
-                onClick={() =>
+                onClick={() => {
                   setMethod(
                     paymentMethod,
-                  )
-                }
+                  );
+                  setOnAccount(false);
+                }}
                 disabled={
                   loading
                 }
                 className={`p-3 rounded-xl border font-semibold text-sm capitalize ${
                   method ===
-                  paymentMethod
+                    paymentMethod && !onAccount
                     ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                     : "border-slate-200 hover:border-slate-300"
                 } disabled:opacity-50`}
@@ -1388,12 +1394,43 @@ function CheckoutModal({
                   ? f.pay("instapay")
                   : paymentMethod ===
                       "balance"
-                  ? `${tx("Balance")} · ${customerBalance.toFixed(2)}`
+                  ? `${tx("Balance")} · ${f.money(customerBalance)}`
                   : f.pay(paymentMethod)}
               </button>
             ),
           )}
+          <button
+            type="button"
+            onClick={() => {
+              setMethod("balance");
+              setOnAccount(true);
+            }}
+            disabled={loading}
+            className={`p-3 rounded-xl border font-semibold text-sm ${
+              method === "balance" && onAccount
+                ? "border-amber-500 bg-amber-50 text-amber-800"
+                : "border-slate-200 hover:border-slate-300"
+            } disabled:opacity-50`}
+          >
+            <div className="text-xl">🧾</div>
+            {f.en ? "Pay later (on account)" : "على الحساب (دفع لاحق)"}
+          </button>
         </div>
+
+        {customerBalance < 0 && (
+          <div className="v2-alert amber mb-3">
+            {f.en
+              ? `This customer already owes ${f.money(Math.abs(customerBalance))}.`
+              : `العميل ده عليه ${f.money(Math.abs(customerBalance))} من قبل.`}
+          </div>
+        )}
+        {method === "balance" && onAccount && (
+          <div className="v2-alert amber mb-3">
+            {f.en
+              ? `${f.money(total)} will be added to what this customer owes. He can pay it later by topping up his balance.`
+              : `${f.money(total)} هتتسجل على العميل كمديونية. يقدر يدفعها بعدين بشحن رصيده.`}
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>

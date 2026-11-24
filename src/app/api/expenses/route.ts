@@ -236,6 +236,15 @@ export async function POST(
       );
     }
 
+    // Reports treat this exact category as a package refund and leave it out
+    // of expenses, so a hand-typed expense must not use it.
+    if (category.trim().toLowerCase() === "package refund") {
+      return NextResponse.json(
+        { error: "This category name is reserved. Choose another category." },
+        { status: 400 },
+      );
+    }
+
     /* ------------------------------------------------------------------------
      * PAYMENT METHOD (used by cash drawer reconciliation)
      * ---------------------------------------------------------------------- */

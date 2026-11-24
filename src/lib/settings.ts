@@ -351,9 +351,13 @@ export function calculateCustomerSessionSeatCharge(
     (a, b) => a.hours - b.hours,
   );
 
+  // A session never costs more than the day pass (when one is set).
+  const cap =
+    pricing.dayPass > 0 ? pricing.dayPass : Number.POSITIVE_INFINITY;
+
   for (const tier of sorted) {
     if (billableHours <= tier.hours) {
-      return tier.price;
+      return Math.min(tier.price, cap);
     }
   }
 

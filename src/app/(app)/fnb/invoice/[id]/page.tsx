@@ -126,7 +126,8 @@ export default async function FnbInvoicePage({
 
         <div className="card p-6 space-y-4 font-mono text-sm" id="invoice">
           <div className="text-center border-b border-dashed border-slate-300 pb-3">
-            <div className="text-3xl mb-1" aria-hidden="true">🏢</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/scope-logo-brown.png" alt="" width={909} height={486} style={{ height: 56, width: "auto", margin: "0 auto 6px" }} />
             <div className="text-lg font-bold">{workspaceName}</div>
             {workspaceAddress && <div className="text-xs text-slate-500">{workspaceAddress}</div>}
             {workspacePhone && <div className="text-xs text-slate-500">📞 {workspacePhone}</div>}

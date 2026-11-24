@@ -181,6 +181,9 @@ export async function POST(
       paidAmount?: number;
 
       discount?: number;
+
+      /** Pay later: put the total on the customer's account (balance may go negative). */
+      onAccount?: boolean;
     };
 
     try {
@@ -195,6 +198,8 @@ export async function POST(
           paidAmount?: number;
 
           discount?: number;
+
+          onAccount?: boolean;
         };
     } catch {
       return NextResponse.json(
@@ -570,8 +575,10 @@ export async function POST(
            * "Not enough balance" and rolls the whole checkout back if the
            * customer can't cover it).
            */
+          // Card / InstaPay / balance always settle exactly the total; only
+          // cash can be over-tendered and give change.
           const paidEffective =
-            payFromBalance
+            paymentMethod !== "cash"
               ? total
               : paid;
 
@@ -592,7 +599,8 @@ export async function POST(
                   user.id,
                 bookingId:
                   booking.id,
-                note: `Session #${booking.id}`,
+                note: body.onAccount === true ? `Session #${booking.id} (pay later)` : `Session #${booking.id}`,
+                allowDebt: body.onAccount === true,
               },
             );
           }

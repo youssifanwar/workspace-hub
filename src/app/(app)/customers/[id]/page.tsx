@@ -158,8 +158,8 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
           </Panel>
 
           <div className="v2-wallet">
-            <span className="v2-wallet-label">{tx("الرصيد المدفوع مقدماً")}</span>
-            <span className="v2-wallet-value">{f.money(balance)}</span>
+            <span className="v2-wallet-label">{balance < 0 ? (f.en ? "Outstanding debt (owes us)" : "مديونية على العميل") : tx("الرصيد المدفوع مقدماً")}</span>
+            <span className="v2-wallet-value" style={balance < 0 ? { color: "#fecaca" } : undefined}>{f.money(Math.abs(balance))}</span>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
               <CustomerBalanceButton customerId={customer.id} customerName={customer.name} balance={balance} currency={currency} canAdjust={manage} />
               <CustomerPackagesButton customerId={customer.id} customerName={customer.name} customerPhone={customer.phone} currency={currency} balance={balance} canVoid={manage} />

@@ -32,19 +32,17 @@ export default async function LoginPage() {
     <main className="login-page min-h-screen grid lg:grid-cols-2">
       <section
         aria-hidden="true"
-        className="login-showcase hidden lg:flex relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 text-white p-12 items-center justify-center"
+        className="login-showcase hidden lg:flex relative overflow-hidden bg-gradient-to-br from-[#3b2112] via-[#52321d] to-[#6b4228] text-white p-12 items-center justify-center"
       >
         <div className="login-showcase-orb login-showcase-orb-one absolute -top-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         <div className="login-showcase-orb login-showcase-orb-two absolute -bottom-20 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         <div className="login-showcase-grid" aria-hidden="true" />
 
         <div className="login-brand-content relative z-10 max-w-md">
-          <div className="login-brand-mark mb-6" aria-hidden="true"><svg viewBox="0 0 36 36" width="34" height="34" fill="none"><path d="M6 28V13.5L18 6l12 7.5V28H6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 28V18h12v10M18 18v10M6 13.5h24" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M11 11l7 4 7-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="login-logo" src="/scope-logo-cream.png" alt="Scope Space" width={909} height={486} />
 
           <div className="login-showcase-eyebrow">{tx("THE WORKSPACE OPERATING SYSTEM")}</div>
-          <h1 className="text-4xl font-bold mb-4">
-            WorkSpace Hub
-          </h1>
 
           <p className="text-lg text-white/90 leading-relaxed">
             {tx("Modern coworking management. Book desks, run shifts, manage F&B orders, and track revenue, all in one clean interface.")}

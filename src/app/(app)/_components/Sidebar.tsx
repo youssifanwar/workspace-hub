@@ -77,12 +77,10 @@ export default function Sidebar({
       />
 
       <aside id="app-sidebar" className={`x-side ${open ? "open" : ""}`} aria-label={tr(lang, "قائمة التنقل")}>
-        <div className="x-brand">
-          <div className="x-brand-mark" aria-hidden="true">WS</div>
-          <div className="min-w-0">
-            <div className="x-brand-name truncate" title={workspaceName}>{workspaceName || tr(lang, "ورك سبيس هب")}</div>
-            <div className="x-brand-sub">{tr(lang, "لوحة التحكم")}</div>
-          </div>
+        <div className="x-brand x-brand-logo-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="x-brand-logo" src="/scope-logo-brand.jpg" alt={workspaceName || "Scope Space"} width={909} height={486} />
+          <div className="x-brand-sub">{tr(lang, "لوحة التحكم")}</div>
         </div>
 
         <nav className="x-nav" aria-label={tr(lang, "التنقل الرئيسي")}>

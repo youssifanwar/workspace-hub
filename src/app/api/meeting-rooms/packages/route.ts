@@ -439,7 +439,8 @@ export async function POST(
      * OPTIONAL DISCOUNT — custom 0–100%, default 0.
      * ---------------------------------------------------------------------- */
 
-    const discountPercent = parseDiscountPercent(body.discountPercent);
+    // Packages are hours-only: new packages never carry a percentage discount.
+    const discountPercent: number | null = 0;
     if (discountPercent === null) {
       return NextResponse.json(
         { error: "Discount must be between 0 and 100 percent." },

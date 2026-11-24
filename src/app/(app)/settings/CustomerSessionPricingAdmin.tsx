@@ -5,6 +5,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Tier = {
   hours: string;
@@ -39,6 +40,8 @@ export default function CustomerSessionPricingAdmin({
   currency,
   initialPricing,
 }: Props) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const initialTiers: Tier[] =
@@ -101,7 +104,7 @@ export default function CustomerSessionPricingAdmin({
 
   function removeTier(id: string) {
     if (rowIds.length <= 1) {
-      setError("Keep at least one pricing tier.");
+      setError(tx("Keep at least one pricing tier."));
       return;
     }
     setRowIds((prev) => prev.filter((rowId) => rowId !== id));
@@ -125,24 +128,24 @@ export default function CustomerSessionPricingAdmin({
       const priceTrimmed = tier.price.trim();
 
       if (!hoursTrimmed || !priceTrimmed) {
-        return { ok: false, error: "Fill in every tier's hours and price, or remove the empty row." };
+        return { ok: false, error: tx("Fill in every tier's hours and price, or remove the empty row.") };
       }
       if (!/^\d+$/.test(hoursTrimmed)) {
-        return { ok: false, error: "Hours must be a whole number (e.g. 1, 2, 3)." };
+        return { ok: false, error: tx("Hours must be a whole number (e.g. 1, 2, 3).") };
       }
       if (!/^\d+(?:\.\d{1,2})?$/.test(priceTrimmed)) {
-        return { ok: false, error: "Each price must be a valid amount with up to 2 decimal places." };
+        return { ok: false, error: tx("Each price must be a valid amount with up to 2 decimal places.") };
       }
       const hours = Number(hoursTrimmed);
       const price = Number(priceTrimmed);
       if (hours <= 0 || hours > 744) {
-        return { ok: false, error: "Hours must be between 1 and 744 (31 days)." };
+        return { ok: false, error: tx("Hours must be between 1 and 744 (31 days).") };
       }
       if (price < 0 || price > 1_000_000) {
-        return { ok: false, error: "Each price must be between 0 and 1,000,000." };
+        return { ok: false, error: tx("Each price must be between 0 and 1,000,000.") };
       }
       if (seenHours.has(hours)) {
-        return { ok: false, error: `You have two tiers for ${hours} hour(s). Each hour value can only appear once.` };
+        return { ok: false, error: (f.en ? `You have two tiers for ${hours} hour(s). Each hour value can only appear once.` : `عندك شريحتين لـ ${hours} ساعة. كل قيمة ساعات لازم تظهر مرة واحدة بس.`) };
       }
       seenHours.add(hours);
       parsedTiers.push({ hours, price });
@@ -150,11 +153,11 @@ export default function CustomerSessionPricingAdmin({
 
     const dayPassTrimmed = dayPass.trim();
     if (!dayPassTrimmed || !/^\d+(?:\.\d{1,2})?$/.test(dayPassTrimmed)) {
-      return { ok: false, error: "Day Pass price must be a valid amount." };
+      return { ok: false, error: tx("Day Pass price must be a valid amount.") };
     }
     const dayPassValue = Number(dayPassTrimmed);
     if (dayPassValue < 0 || dayPassValue > 1_000_000) {
-      return { ok: false, error: "Day Pass price must be between 0 and 1,000,000." };
+      return { ok: false, error: tx("Day Pass price must be between 0 and 1,000,000.") };
     }
 
     parsedTiers.sort((a, b) => a.hours - b.hours);
@@ -195,11 +198,11 @@ export default function CustomerSessionPricingAdmin({
         return;
       }
 
-      setSuccess("Customer-session pricing saved successfully.");
+      setSuccess(tx("Customer-session pricing saved successfully."));
       router.refresh();
     } catch (err) {
       console.error("Save customer-session pricing error:", err);
-      setError("Could not connect to the server. Please try again.");
+      setError(tx("Could not connect to the server. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -220,7 +223,7 @@ export default function CustomerSessionPricingAdmin({
     <div className="space-y-5">
       {/* HEADER */}
       <div>
-        <h3 className="font-bold text-lg">Customer Session Pricing</h3>
+        <h3 className="font-bold text-lg">{tx("Customer Session Pricing")}</h3>
         <p className="text-sm text-slate-500 mt-1">
           These prices are for open-seating customer sessions only — not
           desks or meeting rooms. Add or remove tiers freely; a session is
@@ -260,7 +263,7 @@ export default function CustomerSessionPricingAdmin({
             >
               <div>
                 <label className="text-xs font-semibold text-slate-500">
-                  Up to (hours)
+                  {tx("Up to (hours)")}
                 </label>
                 <input
                   type="number"
@@ -295,7 +298,7 @@ export default function CustomerSessionPricingAdmin({
                 onClick={() => removeTier(id)}
                 disabled={saving}
                 className="mt-5 rounded-xl bg-red-50 text-red-600 px-3 py-2 font-semibold disabled:opacity-50"
-                aria-label="Remove tier"
+                aria-label={tx("Remove tier")}
               >
                 ✕
               </button>
@@ -309,16 +312,16 @@ export default function CustomerSessionPricingAdmin({
           disabled={saving}
           className="rounded-xl border border-dashed border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 disabled:opacity-50"
         >
-          + Add tier
+          {tx("+ Add tier")}
         </button>
       </div>
 
       {/* DAY PASS */}
       <div className="grid md:grid-cols-[1fr_180px] gap-4 items-center rounded-xl border border-slate-200 p-4">
         <div>
-          <div className="font-semibold text-slate-900">Day Pass</div>
+          <div className="font-semibold text-slate-900">{tx("Day Pass")}</div>
           <div className="text-xs text-slate-500 mt-1">
-            Billing once a session runs longer than every tier above.
+            {tx("Billing once a session runs longer than every tier above.")}
           </div>
         </div>
         <div className="relative">
@@ -350,7 +353,7 @@ export default function CustomerSessionPricingAdmin({
           disabled={saving}
           className="rounded-xl bg-indigo-600 px-5 py-3 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? "Saving…" : "Save pricing"}
+          {saving ? tx("Saving…") : tx("Save pricing")}
         </button>
         <button
           type="button"
@@ -358,7 +361,7 @@ export default function CustomerSessionPricingAdmin({
           disabled={saving}
           className="rounded-xl bg-slate-100 px-5 py-3 text-slate-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Restore defaults
+          {tx("Restore defaults")}
         </button>
       </div>
     </div>

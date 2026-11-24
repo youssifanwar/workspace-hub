@@ -7,6 +7,8 @@ import { bookings, shifts, users } from "@/db/schema";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,8 @@ function formatDuration(from: Date, to: Date | null): string {
 }
 
 export default async function StaffShiftsPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   await loadTimezone();
   if (!user) redirect("/login");
@@ -128,16 +132,16 @@ export default async function StaffShiftsPage() {
           </p>
         </div>
         <Link href="/settings" className="btn btn-ghost">
-          ← Back to Settings
+          {tx("← Back to Settings")}
         </Link>
       </div>
 
       {/* CURRENTLY OPEN */}
       <section className="card p-5">
-        <h2 className="font-bold mb-3">Currently open</h2>
+        <h2 className="font-bold mb-3">{tx("Currently open")}</h2>
         {openShiftRows.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-6">
-            No shift is open right now.
+            {tx("No shift is open right now.")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -150,19 +154,19 @@ export default async function StaffShiftsPage() {
                 >
                   <div>
                     <div className="font-bold text-emerald-900">
-                      {owner?.fullName ?? `User #${row.userId}`}
+                      {owner?.fullName ?? `${tx("User")} #${row.userId}`}
                       <span className="ml-2 text-xs font-normal text-emerald-700">
                         {owner?.role}
                       </span>
                     </div>
                     <div className="text-sm text-emerald-700">
-                      Opened {formatDateTime(row.openedAt)} · open for{" "}
-                      {formatDuration(row.openedAt, null)}
+                      {tx("Opened")} {f.dateTime(row.openedAt)} · {tx("open for")}{" "}
+                      {f.duration(row.openedAt, null)}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-emerald-700">
-                      Opening cash
+                      {tx("Opening cash")}
                     </div>
                     <div className="font-bold text-emerald-900 tabular-nums">
                       {formatMoney(row.openingCash, currency)}
@@ -173,9 +177,7 @@ export default async function StaffShiftsPage() {
             })}
             {openShiftRows.length > 1 && (
               <div className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2">
-                ⚠️ More than one shift is open at the same time. This should
-                not normally happen — close the extra shift(s) from the
-                Shift page.
+                {tx("⚠️ More than one shift is open at the same time. This should not normally happen — close the extra shift(s) from the Shift page.")}
               </div>
             )}
           </div>
@@ -187,21 +189,21 @@ export default async function StaffShiftsPage() {
         <h2 className="font-bold mb-3">Today&apos;s shifts</h2>
         {todayShiftRows.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-6">
-            No shift opened today yet.
+            {tx("No shift opened today yet.")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
-                  <th className="py-2 pr-4">Staff</th>
-                  <th className="py-2 pr-4">Opened</th>
-                  <th className="py-2 pr-4">Closed</th>
-                  <th className="py-2 pr-4">Duration</th>
-                  <th className="py-2 pr-4 text-right">Opening cash</th>
-                  <th className="py-2 pr-4 text-right">Closing cash</th>
+                  <th className="py-2 pr-4">{tx("Staff")}</th>
+                  <th className="py-2 pr-4">{tx("Opened")}</th>
+                  <th className="py-2 pr-4">{tx("Closed")}</th>
+                  <th className="py-2 pr-4">{tx("Duration")}</th>
+                  <th className="py-2 pr-4 text-right">{tx("Opening cash")}</th>
+                  <th className="py-2 pr-4 text-right">{tx("Closing cash")}</th>
                   <th className="py-2 pr-4 text-right">
-                    Sessions registered
+                    {tx("Sessions registered")}
                   </th>
                 </tr>
               </thead>
@@ -211,20 +213,20 @@ export default async function StaffShiftsPage() {
                   return (
                     <tr key={row.id}>
                       <td className="py-2 pr-4 font-semibold">
-                        {owner?.fullName ?? `User #${row.userId}`}
+                        {owner?.fullName ?? `${tx("User")} #${row.userId}`}
                       </td>
                       <td className="py-2 pr-4">
-                        {formatDateTime(row.openedAt)}
+                        {f.dateTime(row.openedAt)}
                       </td>
                       <td className="py-2 pr-4">
                         {row.closedAt ? (
-                          formatDateTime(row.closedAt)
+                          f.dateTime(row.closedAt)
                         ) : (
-                          <span className="badge badge-green">Open</span>
+                          <span className="badge badge-green">{tx("Open")}</span>
                         )}
                       </td>
                       <td className="py-2 pr-4">
-                        {formatDuration(row.openedAt, row.closedAt)}
+                        {f.duration(row.openedAt, row.closedAt)}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {formatMoney(row.openingCash, currency)}
@@ -248,18 +250,18 @@ export default async function StaffShiftsPage() {
 
       {/* ALL ACCOUNTS */}
       <section className="card p-5">
-        <h2 className="font-bold mb-3">All accounts</h2>
+        <h2 className="font-bold mb-3">{tx("All accounts")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Username</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Shift</th>
+                <th className="py-2 pr-4">{tx("Name")}</th>
+                <th className="py-2 pr-4">{tx("Username")}</th>
+                <th className="py-2 pr-4">{tx("Role")}</th>
+                <th className="py-2 pr-4">{tx("Status")}</th>
+                <th className="py-2 pr-4">{tx("Shift")}</th>
                 <th className="py-2 pr-4 text-right">
-                  Checked in today
+                  {tx("Checked in today")}
                 </th>
               </tr>
             </thead>
@@ -275,18 +277,18 @@ export default async function StaffShiftsPage() {
                     <td className="py-2 pr-4">{u.role}</td>
                     <td className="py-2 pr-4">
                       {u.active ? (
-                        <span className="badge badge-green">Active</span>
+                        <span className="badge badge-green">{tx("Active")}</span>
                       ) : (
-                        <span className="badge badge-red">Disabled</span>
+                        <span className="badge badge-red">{tx("Disabled")}</span>
                       )}
                     </td>
                     <td className="py-2 pr-4">
                       {open ? (
                         <span className="text-emerald-700 font-semibold">
-                          Open since {formatDateTime(open.openedAt)}
+                          {tx("Open since")} {f.dateTime(open.openedAt)}
                         </span>
                       ) : (
-                        <span className="text-slate-400">Closed</span>
+                        <span className="text-slate-400">{tx("Closed")}</span>
                       )}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">

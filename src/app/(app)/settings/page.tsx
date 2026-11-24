@@ -30,10 +30,14 @@ import CustomerSessionPricingAdmin from "./CustomerSessionPricingAdmin";
 import PrintingSettings from "./PrintingSettings";
 import QrUrlSettings from "./QrUrlSettings";
 import GoogleCalendarSettings from "./GoogleCalendarSettings";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -141,12 +145,11 @@ export default async function SettingsPage() {
       {/* HEADER */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900">
-          Settings
+          {tx("Settings")}
         </h1>
 
         <p className="text-slate-500">
-          Configure your account, workspace, staff, rooms,
-          pricing and integrations.
+          {tx("Configure your account, workspace, staff, rooms, pricing and integrations.")}
         </p>
       </div>
 
@@ -154,7 +157,7 @@ export default async function SettingsPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            👤 My account
+            {tx("👤 My account")}
           </h3>
 
           <AccountSettings
@@ -166,7 +169,7 @@ export default async function SettingsPage() {
         {isMgr && (
           <div className="card p-6">
             <h3 className="font-bold mb-4">
-              🏢 Workspace
+              {tx("🏢 Workspace")}
             </h3>
 
             <WorkspaceSettings
@@ -202,12 +205,11 @@ export default async function SettingsPage() {
         <div className="card p-6">
           <div className="mb-4">
             <h3 className="font-bold">
-              📅 Google Calendar
+              {tx("📅 Google Calendar")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Connect the workspace Google account to manage
-              meeting-room availability and reservations.
+              {tx("Connect the workspace Google account to manage meeting-room availability and reservations.")}
             </p>
           </div>
 
@@ -219,7 +221,7 @@ export default async function SettingsPage() {
       {isMgr && (
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            🖨️ Printing & QR ordering
+            {tx("🖨️ Printing & QR ordering")}
           </h3>
 
           <PrintingSettings
@@ -234,7 +236,7 @@ export default async function SettingsPage() {
       {isMgr && (
         <div className="card p-6">
           <h3 className="font-bold mb-4">
-            📡 Public URL for QR menu
+            {tx("📡 Public URL for QR menu")}
           </h3>
 
           <QrUrlSettings
@@ -249,13 +251,11 @@ export default async function SettingsPage() {
         <div className="card p-6">
           <div className="mb-5">
             <h3 className="font-bold">
-              🪑 Locations & Meeting Rooms
+              {tx("🪑 Locations & Meeting Rooms")}
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Manage physical locations, meeting-room capacity
-              and meeting-room pricing tiers. Inactive locations
-              remain visible so they can be reactivated.
+              {tx("Manage physical locations, meeting-room capacity and meeting-room pricing tiers. Inactive locations remain visible so they can be reactivated.")}
             </p>
           </div>
 
@@ -279,9 +279,9 @@ export default async function SettingsPage() {
       {admin && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">👥 Users & permissions</h3>
+            <h3 className="font-bold">{tx("👥 Users & permissions")}</h3>
             <a href="/settings/shifts" className="btn btn-ghost text-sm">
-              🕒 Who's on shift →
+              {tx("🕒 Who's on shift →")}
             </a>
           </div>
 

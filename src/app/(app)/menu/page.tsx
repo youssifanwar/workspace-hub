@@ -15,10 +15,14 @@ import {
 import { getSetting } from "@/lib/settings";
 
 import MenuManager from "./MenuManager";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 
 export const dynamic = "force-dynamic";
 
 export default async function MenuPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -95,8 +99,8 @@ export default async function MenuPage() {
 
           <p className="text-slate-500">
             {manageMenu
-              ? "Manage categories and products. Click any card to edit."
-              : "Browse the menu. Ask a manager to add or edit items."}
+              ? tx("Manage categories and products. Click any card to edit.")
+              : tx("Browse the menu. Ask a manager to add or edit items.")}
           </p>
         </div>
       </div>

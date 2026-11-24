@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Category = {
   id: number;
@@ -122,6 +123,8 @@ export default function MenuManager({
   currency: string;
   canManage: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [activeCat, setActiveCat] = useState<
@@ -167,7 +170,7 @@ export default function MenuManager({
     }
 
     const confirmed = window.confirm(
-      `Delete "${product.name}"?`,
+      (f.en ? `Delete "${product.name}"?` : `تحذف "${product.name}"؟`),
     );
 
     if (!confirmed) {
@@ -199,7 +202,7 @@ export default function MenuManager({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to delete the product.",
+            tx("Failed to delete the product."),
         );
         return;
       }
@@ -223,7 +226,7 @@ export default function MenuManager({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setBusy(false);
@@ -264,7 +267,7 @@ export default function MenuManager({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Could not change ordering for this product.",
+            tx("Could not change ordering for this product."),
         );
         return;
       }
@@ -276,7 +279,7 @@ export default function MenuManager({
         err,
       );
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setBusy(false);
@@ -298,13 +301,13 @@ export default function MenuManager({
 
     if (hasProducts) {
       setError(
-        "This category cannot be deleted while it still contains products. Move or delete its products first.",
+        tx("This category cannot be deleted while it still contains products. Move or delete its products first."),
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Delete category "${category.name}"?`,
+      (f.en ? `Delete category "${category.name}"?` : `تحذف القسم "${category.name}"؟`),
     );
 
     if (!confirmed) {
@@ -336,7 +339,7 @@ export default function MenuManager({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to delete the category.",
+            tx("Failed to delete the category."),
         );
         return;
       }
@@ -354,7 +357,7 @@ export default function MenuManager({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setBusy(false);
@@ -377,7 +380,7 @@ export default function MenuManager({
             onClick={clearError}
             className="ml-2 font-semibold underline"
           >
-            Dismiss
+            {tx("Dismiss")}
           </button>
         </div>
       )}
@@ -462,7 +465,7 @@ export default function MenuManager({
             disabled={busy}
             className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border-2 border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 disabled:opacity-50"
           >
-            + Category
+            {tx("+ Category")}
           </button>
         )}
       </div>
@@ -485,7 +488,7 @@ export default function MenuManager({
               </div>
 
               <div className="text-sm font-semibold mt-1">
-                Add product
+                {tx("Add product")}
               </div>
             </div>
           </button>
@@ -531,7 +534,7 @@ export default function MenuManager({
                     disabled={busy}
                     className="btn btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
                   >
-                    ✏️ Edit
+                    {tx("✏️ Edit")}
                   </button>
 
                   <button
@@ -544,7 +547,7 @@ export default function MenuManager({
                     disabled={busy}
                     className="btn btn-danger !py-1.5 !px-3 text-xs disabled:opacity-50"
                   >
-                    🗑 Delete
+                    {tx("🗑 Delete")}
                   </button>
                 </div>
               )}
@@ -568,11 +571,11 @@ export default function MenuManager({
                     type="button"
                     role="switch"
                     aria-checked={product.orderEnabled}
-                    aria-label={`Allow customers to order ${product.name}`}
+                    aria-label={(f.en ? `Allow customers to order ${product.name}` : `السماح للعملاء بطلب ${product.name}`)}
                     title={
                       product.orderEnabled
-                        ? "Customers can order this. Click to pause ordering."
-                        : "Ordering is paused. Click to allow ordering."
+                        ? tx("Customers can order this. Click to pause ordering.")
+                        : tx("Ordering is paused. Click to allow ordering.")
                     }
                     onClick={() =>
                       void toggleOrdering(product)
@@ -592,13 +595,13 @@ export default function MenuManager({
                       }`}
                     />
                     {product.orderEnabled
-                      ? "Orderable"
-                      : "Paused"}
+                      ? tx("Orderable")
+                      : tx("Paused")}
                   </button>
                 ) : (
                   !product.orderEnabled && (
                     <span className="text-[10px] font-bold text-slate-500">
-                      Paused
+                      {tx("Paused")}
                     </span>
                   )
                 )}
@@ -616,12 +619,12 @@ export default function MenuManager({
           </div>
 
           <div className="font-semibold">
-            No products in this category
+            {tx("No products in this category")}
           </div>
 
           {canManage && (
             <div className="text-xs mt-1">
-              Add a product to get started.
+              {tx("Add a product to get started.")}
             </div>
           )}
         </div>
@@ -708,6 +711,8 @@ function ProductModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [name, setName] = useState(
     product?.name ?? "",
   );
@@ -820,7 +825,7 @@ function ProductModal({
       )
     ) {
       setError(
-        "Please select an image file.",
+        tx("Please select an image file."),
       );
       return;
     }
@@ -830,7 +835,7 @@ function ProductModal({
       2 * 1024 * 1024
     ) {
       setError(
-        "Image must be under 2MB.",
+        tx("Image must be under 2MB."),
       );
       return;
     }
@@ -852,7 +857,7 @@ function ProductModal({
         )
       ) {
         setError(
-          "Could not read the selected image.",
+          tx("Could not read the selected image."),
         );
         return;
       }
@@ -862,7 +867,7 @@ function ProductModal({
 
     reader.onerror = () => {
       setError(
-        "Could not read the selected image.",
+        tx("Could not read the selected image."),
       );
     };
 
@@ -932,7 +937,7 @@ function ProductModal({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to save the product.",
+            tx("Failed to save the product."),
         );
         return;
       }
@@ -945,7 +950,7 @@ function ProductModal({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -966,15 +971,15 @@ function ProductModal({
             className="text-xl font-bold"
           >
             {product
-              ? "Edit product"
-              : "Add product"}
+              ? tx("Edit product")
+              : tx("Add product")}
           </h3>
 
           <button
             type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center"
-            aria-label="Close"
+            aria-label={tx("Close")}
             disabled={loading}
           >
             ✕
@@ -1011,7 +1016,7 @@ function ProductModal({
                     : ""
                 }`}
               >
-                📷 Upload image
+                {tx("📷 Upload image")}
 
                 <input
                   type="file"
@@ -1035,7 +1040,7 @@ function ProductModal({
 
               <input
                 className="input text-xs"
-                placeholder="…or paste image URL"
+                placeholder={tx("…or paste image URL")}
                 value={imageUrl}
                 onChange={(e) => {
                   setImageUrl(
@@ -1052,7 +1057,7 @@ function ProductModal({
           {/* ICON */}
           <div>
             <label className="label">
-              Emoji icon
+              {tx("Emoji icon")}
             </label>
 
             <div className="flex flex-wrap gap-1">
@@ -1088,7 +1093,7 @@ function ProductModal({
               htmlFor="product-name"
               className="label"
             >
-              Name
+              {tx("Name")}
             </label>
 
             <input
@@ -1145,7 +1150,7 @@ function ProductModal({
                 htmlFor="product-category"
                 className="label"
               >
-                Category
+                {tx("Category")}
               </label>
 
               <select
@@ -1170,7 +1175,7 @@ function ProductModal({
                 {categories.length ===
                 0 ? (
                   <option value={0}>
-                    No categories
+                    {tx("No categories")}
                   </option>
                 ) : (
                   categories.map(
@@ -1208,7 +1213,7 @@ function ProductModal({
               className="btn btn-ghost flex-1"
               disabled={loading}
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -1221,8 +1226,8 @@ function ProductModal({
               aria-busy={loading}
             >
               {loading
-                ? "Saving…"
-                : "Save"}
+                ? tx("Saving…")
+                : tx("Save")}
             </button>
           </div>
         </form>
@@ -1246,6 +1251,8 @@ function CategoryModal({
   onSaved: () => void;
   onDelete?: () => void;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [name, setName] = useState(
     category?.name ?? "",
   );
@@ -1337,7 +1344,7 @@ function CategoryModal({
       if (!res.ok) {
         setError(
           data?.error ||
-            "Failed to save the category.",
+            tx("Failed to save the category."),
         );
         return;
       }
@@ -1350,7 +1357,7 @@ function CategoryModal({
       );
 
       setError(
-        "Could not connect to the server. Please try again.",
+        tx("Could not connect to the server. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -1371,15 +1378,15 @@ function CategoryModal({
             className="text-xl font-bold"
           >
             {category
-              ? "Edit category"
-              : "New category"}
+              ? tx("Edit category")
+              : tx("New category")}
           </h3>
 
           <button
             type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center"
-            aria-label="Close"
+            aria-label={tx("Close")}
             disabled={loading}
           >
             ✕
@@ -1394,7 +1401,7 @@ function CategoryModal({
           {/* ICON */}
           <div>
             <label className="label">
-              Icon
+              {tx("Icon")}
             </label>
 
             <div className="flex flex-wrap gap-1">
@@ -1430,7 +1437,7 @@ function CategoryModal({
               htmlFor="category-name"
               className="label"
             >
-              Name
+              {tx("Name")}
             </label>
 
             <input
@@ -1474,8 +1481,8 @@ function CategoryModal({
                 }}
                 className="btn btn-danger"
                 disabled={loading}
-                title="Delete category"
-                aria-label="Delete category"
+                title={tx("Delete category")}
+                aria-label={tx("Delete category")}
               >
                 🗑
               </button>
@@ -1487,7 +1494,7 @@ function CategoryModal({
               className="btn btn-ghost flex-1"
               disabled={loading}
             >
-              Cancel
+              {tx("Cancel")}
             </button>
 
             <button
@@ -1497,8 +1504,8 @@ function CategoryModal({
               aria-busy={loading}
             >
               {loading
-                ? "Saving…"
-                : "Save"}
+                ? tx("Saving…")
+                : tx("Save")}
             </button>
           </div>
         </form>

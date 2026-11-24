@@ -969,6 +969,7 @@ export const AR_EXTRA: Record<string, string> = {
  "Action": "الإجراء",
  "No products found.": "مفيش منتجات.",
  "Search product…": "ابحث عن منتج…",
+ "No products": "مفيش منتجات",
  "Could not load inventory.": "مقدرناش نحمّل المخزون.",
  "Could not update stock.": "مقدرناش نحدّث المخزون.",
  "+ Category": "+ قسم",

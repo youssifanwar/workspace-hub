@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +12,7 @@ import {
 
 import ConfirmDialog from "../ConfirmDialog";
 import ReservationDialog from "../ReservationDialog";
+import { PageBar, StatStrip } from "../../_components/ui";
 import { useFmt } from "@/lib/lang-context";
 
 /* ============================================================================
@@ -532,56 +535,25 @@ export default function MeetingRoomCalendar({
   /* ------------------------------------------------------------------ view */
   return (
     <div className="space-y-5">
-      {/* Premium scheduling command center */}
-      <section className="calendar-command-center">
-        <div className="calendar-command-orb calendar-command-orb-one" />
-        <div className="calendar-command-orb calendar-command-orb-two" />
-        <div className="calendar-command-grid" />
-        <div className="calendar-command-copy">
-          <div className="calendar-command-eyebrow"><span className="calendar-live-dot" /> {tx("WORKSPACE HUB")} <span className="calendar-eyebrow-divider">/</span> {tx("MEETING ROOM OPERATIONS")}</div>
-          <h1>{tx("Every room. Every booking.")} <span>{tx("Under control.")}</span></h1>
-          <p>{tx("A live command center for your meeting rooms — see who booked, spot gaps, and manage reservations without digging through the calendar.")}</p>
-          <div className="calendar-command-trust-row">
-            <span><b>{rooms.length}</b> {tx("rooms tracked")}</span><i />
-            <span><b>{summary.today}</b> {tx("bookings today")}</span><i />
-            <span><b>{summary.inProgress}</b> {tx("live sessions")}</span>
-          </div>
-        </div>
-        <div className="calendar-command-side">
-          <div className="calendar-command-orbit calendar-command-orbit-a" />
-          <div className="calendar-command-orbit calendar-command-orbit-b" />
-          <div className="calendar-command-core"><span className="calendar-command-core-icon">▦</span><strong>{tx("ROOMS")}</strong><small>{tx("LIVE SCHEDULE")}</small></div>
-          <div className="calendar-float-badge calendar-float-badge-a"><span className="calendar-badge-icon">↗</span><span><small>{tx("UPCOMING")}</small><strong>{summary.upcoming}</strong></span><i /></div>
-          <div className="calendar-float-badge calendar-float-badge-b"><span className="calendar-badge-icon is-teal">◉</span><span><small>{tx("AVAILABLE")}</small><strong>{summary.availableRooms}</strong></span><i /></div>
-        </div>
-        <button
-          type="button"
-          className="btn calendar-command-create"
-          disabled={rooms.length === 0}
-          onClick={() => setBooking(defaultBookingStart())}
-        >
-          <span aria-hidden="true">＋</span> {tx("Create reservation")}
-        </button>
-      </section>
-
-      <section className="calendar-overview-grid" aria-label={tx("Booking overview")}>
-        <article className="calendar-overview-card tone-blue">
-          <span className="calendar-overview-icon" aria-hidden="true">▦</span>
-          <div><p>{tx("Bookings today")}</p><strong>{summary.today}</strong><small>{tx("Reservations starting today")}</small></div>
-        </article>
-        <article className="calendar-overview-card tone-teal">
-          <span className="calendar-overview-icon" aria-hidden="true">◉</span>
-          <div><p>{tx("Rooms available now")}</p><strong>{summary.availableRooms}<em> / {rooms.length}</em></strong><small>{tx("Based on scheduled time slots")}</small></div>
-        </article>
-        <article className="calendar-overview-card tone-violet">
-          <span className="calendar-overview-icon" aria-hidden="true">◷</span>
-          <div><p>{tx("Upcoming today")}</p><strong>{summary.upcoming}</strong><small>{tx("Confirmed reservations ahead")}</small></div>
-        </article>
-        <article className="calendar-overview-card tone-green">
-          <span className="calendar-overview-icon" aria-hidden="true">↗</span>
-          <div><p>{tx("Sessions in progress")}</p><strong>{summary.inProgress}</strong><small>{tx("Currently checked in")}</small></div>
-        </article>
-      </section>
+      <PageBar
+        crumb={tx("MEETING ROOM OPERATIONS")}
+        title={tx("Meeting rooms")}
+        description={tx("A live command center for your meeting rooms — see who booked, spot gaps, and manage reservations without digging through the calendar.")}
+        actions={
+          <>
+            <Link href="/meeting-rooms" className="btn btn-ghost">{tx("Rooms")}</Link>
+            <button type="button" className="btn btn-primary" disabled={rooms.length === 0} onClick={() => setBooking(defaultBookingStart())}>＋ {tx("Create reservation")}</button>
+          </>
+        }
+      />
+      <StatStrip
+        items={[
+          { label: tx("Bookings today"), value: String(summary.today), hint: tx("Reservations starting today"), tone: "brand" },
+          { label: tx("Rooms available now"), value: `${summary.availableRooms} / ${rooms.length}`, hint: tx("Based on scheduled time slots"), tone: "green" },
+          { label: tx("Upcoming today"), value: String(summary.upcoming), hint: tx("Confirmed reservations ahead"), tone: "slate" },
+          { label: tx("Sessions in progress"), value: String(summary.inProgress), hint: tx("Currently checked in"), tone: "amber" },
+        ]}
+      />
 
       {notice && (
         <div

@@ -234,3 +234,7 @@ html[dir="rtl"] body { letter-spacing: 0; }
 .v2-room-body { background: #f8fafc; border-radius: 12px; padding: 12px 14px; min-height: 62px; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: #64748b; }
 .v2-room-body b { color: #0f172a; }
 .v2-room-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+/* unified search fields */
+input[data-v2search] { padding-inline-start: 40px !important; border-radius: 12px !important; background-color: #fff !important; background-repeat: no-repeat !important; background-size: 16px !important; background-position: 14px center !important; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") !important; }
+[dir="rtl"] input[data-v2search] { background-position: calc(100% - 14px) center !important; }
+input[data-v2search]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.15) !important; outline: none; }

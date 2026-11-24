@@ -874,7 +874,7 @@ export default function ActiveMeetingRooms({
                 </button>
               </div>
               <div className="mt-4">
-                <input
+                <input data-v2search=""
                   type="search"
                   value={orderSearch}
                   onChange={(event) => setOrderSearch(event.target.value)}

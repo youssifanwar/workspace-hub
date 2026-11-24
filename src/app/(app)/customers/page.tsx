@@ -181,7 +181,7 @@ export default async function CustomersPage({
 
       <Panel flush>
         <form method="get" className="v2-toolbar">
-          <input
+          <input data-v2search=""
             name="q"
             defaultValue={term}
             placeholder={tx("دوّر بالاسم أو التليفون أو الإيميل")}

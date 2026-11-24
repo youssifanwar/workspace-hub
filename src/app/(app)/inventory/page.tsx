@@ -162,7 +162,7 @@ export default function InventoryPage() {
 
       <Panel flush>
         <div className="v2-toolbar">
-          <input
+          <input data-v2search=""
             className="input"
             value={search}
             onChange={(event) => setSearch(event.target.value)}

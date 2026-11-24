@@ -83,7 +83,7 @@ export default function CustomerSearchField({
       <label className="block text-sm font-semibold text-slate-700 mb-1">
         {tx(label)}
       </label>
-      <input
+      <input data-v2search=""
         className="input w-full"
         placeholder={tx("Search by name or phone…")}
         value={query}

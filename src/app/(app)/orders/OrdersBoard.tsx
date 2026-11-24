@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type OrderAlert = {
   id: number;
@@ -63,6 +64,8 @@ export default function OrdersBoard({
   autoPrint: boolean;
   kitchenPrinter: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [tickets, setTickets] =
     useState<Ticket[]>([]);
 
@@ -542,7 +545,7 @@ export default function OrdersBoard({
   ) {
     if (busyTicketId !== null) return;
     const confirmed = window.confirm(
-      `إلغاء تذكرة #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) وشيل أصنافها من فاتورة العميل؟`,
+      f.en ? `Cancel ticket #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) and remove its items from the customer's bill?` : `إلغاء تذكرة #${String(ticket.ticketNumber).padStart(3, "0")} (${ticket.deskName}) وشيل أصنافها من فاتورة العميل؟`,
     );
     if (!confirmed) return;
 
@@ -606,12 +609,12 @@ export default function OrdersBoard({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setActionError(err?.error || "مقدرناش نبدأ التحضير.");
+        setActionError(err?.error || tx("مقدرناش نبدأ التحضير."));
         return;
       }
       await reloadTicketsNow();
     } catch {
-      setActionError("مشكلة في الاتصال أثناء تحديث الطلب.");
+      setActionError(tx("مشكلة في الاتصال أثناء تحديث الطلب."));
     } finally {
       setBusyTicketId(null);
     }
@@ -643,26 +646,26 @@ export default function OrdersBoard({
       <div className="fixed top-4 left-4 z-[9999] w-[min(380px,calc(100vw-2rem))] space-y-3 pointer-events-none">
         {alerts.map((alert) => (
           <div key={alert.id} className="pointer-events-auto x-card" style={{ borderColor: "#a7f3d0" }}>
-            <div className="font-bold" style={{ color: "#047857" }}>🔔 وصل طلب جديد</div>
-            <div className="x-row-title mt-1">تذكرة #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}</div>
-            <div className="x-row-sub">{alert.count} أصناف</div>
+            <div className="font-bold" style={{ color: "#047857" }}>{tx("🔔 وصل طلب جديد")}</div>
+            <div className="x-row-title mt-1">{tx("تذكرة")} #{String(alert.ticketNumber).padStart(3, "0")} · {alert.desk}</div>
+            <div className="x-row-sub">{alert.count} {tx("أصناف")}</div>
           </div>
         ))}
       </div>
 
       <div className="x-head">
         <div>
-          <h1>طلبات المشروبات</h1>
-          <p>الطلبات بتتحدث لحظياً من الـ QR والكاشير</p>
+          <h1>{tx("طلبات المشروبات")}</h1>
+          <p>{tx("الطلبات بتتحدث لحظياً من الـ QR والكاشير")}</p>
         </div>
         <div className="x-actions">
           <span className={`x-chip ${status === "live" ? "green" : status === "connecting" ? "amber" : ""}`} style={status === "offline" ? { background: "#fee2e2", color: "#991b1b" } : undefined}>
             <span className="x-dot" style={status === "live" ? undefined : { background: status === "offline" ? "#dc2626" : "#f59e0b", boxShadow: "none" }} />
-            {status === "live" ? "مباشر" : status === "connecting" ? "بيتصل…" : "مفيش اتصال"}
+            {status === "live" ? tx("مباشر") : status === "connecting" ? tx("بيتصل…") : tx("مفيش اتصال")}
           </span>
-          <span className="x-chip">{autoPrint ? "الطباعة التلقائية شغالة" : "الطباعة التلقائية مقفولة"}</span>
-          <button onClick={() => { void handleAlertsClick(); }} className="x-btn dark" title={notificationPermission === "denied" ? "إشعارات المتصفح متقفلة لهذا الموقع. فعّلها من إعدادات الموقع." : "اضغط مرة عشان يشتغل الصوت والإشعارات."}>
-            {notificationPermission === "granted" ? "🔊 التنبيهات شغالة" : "🔔 فعّل التنبيهات"}
+          <span className="x-chip">{autoPrint ? tx("الطباعة التلقائية شغالة") : tx("الطباعة التلقائية مقفولة")}</span>
+          <button onClick={() => { void handleAlertsClick(); }} className="x-btn dark" title={notificationPermission === "denied" ? tx("إشعارات المتصفح متقفلة لهذا الموقع. فعّلها من إعدادات الموقع.") : tx("اضغط مرة عشان يشتغل الصوت والإشعارات.")}>
+            {notificationPermission === "granted" ? tx("🔊 التنبيهات شغالة") : tx("🔔 فعّل التنبيهات")}
           </button>
         </div>
       </div>
@@ -670,37 +673,37 @@ export default function OrdersBoard({
       {actionError && (
         <div role="alert" className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
           <span>{actionError}</span>
-          <button type="button" className="underline" onClick={() => setActionError(null)}>إغلاق</button>
+          <button type="button" className="underline" onClick={() => setActionError(null)}>{tx("إغلاق")}</button>
         </div>
       )}
 
       {newest && (
         <div className="x-banner" role="status">
           <div>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>طلب جديد! تذكرة #{String(newest.ticketNumber).padStart(3, "0")} من {newest.deskName}</div>
-            <div style={{ opacity: 0.9, fontSize: 13, marginTop: 4 }}>{newest.items.reduce((n, i) => n + i.quantity, 0)} أصناف · {newest.source === "qr" ? "من الـ QR" : "من الكاشير"}</div>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>{tx("طلب جديد! تذكرة")} #{String(newest.ticketNumber).padStart(3, "0")} {tx("من")} {newest.deskName}</div>
+            <div style={{ opacity: 0.9, fontSize: 13, marginTop: 4 }}>{newest.items.reduce((n, i) => n + i.quantity, 0)} {tx("أصناف")} · {newest.source === "qr" ? tx("من الـ QR") : tx("من الكاشير")}</div>
           </div>
-          <button type="button" className="x-btn" disabled={busyTicketId !== null} onClick={() => void startPreparing(newest)}>ابدأ التحضير</button>
+          <button type="button" className="x-btn" disabled={busyTicketId !== null} onClick={() => void startPreparing(newest)}>{tx("ابدأ التحضير")}</button>
         </div>
       )}
 
       <div className="x-board">
-        <Column title="طلبات جديدة" count={fresh.length} tone="amber">
-          {fresh.length === 0 ? <div className="x-card x-empty">مفيش طلبات جديدة 🎉</div> : fresh.map((t) => (
+        <Column title={tx("طلبات جديدة")} count={fresh.length} tone="amber">
+          {fresh.length === 0 ? <div className="x-card x-empty">{tx("مفيش طلبات جديدة 🎉")}</div> : fresh.map((t) => (
             <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} busy={busyTicketId === t.id}
-              primary={{ label: "ابدأ التحضير", tone: "primary", onClick: () => void startPreparing(t) }}
+              primary={{ label: tx("ابدأ التحضير"), tone: "primary", onClick: () => void startPreparing(t) }}
               onCancel={() => cancelTicket(t)} onReprint={() => reprint(t)} />
           ))}
         </Column>
-        <Column title="بيتحضّر" count={preparing.length} tone="blue">
-          {preparing.length === 0 ? <div className="x-card x-empty">مفيش حاجة بتتحضّر.</div> : preparing.map((t) => (
+        <Column title={tx("بيتحضّر")} count={preparing.length} tone="blue">
+          {preparing.length === 0 ? <div className="x-card x-empty">{tx("مفيش حاجة بتتحضّر.")}</div> : preparing.map((t) => (
             <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} busy={busyTicketId === t.id}
-              primary={{ label: "✓ تم التقديم", tone: "success", onClick: () => markServed(t) }}
+              primary={{ label: tx("✓ تم التقديم"), tone: "success", onClick: () => markServed(t) }}
               onCancel={() => cancelTicket(t)} onReprint={() => reprint(t)} />
           ))}
         </Column>
-        <Column title="اتقدّمت النهارده" count={servedCount} tone="green">
-          {finished.length === 0 ? <div className="x-card x-empty">لسه مفيش طلبات اتقدّمت.</div> : finished.map((t) => (
+        <Column title={tx("اتقدّمت النهارده")} count={servedCount} tone="green">
+          {finished.length === 0 ? <div className="x-card x-empty">{tx("لسه مفيش طلبات اتقدّمت.")}</div> : finished.map((t) => (
             <TicketCard key={t.id} ticket={t} allTickets={tickets} now={tick} currency={currency} done />
           ))}
         </Column>
@@ -710,6 +713,8 @@ export default function OrdersBoard({
 }
 
 function Column({ title, count, tone, children }: { title: string; count: number; tone: "amber" | "blue" | "green"; children: React.ReactNode }) {
+  const f = useFmt();
+  const tx = f.t;
   return (
     <section>
       <div className="x-col-head">
@@ -763,21 +768,23 @@ function TicketCard({
   onReprint?: () => void;
   done?: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const displayNumber = getDisplayTicketNumber(ticket, allTickets);
   const isCancelled = ticket.status === "cancelled";
   const isNew = ticket.status === "pending";
   const el = elapsedLabel(ticket.createdAt, now);
-  const time = new Date(ticket.createdAt).toLocaleTimeString("ar-EG-u-nu-latn", { hour: "numeric", minute: "2-digit" });
+  const time = new Date(ticket.createdAt).toLocaleTimeString(f.en ? "en-GB" : "ar-EG-u-nu-latn", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className={`x-ticket ${isNew ? "new" : ""} ${done ? "done" : ""}`}>
       <div className="x-ticket-top">
         <span className="x-ticket-no x-num">#{String(displayNumber).padStart(3, "0")}</span>
         <span className="x-pill">{ticket.deskName}</span>
-        <span className={`x-pill ${ticket.source === "qr" ? "violet" : "teal"}`}>{ticket.source === "qr" ? "QR" : "كاشير"}</span>
+        <span className={`x-pill ${ticket.source === "qr" ? "violet" : "teal"}`}>{ticket.source === "qr" ? "QR" : tx("كاشير")}</span>
         <span className="flex-1" />
         {done ? (
-          <span className={`x-pill ${isCancelled ? "red" : "green"} x-num`}>{isCancelled ? "اتلغى" : time}</span>
+          <span className={`x-pill ${isCancelled ? "red" : "green"} x-num`}>{isCancelled ? tx("اتلغى") : time}</span>
         ) : (
           <span className={`x-pill ${el.tone} x-num`} dir="ltr">⏱ {el.text}</span>
         )}
@@ -785,7 +792,7 @@ function TicketCard({
 
       <div>
         {isCancelled && ticket.items.length === 0 ? (
-          <div className="x-row-sub" style={{ color: "#dc2626" }}>اتلغى · الأصناف اتشالت من فاتورة العميل</div>
+          <div className="x-row-sub" style={{ color: "#dc2626" }}>{tx("اتلغى · الأصناف اتشالت من فاتورة العميل")}</div>
         ) : (
           ticket.items.map((item) => (
             <div key={item.id}>
@@ -808,8 +815,8 @@ function TicketCard({
           {primary && (
             <button type="button" className={`x-btn ${primary.tone} flex-1`} disabled={busy} onClick={primary.onClick}>{busy ? "…" : primary.label}</button>
           )}
-          {onCancel && <button type="button" className="x-btn danger" disabled={busy} onClick={onCancel}>إلغاء</button>}
-          {onReprint && <button type="button" className="x-btn" disabled={busy} onClick={onReprint} title="طباعة">🖨</button>}
+          {onCancel && <button type="button" className="x-btn danger" disabled={busy} onClick={onCancel}>{tx("إلغاء")}</button>}
+          {onReprint && <button type="button" className="x-btn" disabled={busy} onClick={onReprint} title={tx("طباعة")}>🖨</button>}
         </div>
       )}
     </div>

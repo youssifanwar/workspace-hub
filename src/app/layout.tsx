@@ -14,6 +14,7 @@ import "@fontsource-variable/noto-sans-arabic";
 import "./globals.css";
 import "./redesign.css";
 import { getLang } from "@/lib/i18n";
+import { LangProvider } from "@/lib/lang-context";
 
 export const metadata: Metadata = {
   title: {
@@ -41,7 +42,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="antialiased">
-        {children}
+        <LangProvider lang={lang}>{children}</LangProvider>
       </body>
     </html>
   );

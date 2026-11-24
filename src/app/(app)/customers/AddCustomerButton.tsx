@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 export default function AddCustomerButton() {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,7 +50,7 @@ export default function AddCustomerButton() {
         className="btn btn-primary"
         onClick={() => setOpen(true)}
       >
-        + عميل جديد
+        {tx("+ عميل جديد")}
       </button>
       {open && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">

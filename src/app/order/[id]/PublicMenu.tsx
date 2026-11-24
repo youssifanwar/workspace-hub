@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useFmt } from "@/lib/lang-context";
 
 type Desk = {
   id: number;
@@ -63,6 +64,8 @@ export default function PublicMenu({
 }: {
   deskId: number;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const [loading, setLoading] =
     useState(true);
 
@@ -254,7 +257,7 @@ export default function PublicMenu({
     if (connecting) return;
 
     if (!/^\d{4}$/.test(connectionCode)) {
-      setError("اكتب الكود المكوّن من 4 أرقام.");
+      setError(tx("اكتب الكود المكوّن من 4 أرقام."));
       return;
     }
 
@@ -278,7 +281,7 @@ export default function PublicMenu({
       if (!res.ok) {
         setError(
           data?.error ||
-            "مقدرناش نربط التليفون.",
+            tx("مقدرناش نربط التليفون."),
         );
         setConnecting(false);
         return;
@@ -288,7 +291,7 @@ export default function PublicMenu({
       setConnecting(false);
       setReloadKey((value) => value + 1);
     } catch {
-      setError("مشكلة في الاتصال. جرّب تاني.");
+      setError(tx("مشكلة في الاتصال. جرّب تاني."));
       setConnecting(false);
     }
   }
@@ -352,12 +355,12 @@ export default function PublicMenu({
     product: Product,
   ) {
     if (!booking) {
-      setError("اربط التليفون بالجلسة الشغالة الأول.");
+      setError(tx("اربط التليفون بالجلسة الشغالة الأول."));
       return;
     }
 
     if (!product.orderable) {
-      setError(`${product.name} مش متاح للطلب دلوقتي.`);
+      setError(f.en ? `${product.name} is not available to order right now.` : `${product.name} مش متاح للطلب دلوقتي.`);
       return;
     }
 
@@ -466,7 +469,7 @@ export default function PublicMenu({
 
     if (!booking) {
       setError(
-        "التليفون ده مش مربوط بجلسة شغالة.",
+        tx("التليفون ده مش مربوط بجلسة شغالة."),
       );
       return;
     }
@@ -536,7 +539,7 @@ export default function PublicMenu({
 
         setError(
           data.error ||
-            "مقدرناش نسجّل الطلب",
+            tx("مقدرناش نسجّل الطلب"),
         );
 
         // Availability may have changed while the cart was open. Refresh the
@@ -584,7 +587,7 @@ export default function PublicMenu({
   if (loading) {
     return (
       <div className="q-wrap grid place-items-center" style={{ color: "#64748b", fontWeight: 700 }}>
-        بنحمّل المنيو…
+        {tx("بنحمّل المنيو…")}
       </div>
     );
   }
@@ -613,18 +616,18 @@ export default function PublicMenu({
       <div className="q-wrap">
         <div className="q-body" style={{ marginTop: 0, paddingTop: 48, textAlign: "center" }}>
           <div style={{ width: 84, height: 84, borderRadius: 24, background: "linear-gradient(135deg,#10b981,#047857)", color: "#fff", display: "grid", placeItems: "center", fontSize: 42, margin: "0 auto 16px", boxShadow: "0 14px 30px rgba(5,150,105,.3)" }}>✓</div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 6px" }}>طلبك اتسجّل!</h1>
-          <p style={{ color: "#64748b", margin: "0 0 16px" }}>الباريستا استلم الطلب وهيجهّزه.</p>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 6px" }}>{tx("طلبك اتسجّل!")}</h1>
+          <p style={{ color: "#64748b", margin: "0 0 16px" }}>{tx("الباريستا استلم الطلب وهيجهّزه.")}</p>
           <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="x-pill" style={{ background: "#0f172a", color: "#fff", padding: "8px 14px", fontSize: 15 }}>#{String(placed.ticketNumber).padStart(3, "0")}</span>
             {desk && <span className="x-pill" style={{ padding: "8px 14px", fontSize: 14 }}>{desk.name}{booking ? ` · ${booking.customerName}` : ""}</span>}
           </div>
           <div className="q-card" style={{ textAlign: "start", marginTop: 20 }}>
-            <div className="x-row-sub">إجمالي الطلب</div>
-            <div style={{ fontSize: 30, fontWeight: 800 }} className="x-num">{placed.total.toFixed(2)} <small style={{ fontSize: 14, color: "#64748b" }}>ج.م</small></div>
-            <div className="x-note" style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af" }}>هيتحسب على فاتورة جلستك وتدفعه وقت الخروج.</div>
+            <div className="x-row-sub">{tx("إجمالي الطلب")}</div>
+            <div style={{ fontSize: 30, fontWeight: 800 }} className="x-num">{placed.total.toFixed(2)} <small style={{ fontSize: 14, color: "#64748b" }}>{f.cur}</small></div>
+            <div className="x-note" style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af" }}>{tx("هيتحسب على فاتورة جلستك وتدفعه وقت الخروج.")}</div>
           </div>
-          <button onClick={() => setPlaced(null)} className="x-btn dark block" style={{ marginTop: 16, padding: "14px" }}>اطلب حاجة تانية</button>
+          <button onClick={() => setPlaced(null)} className="x-btn dark block" style={{ marginTop: 16, padding: "14px" }}>{tx("اطلب حاجة تانية")}</button>
         </div>
       </div>
     );
@@ -640,31 +643,42 @@ export default function PublicMenu({
     <div className="q-wrap">
       <div className="q-hero">
         <div className="q-hero-row">
-          <div className="q-logo"><i>WS</i><span>ورك سبيس هب</span></div>
+          <div className="q-logo"><i>WS</i><span>{tx("ورك سبيس هب")}</span></div>
           <span className="q-place">📍 {desk?.name}</span>
+          <button
+            type="button"
+            className="q-place"
+            style={{ cursor: "pointer", border: 0 }}
+            onClick={() => {
+              document.cookie = `wh_lang=${f.en ? "ar" : "en"}; path=/; max-age=31536000; samesite=lax`;
+              window.location.reload();
+            }}
+          >
+            {f.en ? "العربية" : "English"}
+          </button>
         </div>
-        <h1>عطشان؟ ☕</h1>
-        <p>اطلب من مكانك وهيوصلك للمكتب</p>
+        <h1>{tx("عطشان؟ ☕")}</h1>
+        <p>{tx("اطلب من مكانك وهيوصلك للمكتب")}</p>
       </div>
 
       <div className="q-body">
-        <input className="q-search" type="search" placeholder="دوّر على مشروبك أو سناك..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="q-search" type="search" placeholder={tx("دوّر على مشروبك أو سناك...")} value={search} onChange={(e) => setSearch(e.target.value)} />
 
         {booking ? (
           <div className="q-status">
-            <div className="x-row-title">👤 {booking.customerName} · الجلسة شغالة</div>
-            <div className="x-row-sub">الطلبات هتتضاف على فاتورة جلستك.</div>
+            <div className="x-row-title">👤 {booking.customerName} · {tx("الجلسة شغالة")}</div>
+            <div className="x-row-sub">{tx("الطلبات هتتضاف على فاتورة جلستك.")}</div>
           </div>
         ) : (
           <div className="q-status" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
-            <div className="x-row-title" style={{ color: "#92400e" }}>🔐 اكتب كود الجلسة (4 أرقام) عشان تربط التليفون.</div>
+            <div className="x-row-title" style={{ color: "#92400e" }}>{tx("🔐 اكتب كود الجلسة (4 أرقام) عشان تربط التليفون.")}</div>
           </div>
         )}
 
         {needsConnection && (
           <div className="q-card">
-            <div className="x-row-title">🔐 اربط تليفونك</div>
-            <div className="x-row-sub">اكتب الكود المكوّن من 4 أرقام اللي اديهولك الموظف.</div>
+            <div className="x-row-title">{tx("🔐 اربط تليفونك")}</div>
+            <div className="x-row-sub">{tx("اكتب الكود المكوّن من 4 أرقام اللي اديهولك الموظف.")}</div>
             <div className="flex gap-2" style={{ marginTop: 12 }}>
               <input
                 className="q-search"
@@ -679,7 +693,7 @@ export default function PublicMenu({
                 dir="ltr"
               />
               <button type="button" onClick={connectPhone} disabled={connecting || connectionCode.length !== 4} className="x-btn primary">
-                {connecting ? "بيتصل…" : "اتصل"}
+                {connecting ? tx("بيتصل…") : tx("اتصل")}
               </button>
             </div>
             {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{error}</div>}
@@ -691,7 +705,7 @@ export default function PublicMenu({
         )}
 
         <div className="q-cats">
-          <button type="button" className={`q-cat ${activeCat === null ? "active" : ""}`} onClick={() => setActiveCat(null)}>الكل</button>
+          <button type="button" className={`q-cat ${activeCat === null ? "active" : ""}`} onClick={() => setActiveCat(null)}>{tx("الكل")}</button>
           {categories.map((category) => (
             <button key={category.id} type="button" onClick={() => setActiveCat(category.id)} className={`q-cat ${activeCat === category.id ? "active" : ""}`}>
               {category.icon} {category.name}
@@ -712,34 +726,34 @@ export default function PublicMenu({
                     product.icon
                   )}
                 </div>
-                {!product.orderable && <span className="q-off-tag">اتوقف مؤقتاً</span>}
+                {!product.orderable && <span className="q-off-tag">{tx("اتوقف مؤقتاً")}</span>}
                 <div className="q-name">{product.name}</div>
                 <div className="q-price-row">
-                  <span className="q-price x-num">{parseFloat(product.price).toFixed(0)} ج.م</span>
+                  <span className="q-price x-num">{parseFloat(product.price).toFixed(0)} {f.cur}</span>
                   {inCart > 0 && product.orderable ? (
                     <span className="q-stepper">
-                      <button type="button" aria-label="قلّل" disabled={placing} onClick={() => changeQty(product.id, -1)}>−</button>
+                      <button type="button" aria-label={tx("قلّل")} disabled={placing} onClick={() => changeQty(product.id, -1)}>−</button>
                       <span className="x-num">{inCart}</span>
-                      <button type="button" aria-label="زوّد" disabled={placing || !booking} onClick={() => changeQty(product.id, 1)}>+</button>
+                      <button type="button" aria-label={tx("زوّد")} disabled={placing || !booking} onClick={() => changeQty(product.id, 1)}>+</button>
                     </span>
                   ) : (
-                    <button type="button" className="q-add" aria-label={`أضف ${product.name}`} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
+                    <button type="button" className="q-add" aria-label={(f.en ? `Add ${product.name}` : `أضف ${product.name}`)} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-        {visible.length === 0 && <div className="x-empty">مفيش نتايج.</div>}
+        {visible.length === 0 && <div className="x-empty">{tx("مفيش نتايج.")}</div>}
       </div>
 
       {cartCount > 0 && !cartOpen && (
         <div className="q-cart">
           <div>
-            <b className="x-num">{cartTotal.toFixed(0)} ج.م</b>
-            <small>{cartCount} أصناف في السلة</small>
+            <b className="x-num">{cartTotal.toFixed(0)} {f.cur}</b>
+            <small>{cartCount} {tx("أصناف في السلة")}</small>
           </div>
-          <button type="button" className="x-btn" onClick={() => setCartOpen(true)} disabled={!booking || placing}>مراجعة الطلب ←</button>
+          <button type="button" className="x-btn" onClick={() => setCartOpen(true)} disabled={!booking || placing}>{tx("مراجعة الطلب")} {f.en ? "→" : "←"}</button>
         </div>
       )}
 
@@ -747,8 +761,8 @@ export default function PublicMenu({
         <div className="fixed inset-0 z-40" style={{ background: "rgba(15,23,42,.55)" }} onClick={() => !placing && setCartOpen(false)}>
           <div className="absolute bottom-0 inset-x-0 bg-white overflow-y-auto" style={{ borderRadius: "24px 24px 0 0", padding: 20, maxHeight: "88vh", maxWidth: 640, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <div style={{ fontSize: 20, fontWeight: 800 }}>طلبك</div>
-              <button onClick={() => setCartOpen(false)} disabled={placing} className="x-iconbtn" aria-label="إغلاق">✕</button>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>{tx("طلبك")}</div>
+              <button onClick={() => setCartOpen(false)} disabled={placing} className="x-iconbtn" aria-label={tx("إغلاق")}>✕</button>
             </div>
 
             <div className="x-list">
@@ -757,31 +771,31 @@ export default function PublicMenu({
                   <span className="x-kpi-ico tone-amber" style={{ width: 48, height: 48, fontSize: 24, flexShrink: 0 }}>{item.product.icon}</span>
                   <div className="x-row-main">
                     <div className="x-row-title">{item.product.name}</div>
-                    <div className="x-row-sub x-num">{parseFloat(item.product.price).toFixed(0)} × {item.quantity} = <b>{(item.quantity * parseFloat(item.product.price)).toFixed(0)} ج.م</b></div>
-                    <input type="text" placeholder="ملاحظة (مثلاً: من غير سكر)" value={item.note} disabled={placing} onChange={(e) => setNote(item.product.id, e.target.value)} style={{ marginTop: 6, width: "100%", fontSize: 13, padding: "6px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }} />
+                    <div className="x-row-sub x-num">{parseFloat(item.product.price).toFixed(0)} × {item.quantity} = <b>{(item.quantity * parseFloat(item.product.price)).toFixed(0)} {f.cur}</b></div>
+                    <input type="text" placeholder={tx("ملاحظة (مثلاً: من غير سكر)")} value={item.note} disabled={placing} onChange={(e) => setNote(item.product.id, e.target.value)} style={{ marginTop: 6, width: "100%", fontSize: 13, padding: "6px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }} />
                   </div>
                   <span className="q-stepper">
-                    <button type="button" onClick={() => changeQty(item.product.id, -1)} disabled={placing} aria-label="قلّل">−</button>
+                    <button type="button" onClick={() => changeQty(item.product.id, -1)} disabled={placing} aria-label={tx("قلّل")}>−</button>
                     <span className="x-num">{item.quantity}</span>
-                    <button type="button" onClick={() => changeQty(item.product.id, 1)} disabled={placing} aria-label="زوّد">+</button>
+                    <button type="button" onClick={() => changeQty(item.product.id, 1)} disabled={placing} aria-label={tx("زوّد")}>+</button>
                   </span>
                 </div>
               ))}
             </div>
 
-            <textarea className="q-search" style={{ marginTop: 12, boxShadow: "none", resize: "none", fontSize: 14 }} rows={2} placeholder="ملاحظة على الطلب كله (اختياري)" value={customerNote} disabled={placing} maxLength={1000} onChange={(e) => setWholeOrderNote(e.target.value)} />
+            <textarea className="q-search" style={{ marginTop: 12, boxShadow: "none", resize: "none", fontSize: 14 }} rows={2} placeholder={tx("ملاحظة على الطلب كله (اختياري)")} value={customerNote} disabled={placing} maxLength={1000} onChange={(e) => setWholeOrderNote(e.target.value)} />
 
             <div className="flex items-center justify-between" style={{ padding: "14px 0 8px" }}>
-              <span style={{ color: "#64748b", fontWeight: 700 }}>الإجمالي</span>
-              <span style={{ fontSize: 26, fontWeight: 800, color: "#1d4ed8" }} className="x-num">{cartTotal.toFixed(0)} ج.م</span>
+              <span style={{ color: "#64748b", fontWeight: 700 }}>{tx("الإجمالي")}</span>
+              <span style={{ fontSize: 26, fontWeight: 800, color: "#1d4ed8" }} className="x-num">{cartTotal.toFixed(0)} {f.cur}</span>
             </div>
 
             {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 10 }}>{error}</div>}
 
             <button onClick={placeOrder} disabled={placing || !booking || cartArr.length === 0} className="x-btn success block" style={{ padding: 16, fontSize: 17 }}>
-              {placing ? "بنبعت الطلب…" : !booking ? "اربط التليفون الأول" : `إرسال الطلب · ${cartTotal.toFixed(0)} ج.م`}
+              {placing ? tx("بنبعت الطلب…") : !booking ? tx("اربط التليفون الأول") : `${tx("إرسال الطلب")} · ${cartTotal.toFixed(0)} ${f.cur}`}
             </button>
-            <p className="x-row-sub" style={{ textAlign: "center", marginTop: 10 }}>الأصناف هتتضاف على فاتورة جلستك وتدفع عند الخروج.</p>
+            <p className="x-row-sub" style={{ textAlign: "center", marginTop: 10 }}>{tx("الأصناف هتتضاف على فاتورة جلستك وتدفع عند الخروج.")}</p>
           </div>
         </div>
       )}

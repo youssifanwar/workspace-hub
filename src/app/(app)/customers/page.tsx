@@ -13,7 +13,8 @@ import CustomerEditButton from "./CustomerEditButton";
 import CustomerPackagesButton from "./CustomerPackagesButton";
 import CustomerBalanceButton from "./CustomerBalanceButton";
 import Link from "next/link";
-import { arDate, arMoney, arNumber } from "@/lib/ar";
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import AddCustomerButton from "./AddCustomerButton";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
@@ -24,6 +25,8 @@ export default async function CustomersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
   await loadTimezone();
   if (!user) redirect("/login");
@@ -161,13 +164,13 @@ export default async function CustomersPage({
     <div className="x-page space-y-5">
       <div className="x-head">
         <div>
-          <h1>العملاء</h1>
-          <p>{customerRows.length} {term ? "نتيجة" : "عميل مسجّل"}.</p>
+          <h1>{tx("العملاء")}</h1>
+          <p>{customerRows.length} {term ? tx("نتيجة") : tx("عميل مسجّل")}.</p>
         </div>
         <div className="x-actions">
           <form method="get" className="flex gap-2">
-            <input name="q" defaultValue={term} placeholder="دوّر بالاسم أو التليفون أو الإيميل" className="input" style={{ minWidth: 240 }} />
-            <button type="submit" className="x-btn">بحث</button>
+            <input name="q" defaultValue={term} placeholder={tx("دوّر بالاسم أو التليفون أو الإيميل")} className="input" style={{ minWidth: 240 }} />
+            <button type="submit" className="x-btn">{tx("بحث")}</button>
           </form>
           <AddCustomerButton />
         </div>
@@ -175,24 +178,24 @@ export default async function CustomersPage({
 
       <div className="x-grid x-kpis">
         <div className="x-card x-kpi">
-          <span className="x-kpi-label">العملاء</span>
+          <span className="x-kpi-label">{tx("العملاء")}</span>
           <div className="x-kpi-value x-num">{customerRows.length}</div>
-          <div className="x-row-sub">{term ? "مطابقين للبحث" : "آخر 500 سجل"}</div>
+          <div className="x-row-sub">{term ? tx("مطابقين للبحث") : tx("آخر 500 سجل")}</div>
         </div>
         <div className="x-card x-kpi">
-          <span className="x-kpi-label">إجمالي الزيارات</span>
+          <span className="x-kpi-label">{tx("إجمالي الزيارات")}</span>
           <div className="x-kpi-value x-num">{summary.visits.toLocaleString("en-US")}</div>
-          <div className="x-row-sub">{summary.hours.toFixed(1)} ساعة استخدام</div>
+          <div className="x-row-sub">{summary.hours.toFixed(1)} {tx("ساعة استخدام")}</div>
         </div>
         <div className="x-card x-kpi">
-          <span className="x-kpi-label">إجمالي الإنفاق</span>
-          <div className="x-kpi-value x-num">{arNumber(summary.spent)}<small>ج.م</small></div>
-          <div className="x-row-sub">أرصدة العملاء: {arMoney(summary.wallet)}</div>
+          <span className="x-kpi-label">{tx("إجمالي الإنفاق")}</span>
+          <div className="x-kpi-value x-num">{f.number(summary.spent)}<small>{f.cur}</small></div>
+          <div className="x-row-sub">{tx("أرصدة العملاء:")} {f.money(summary.wallet)}</div>
         </div>
         <div className="x-card x-kpi">
-          <span className="x-kpi-label">باقات غرف الاجتماعات</span>
+          <span className="x-kpi-label">{tx("باقات غرف الاجتماعات")}</span>
           <div className="x-kpi-value x-num">{summary.activeMeetingPackages}</div>
-          <div className="x-row-sub">شغالة · قيمة المبيعات {arMoney(summary.meetingPackageSpend)}</div>
+          <div className="x-row-sub">{tx("شغالة")} · {tx("قيمة المبيعات")} {f.money(summary.meetingPackageSpend)}</div>
         </div>
       </div>
 
@@ -201,20 +204,20 @@ export default async function CustomersPage({
           <table className="x-table">
             <thead>
               <tr>
-                <th>العميل</th>
-                <th>التواصل</th>
-                <th>عميل من</th>
-                <th>الزيارات</th>
-                <th>آخر زيارة</th>
-                <th>باقات الغرف</th>
-                <th>الإنفاق</th>
-                <th>الرصيد</th>
-                <th>إجراءات</th>
+                <th>{tx("العميل")}</th>
+                <th>{tx("التواصل")}</th>
+                <th>{tx("عميل من")}</th>
+                <th>{tx("الزيارات")}</th>
+                <th>{tx("آخر زيارة")}</th>
+                <th>{tx("باقات الغرف")}</th>
+                <th>{tx("الإنفاق")}</th>
+                <th>{tx("الرصيد")}</th>
+                <th>{tx("إجراءات")}</th>
               </tr>
             </thead>
             <tbody>
               {customerRows.length === 0 ? (
-                <tr><td colSpan={9} className="x-empty">{term ? `مفيش عملاء مطابقين لـ "${term}".` : "لسه مفيش عملاء. ضيف أول عميل."}</td></tr>
+                <tr><td colSpan={9} className="x-empty">{term ? (f.en ? `No customers match "${term}".` : `مفيش عملاء مطابقين لـ "${term}".`) : tx("لسه مفيش عملاء. ضيف أول عميل.")}</td></tr>
               ) : (
                 customerRows.map((c) => (
                   <tr key={c.id}>
@@ -223,7 +226,7 @@ export default async function CustomersPage({
                         <span className="x-kpi-ico tone-blue" style={{ width: 36, height: 36, fontWeight: 800 }}>{c.name.charAt(0)}</span>
                         <span>
                           <div className="x-row-title">{c.name}</div>
-                          <div className="x-row-sub" style={{ marginTop: 0 }}>عميل #{c.id}</div>
+                          <div className="x-row-sub" style={{ marginTop: 0 }}>{tx("عميل")} #{c.id}</div>
                         </span>
                       </Link>
                     </td>
@@ -232,15 +235,15 @@ export default async function CustomersPage({
                       {c.email ? <div className="x-row-sub break-all">{c.email}</div> : null}
                       {c.notes ? <div className="x-row-sub truncate" style={{ maxWidth: 220 }} title={c.notes}>📝 {c.notes}</div> : null}
                     </td>
-                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.createdAt ? arDate(c.createdAt, tz) : "—"}</td>
-                    <td className="x-num">{c.totalVisits} <span className="x-row-sub">({parseFloat(c.totalHours).toFixed(1)} س)</span></td>
-                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.lastVisit ? arDate(c.lastVisit, tz) : "—"}</td>
+                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.createdAt ? f.date(c.createdAt, tz) : "—"}</td>
+                    <td className="x-num">{c.totalVisits} <span className="x-row-sub">({parseFloat(c.totalHours).toFixed(1)} {tx("س")})</span></td>
+                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.lastVisit ? f.date(c.lastVisit, tz) : "—"}</td>
                     <td>
-                      <span className={`x-pill ${c.activeMeetingPackageCount > 0 ? "green" : ""}`}>{c.activeMeetingPackageCount} شغالة</span>
-                      <div className="x-row-sub">{c.meetingPackageCount} اتباعت</div>
+                      <span className={`x-pill ${c.activeMeetingPackageCount > 0 ? "green" : ""}`}>{c.activeMeetingPackageCount} {tx("شغالة")}</span>
+                      <div className="x-row-sub">{c.meetingPackageCount} {tx("اتباعت")}</div>
                     </td>
-                    <td className="font-bold x-num">{arMoney(parseFloat(c.totalSpent))}</td>
-                    <td className="font-bold x-num" style={{ color: Number(c.balance) > 0 ? "#1d4ed8" : "#94a3b8" }}>{arMoney(Number(c.balance))}</td>
+                    <td className="font-bold x-num">{f.money(parseFloat(c.totalSpent))}</td>
+                    <td className="font-bold x-num" style={{ color: Number(c.balance) > 0 ? "#1d4ed8" : "#94a3b8" }}>{f.money(Number(c.balance))}</td>
                     <td>
                       <div className="flex flex-wrap gap-1">
                         <CustomerBalanceButton customerId={c.id} customerName={c.name} balance={Number(c.balance)} currency={currency} canAdjust={canManage(user.role)} />

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Tx = {
   id: number;
@@ -34,6 +35,8 @@ export default function CustomerBalanceButton({
   currency: string;
   canAdjust: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState(balance);
@@ -129,7 +132,7 @@ export default function CustomerBalanceButton({
         className="btn btn-ghost text-indigo-700"
         onClick={() => setOpen(true)}
       >
-        👛 الرصيد
+        {tx("👛 الرصيد")}
       </button>
 
       {open &&

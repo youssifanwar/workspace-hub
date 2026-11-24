@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Customer = {
   id: number;
@@ -37,6 +38,8 @@ export default function CustomerEditButton({
   customer: Customer;
   currency: string;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
@@ -278,7 +281,7 @@ export default function CustomerEditButton({
         className="btn btn-ghost text-indigo-600"
         onClick={() => setOpen(true)}
       >
-        ✏️ تعديل
+        {tx("✏️ تعديل")}
       </button>
 
       {open &&

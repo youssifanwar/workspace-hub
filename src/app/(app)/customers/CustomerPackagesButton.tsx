@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useFmt } from "@/lib/lang-context";
 
 type Kind = "desk" | "meeting";
 
@@ -50,6 +51,8 @@ export default function CustomerPackagesButton({
   balance?: number;
   canVoid?: boolean;
 }) {
+  const f = useFmt();
+  const tx = f.t;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -242,7 +245,7 @@ export default function CustomerPackagesButton({
         className="btn btn-ghost text-teal-700"
         onClick={() => setOpen(true)}
       >
-        الباقات والساعات
+        {tx("الباقات والساعات")}
       </button>
 
       {open &&

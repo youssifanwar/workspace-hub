@@ -696,6 +696,8 @@ export const AR_EXTRA: Record<string, string> = {
  "Cancel reservation": "إلغاء الحجز",
  "Availability and price update as you type.": "التوافر والسعر بيتحدثوا وأنت بتكتب.",
  "2 · Customer": "2 · العميل",
+ "1 · Room & time": "1 · الغرفة والوقت",
+ "3 · Repeat & notes": "3 · التكرار والملاحظات",
  "Pick a date and time": "اختار التاريخ والوقت",
  "The start time must be in the future. To seat someone right now, use Start now.": "وقت البداية لازم يكون في المستقبل. لو عايز تقعّد حد دلوقتي استخدم ابدأ دلوقتي.",
  "Choose a room to check availability": "اختار غرفة عشان تشوف التوافر",

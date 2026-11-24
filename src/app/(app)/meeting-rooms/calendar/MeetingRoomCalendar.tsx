@@ -628,7 +628,7 @@ export default function MeetingRoomCalendar({
                 onClick={() => setView(v)}
                 className={view === v ? "is-active" : ""}
               >
-                {v === "list" ? tx("Agenda") : v === "rooms" ? tx("Room grid") : v[0].toUpperCase() + v.slice(1)}
+                {v === "list" ? tx("Agenda") : v === "rooms" ? tx("Room grid") : tx(v[0].toUpperCase() + v.slice(1))}
               </button>
             ))}
           </div>
@@ -1003,10 +1003,9 @@ export default function MeetingRoomCalendar({
 
           {placedByDay.hidden > 0 && (
             <div className="border-t border-slate-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-              {placedByDay.hidden} reservation
-              {placedByDay.hidden === 1 ? " is" : "s are"} outside the visible
-              hours ({pad(startHour)}:00–{pad(endHour % 24)}:00). Change the
-              hours in Settings.
+              {f.en
+                ? `${placedByDay.hidden} reservation${placedByDay.hidden === 1 ? " is" : "s are"} outside the visible hours (${pad(startHour)}:00–${pad(endHour % 24)}:00). Change the hours in Settings.`
+                : `${placedByDay.hidden} حجز خارج الساعات الظاهرة (${pad(startHour)}:00–${pad(endHour % 24)}:00). غيّر الساعات من الإعدادات.`}
             </div>
           )}
         </div>

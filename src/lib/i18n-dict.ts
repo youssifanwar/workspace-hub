@@ -907,5 +907,8 @@ export const AR_EXTRA: Record<string, string> = {
  "The room is freed immediately and nothing is charged.": "الغرفة بتتفضى فوراً ومفيش حاجة بتتحاسب.",
  "The time slot becomes free again.": "الفترة بتبقى متاحة تاني.",
  "Package hours": "ساعات الباقة",
- "person": "شخص"
+ "person": "شخص",
+ "Day": "يوم",
+ "Week": "أسبوع",
+ "Month": "شهر"
 };

@@ -20,20 +20,20 @@ import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 export const dynamic = "force-dynamic";
 
 const TX_LABEL: Record<string, string> = {
-  topup: tx("شحن رصيد"),
-  deposit: tx("شحن رصيد"),
-  spend: tx("خصم"),
-  charge: tx("خصم"),
-  refund: tx("استرجاع"),
-  adjustment: tx("تعديل"),
-  adjust: tx("تعديل"),
+  topup: "شحن رصيد",
+  deposit: "شحن رصيد",
+  spend: "خصم",
+  charge: "خصم",
+  refund: "استرجاع",
+  adjustment: "تعديل",
+  adjust: "تعديل",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  active: tx("شغالة"),
-  expired: tx("منتهية"),
-  exhausted: tx("خلصت"),
-  cancelled: tx("ملغية"),
+  active: "شغالة",
+  expired: "منتهية",
+  exhausted: "خلصت",
+  cancelled: "ملغية",
 };
 
 export default async function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {

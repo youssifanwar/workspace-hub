@@ -525,7 +525,7 @@ function SessionCard({
             {/* BILLING TYPE */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">
-                Billing
+                {tx("Billing")}
               </span>
 
               <span

@@ -244,7 +244,7 @@ export default function QrGrid({
                 printState.active
               }
             >
-              🖨 Print selected (
+              {f.en ? "🖨 Print selected" : "🖨 اطبع المحدد"} (
               {selected.size}
               )
             </button>

@@ -55,12 +55,11 @@ export default async function QrCodesPage() {
             <>{tx("Base URL is set from Settings.")}</>
           ) : localIp ? (
             <>
-              {tx("Auto-detected local IP:")} <b>{localIp}</b>. Make sure customer
-              phones are connected to the same Wi-Fi. Set a custom URL from{" "}
+              {tx("Auto-detected local IP:")} <b>{localIp}</b>. {f.en ? "Make sure customer phones are connected to the same Wi-Fi. Set a custom URL from" : "اتأكد إن تليفونات العملاء على نفس الواي فاي. اضبط رابط مخصص من"}{" "}
               <Link href="/settings" className="text-indigo-600 underline">
                 {tx("Settings")}
               </Link>{" "}
-              if you use a fixed hostname or public tunnel.
+              {f.en ? "if you use a fixed hostname or public tunnel." : "لو بتستخدم اسم ثابت أو نفق عام."}
             </>
           ) : (
             <>

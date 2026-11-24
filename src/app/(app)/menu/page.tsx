@@ -94,7 +94,7 @@ export default async function MenuPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Menu (Food &amp; Beverage)
+            {f.en ? "Menu (Food & Beverage)" : "المنيو (أكل وشرب)"}
           </h1>
 
           <p className="text-slate-500">

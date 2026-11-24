@@ -418,7 +418,7 @@ export default function FnbSalesPage() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="fnb-sale-note">
-                Note (optional)
+                {tx("Note (optional)")}
               </label>
               <textarea
                 id="fnb-sale-note"

@@ -141,9 +141,9 @@ export default function InventoryPage() {
     <main className="p-4 lg:p-6 space-y-6">
       <div>
         <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("Inventory")}</div>
-        <h1 className="text-3xl font-black text-slate-900 mt-1">F&amp;B Stock</h1>
+        <h1 className="text-3xl font-black text-slate-900 mt-1">{f.en ? "F&B Stock" : "مخزون الأكل والشرب"}</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Set the real quantity available for each food and drink. QR orders and direct F&amp;B sales use this stock.
+          {f.en ? "Set the real quantity available for each food and drink. QR orders and direct F&B sales use this stock." : "حدد الكمية الفعلية المتاحة من كل أكل ومشروب. طلبات QR والبيع المباشر بيستخدموا المخزون ده."}
         </p>
       </div>
 

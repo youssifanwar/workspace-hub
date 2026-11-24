@@ -1317,5 +1317,6 @@ export const AR_EXTRA: Record<string, string> = {
  "Could not mark order as served.": "مقدرناش نعلّم الطلب إنه اتسلّم.",
  "Network error while updating order.": "في مشكلة في الشبكة وقت تحديث الطلب.",
  "Could not cancel order.": "مقدرناش نلغي الطلب.",
- "Network error while cancelling order.": "في مشكلة في الشبكة وقت إلغاء الطلب."
+ "Network error while cancelling order.": "في مشكلة في الشبكة وقت إلغاء الطلب.",
+ "Billing": "نوع الفوترة"
 };

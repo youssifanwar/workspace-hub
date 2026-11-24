@@ -402,7 +402,7 @@ export default function MenuManager({
             activeCat === "all"
           }
         >
-          All ({products.length})
+          {f.en ? "All" : "الكل"} ({products.length})
         </button>
 
         {categories.map((category) => {

@@ -146,7 +146,7 @@ export default async function ExpensesPage({
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Expenses &amp; Income
+            {f.en ? "Expenses & Income" : "المصروفات والإيرادات"}
           </h1>
           <p className="text-slate-500">
             {tx("Record money going out (expenses) and extra money coming in (income). Session, café and package sales are counted automatically — only add income here if it is not recorded anywhere else.")}

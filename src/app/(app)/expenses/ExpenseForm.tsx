@@ -183,7 +183,7 @@ export default function ExpenseForm({
           htmlFor="expense-amount"
           className="label"
         >
-          Amount ({currency})
+          {f.en ? "Amount" : "المبلغ"} ({currency})
         </label>
 
         <input
@@ -320,7 +320,7 @@ export default function ExpenseForm({
       >
         {loading
           ? tx("Saving…")
-          : isIncome ? "💰 Record income" : "💸 Record expense"}
+          : isIncome ? (f.en ? "💰 Record income" : "💰 سجّل إيراد") : (f.en ? "💸 Record expense" : "💸 سجّل مصروف")}
       </button>
     </form>
   );

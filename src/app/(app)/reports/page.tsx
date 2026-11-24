@@ -789,7 +789,7 @@ export default async function ReportsPage({
           </div>
 
           <div className="text-[11px] text-white/80 mt-1">
-            Packages {formatMoney(packageSales, currency)} · Other income{" "}
+            {f.en ? "Packages" : "الباقات"} {formatMoney(packageSales, currency)} · {f.en ? "Other income" : "إيرادات أخرى"}{" "}
             {formatMoney(manualIncomeTotal, currency)}
           </div>
         </div>
@@ -809,14 +809,14 @@ export default async function ReportsPage({
 
         <div className="kpi bg-gradient-to-br from-orange-500 to-pink-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            F&amp;B · sessions + Direct POS
+            {f.en ? "F&B · sessions + Direct POS" : "أكل وشرب · الجلسات + البيع المباشر"}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
             {formatMoney(ordersTotal, currency)}
           </div>
           <div className="text-[11px] text-white/80 mt-1">
-            Direct POS {formatMoney(directFnbRevenue, currency)} included
+            {f.en ? "Direct POS" : "البيع المباشر"} {formatMoney(directFnbRevenue, currency)} {f.en ? "included" : "مشمول"}
           </div>
         </div>
 
@@ -871,7 +871,7 @@ export default async function ReportsPage({
                   return (
                     <div
                       key={row.day}
-                      className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                      className="flex-1 flex flex-col items-center justify-end h-full gap-1 min-w-0"
                     >
                       <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
                         {value.toFixed(0)}
@@ -902,12 +902,12 @@ export default async function ReportsPage({
           )}
 
           <div className="mt-4 text-sm text-slate-500">
-            {bookingCount} bookings · Avg{" "}
+            {bookingCount} {f.en ? "bookings" : "حجز"} · {f.en ? "Avg" : "المتوسط"}{" "}
             {formatMoney(
               averageBooking,
               currency,
             )}{" "}
-            per booking
+            {f.en ? "per booking" : "للحجز"}
           </div>
         </div>
 
@@ -1130,7 +1130,7 @@ export default async function ReportsPage({
                   >
                     <div>
                       <div className="font-semibold text-sm">
-                        Shift #{shift.id} ·{" "}
+                        {f.en ? "Shift" : "شيفت"} #{shift.id} ·{" "}
                         {shift.userName}
                       </div>
 

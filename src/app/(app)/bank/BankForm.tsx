@@ -155,7 +155,7 @@ export default function BankForm({
           htmlFor="bank-amount"
           className="label"
         >
-          Amount ({currency})
+          {f.en ? "Amount" : "المبلغ"} ({currency})
         </label>
 
         <input

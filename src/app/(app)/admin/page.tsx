@@ -4,7 +4,7 @@ import { desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { auditLogs, bookings, customers, shifts, users } from "@/db/schema";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isOwner } from "@/lib/auth";
 import { arDate, arDateTime, arDuration, arMoney, arNumber, arTime, paymentLabel } from "@/lib/ar";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 import Icon from "../_components/Icon";
@@ -38,7 +38,7 @@ export default async function OwnerAdminPage({ searchParams }: { searchParams: P
   await loadTimezone();
   if (!user) redirect("/login");
   // Owner-only page: same rule the staff-shifts settings page already uses.
-  if (!isAdmin(user.role)) notFound();
+  if (!isOwner(user)) notFound();
 
   const { range } = await searchParams;
   const key = range && RANGES[range] ? range : "today";

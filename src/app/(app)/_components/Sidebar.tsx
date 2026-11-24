@@ -15,6 +15,7 @@ type NavItem = {
   group: Group;
   roles?: Role[];
   needsShift?: boolean;
+  ownerOnly?: boolean;
 };
 
 // Same routes, shift gates and role restrictions as before; only the labels
@@ -34,7 +35,7 @@ const NAV: NavItem[] = [
   { href: "/bank", label: "البنك", icon: "bank", group: "الإدارة", needsShift: true },
   { href: "/expenses", label: "المصاريف والإيرادات", icon: "wallet", group: "الإدارة", needsShift: true },
   { href: "/reports", label: "التقارير", icon: "chart", group: "الإدارة", roles: ["admin", "manager"] },
-  { href: "/admin", label: "لوحة المالك", icon: "shield", group: "الإدارة", roles: ["admin"] },
+  { href: "/admin", label: "لوحة المالك", icon: "shield", group: "الإدارة", roles: ["admin"], ownerOnly: true },
   { href: "/settings", label: "الإعدادات", icon: "sliders", group: "الإدارة" },
 ];
 
@@ -42,6 +43,7 @@ const GROUPS: Group[] = ["التشغيل", "الكافيه والمبيعات", 
 
 export default function Sidebar({
   role,
+  isOwner = false,
   hasShift,
   workspaceName,
   pendingOrders = 0,
@@ -52,6 +54,7 @@ export default function Sidebar({
 }: {
   lang?: Lang;
   role: Role;
+  isOwner?: boolean;
   hasShift: boolean;
   workspaceName: string;
   pendingOrders?: number;
@@ -60,7 +63,7 @@ export default function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const items = NAV.filter((item) => !item.roles || item.roles.includes(role));
+  const items = NAV.filter((item) => (!item.roles || item.roles.includes(role)) && (!item.ownerOnly || isOwner));
   const initials = (workspaceName || "WS").trim().slice(0, 2).toUpperCase();
 
   return (

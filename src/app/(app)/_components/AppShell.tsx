@@ -19,6 +19,7 @@ type SessionUserProp = React.ComponentProps<typeof Topbar>["user"];
  */
 export default function AppShell({
   role,
+  isOwner = false,
   hasShift,
   workspaceName,
   user,
@@ -29,6 +30,7 @@ export default function AppShell({
 }: {
   lang?: Lang;
   role: Role;
+  isOwner?: boolean;
   hasShift: boolean;
   workspaceName: string;
   user: SessionUserProp;
@@ -63,6 +65,7 @@ export default function AppShell({
     <div className="x-shell">
       <Sidebar
         role={role}
+        isOwner={isOwner}
         hasShift={hasShift}
         workspaceName={workspaceName}
         pendingOrders={pendingOrders}

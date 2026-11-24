@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isOwner } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 import { getSetting } from "@/lib/settings";
 import { db } from "@/db";
@@ -40,6 +40,7 @@ export default async function AppLayout({
     <>
       <AppShell
         role={user.role}
+        isOwner={isOwner(user)}
         hasShift={activeShift !== null}
         workspaceName={workspaceName}
         lang={lang}

@@ -8,11 +8,12 @@ import {
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
 import { canManage, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getSetting, formatMoney } from "@/lib/settings";
+import { getSetting } from "@/lib/settings";
 import CustomerEditButton from "./CustomerEditButton";
 import CustomerPackagesButton from "./CustomerPackagesButton";
 import CustomerBalanceButton from "./CustomerBalanceButton";
-import { PageHeader } from "../_components/ui";
+import Link from "next/link";
+import { arDate, arMoney, arNumber } from "@/lib/ar";
 import AddCustomerButton from "./AddCustomerButton";
 import { activeTimeZone, loadTimezone } from "@/lib/timezone";
 
@@ -154,228 +155,98 @@ export default async function CustomersPage({
     },
   );
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Customers"
-        description={`${customerRows.length} customer${customerRows.length === 1 ? "" : "s"} ${term ? "found" : "registered"}.`}
-        actions={
-          <>
-            <form method="get" className="flex gap-2">
-              <input
-                name="q"
-                defaultValue={term}
-                placeholder="Search name, phone, email or notes"
-                className="input"
-              />
-              <button type="submit" className="btn btn-ghost">
-                Search
-              </button>
-            </form>
-            <AddCustomerButton />
-          </>
-        }
-      />
+  const tz = activeTimeZone();
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-        <div className="card p-5 border border-slate-200/80">
-          <div className="text-xs uppercase tracking-[.12em] text-slate-500 font-semibold">
-            Customers shown
-          </div>
-          <div className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            {customerRows.length}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            {term ? "Matching your search" : "Most recent 500 records"}
-          </div>
+  return (
+    <div className="x-page space-y-5">
+      <div className="x-head">
+        <div>
+          <h1>العملاء</h1>
+          <p>{customerRows.length} {term ? "نتيجة" : "عميل مسجّل"}.</p>
         </div>
-        <div className="card p-5 border border-slate-200/80">
-          <div className="text-xs uppercase tracking-[.12em] text-slate-500 font-semibold">
-            Total visits
-          </div>
-          <div className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            {summary.visits.toLocaleString("en-EG")}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Across the customers shown
-          </div>
-        </div>
-        <div className="card p-5 border border-slate-200/80">
-          <div className="text-xs uppercase tracking-[.12em] text-slate-500 font-semibold">
-            Hours used
-          </div>
-          <div className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            {summary.hours.toFixed(1)}
-            <span className="ml-1 text-base font-semibold text-slate-500">
-              h
-            </span>
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Estimated from booking check-ins & rooms
-          </div>
-        </div>
-        <div className="card p-5 border border-slate-200/80">
-          <div className="text-xs uppercase tracking-[.12em] text-slate-500 font-semibold">
-            Booking spend
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
-            {formatMoney(summary.spent, currency)}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Booking totals · Wallet balance:{" "}
-            {formatMoney(summary.wallet, currency)}
-          </div>
-        </div>
-        <div className="card p-5 border border-slate-200/80">
-          <div className="text-xs uppercase tracking-[.12em] text-slate-500 font-semibold">
-            Meeting room packages
-          </div>
-          <div className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            {summary.activeMeetingPackages}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Active packages · Sold value:{" "}
-            {formatMoney(summary.meetingPackageSpend, currency)}
-          </div>
+        <div className="x-actions">
+          <form method="get" className="flex gap-2">
+            <input name="q" defaultValue={term} placeholder="دوّر بالاسم أو التليفون أو الإيميل" className="input" style={{ minWidth: 240 }} />
+            <button type="submit" className="x-btn">بحث</button>
+          </form>
+          <AddCustomerButton />
         </div>
       </div>
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr className="text-left text-xs uppercase text-slate-500">
-                <th className="py-3 px-4">Name</th>
-                <th className="py-3 px-4">Contact & notes</th>
-                <th className="py-3 px-4">Customer since</th>
-                <th className="py-3 px-4">Visits</th>
-                <th className="py-3 px-4">Hours used</th>
-                <th className="py-3 px-4">Last visit</th>
-                <th className="py-3 px-4">Meeting packages</th>
-                <th className="py-3 px-4 text-right">Booking spend</th>
-                <th className="py-3 px-4 text-right">Balance</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+      <div className="x-grid x-kpis">
+        <div className="x-card x-kpi">
+          <span className="x-kpi-label">العملاء</span>
+          <div className="x-kpi-value x-num">{customerRows.length}</div>
+          <div className="x-row-sub">{term ? "مطابقين للبحث" : "آخر 500 سجل"}</div>
+        </div>
+        <div className="x-card x-kpi">
+          <span className="x-kpi-label">إجمالي الزيارات</span>
+          <div className="x-kpi-value x-num">{summary.visits.toLocaleString("en-US")}</div>
+          <div className="x-row-sub">{summary.hours.toFixed(1)} ساعة استخدام</div>
+        </div>
+        <div className="x-card x-kpi">
+          <span className="x-kpi-label">إجمالي الإنفاق</span>
+          <div className="x-kpi-value x-num">{arNumber(summary.spent)}<small>ج.م</small></div>
+          <div className="x-row-sub">أرصدة العملاء: {arMoney(summary.wallet)}</div>
+        </div>
+        <div className="x-card x-kpi">
+          <span className="x-kpi-label">باقات غرف الاجتماعات</span>
+          <div className="x-kpi-value x-num">{summary.activeMeetingPackages}</div>
+          <div className="x-row-sub">شغالة · قيمة المبيعات {arMoney(summary.meetingPackageSpend)}</div>
+        </div>
+      </div>
+
+      <div className="x-card" style={{ padding: 0 }}>
+        <div className="x-table-wrap">
+          <table className="x-table">
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>التواصل</th>
+                <th>عميل من</th>
+                <th>الزيارات</th>
+                <th>آخر زيارة</th>
+                <th>باقات الغرف</th>
+                <th>الإنفاق</th>
+                <th>الرصيد</th>
+                <th>إجراءات</th>
               </tr>
             </thead>
             <tbody>
               {customerRows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="text-center py-12 text-slate-400">
-                    {term
-                      ? `No customers match "${term}".`
-                      : "No customers yet. Add your first customer to get started."}
-                  </td>
-                </tr>
+                <tr><td colSpan={9} className="x-empty">{term ? `مفيش عملاء مطابقين لـ "${term}".` : "لسه مفيش عملاء. ضيف أول عميل."}</td></tr>
               ) : (
                 customerRows.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-t border-slate-100 hover:bg-slate-50"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center font-bold">
-                          {c.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-semibold text-slate-900">
-                            {c.name}
-                          </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            Customer #{c.id}
-                          </div>
-                        </div>
+                  <tr key={c.id}>
+                    <td>
+                      <Link href={`/customers/${c.id}`} className="flex items-center gap-3" style={{ textDecoration: "none", color: "inherit" }}>
+                        <span className="x-kpi-ico tone-blue" style={{ width: 36, height: 36, fontWeight: 800 }}>{c.name.charAt(0)}</span>
+                        <span>
+                          <div className="x-row-title">{c.name}</div>
+                          <div className="x-row-sub" style={{ marginTop: 0 }}>عميل #{c.id}</div>
+                        </span>
+                      </Link>
+                    </td>
+                    <td style={{ minWidth: 170 }}>
+                      <div className="font-semibold x-num" dir="ltr" style={{ textAlign: "start" }}>{c.phone || "—"}</div>
+                      {c.email ? <div className="x-row-sub break-all">{c.email}</div> : null}
+                      {c.notes ? <div className="x-row-sub truncate" style={{ maxWidth: 220 }} title={c.notes}>📝 {c.notes}</div> : null}
+                    </td>
+                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.createdAt ? arDate(c.createdAt, tz) : "—"}</td>
+                    <td className="x-num">{c.totalVisits} <span className="x-row-sub">({parseFloat(c.totalHours).toFixed(1)} س)</span></td>
+                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.lastVisit ? arDate(c.lastVisit, tz) : "—"}</td>
+                    <td>
+                      <span className={`x-pill ${c.activeMeetingPackageCount > 0 ? "green" : ""}`}>{c.activeMeetingPackageCount} شغالة</span>
+                      <div className="x-row-sub">{c.meetingPackageCount} اتباعت</div>
+                    </td>
+                    <td className="font-bold x-num">{arMoney(parseFloat(c.totalSpent))}</td>
+                    <td className="font-bold x-num" style={{ color: Number(c.balance) > 0 ? "#1d4ed8" : "#94a3b8" }}>{arMoney(Number(c.balance))}</td>
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        <CustomerBalanceButton customerId={c.id} customerName={c.name} balance={Number(c.balance)} currency={currency} canAdjust={canManage(user.role)} />
+                        <CustomerPackagesButton customerId={c.id} customerName={c.name} customerPhone={c.phone} currency={currency} balance={Number(c.balance)} canVoid={canManage(user.role)} />
+                        <CustomerEditButton currency={currency} customer={{ id: c.id, name: c.name, phone: c.phone, email: c.email, notes: c.notes }} />
                       </div>
-                    </td>
-                    <td className="py-3 px-4 min-w-52">
-                      <div className="font-medium text-slate-700">
-                        {c.phone || "No phone"}
-                      </div>
-                      {c.email ? (
-                        <div className="text-xs text-slate-500 mt-1 break-all">
-                          {c.email}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-slate-400 mt-1">
-                          No email added
-                        </div>
-                      )}
-                      {c.notes ? (
-                        <div
-                          className="text-xs text-slate-500 mt-2 max-w-64 truncate"
-                          title={c.notes}
-                        >
-                          Note: {c.notes}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
-                      {c.createdAt
-                        ? new Date(c.createdAt).toLocaleDateString("en-EG", {
-                            timeZone: activeTimeZone(),
-                          })
-                        : "—"}
-                    </td>
-                    <td className="py-3 px-4">{c.totalVisits}</td>
-                    <td className="py-3 px-4 tabular-nums">
-                      {parseFloat(c.totalHours).toFixed(1)} h
-                    </td>
-                    <td className="py-3 px-4 text-slate-500">
-                      {c.lastVisit
-                        ? new Date(c.lastVisit).toLocaleString("en-EG", {
-                            timeZone: activeTimeZone(),
-                          })
-                        : "-"}
-                    </td>
-                    <td className="py-3 px-4 min-w-36">
-                      <div className="font-semibold text-slate-800">
-                        {c.activeMeetingPackageCount} active
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        {c.meetingPackageCount} purchased ·{" "}
-                        {formatMoney(c.meetingPackageSpend, currency)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold tabular-nums">
-                      {formatMoney(parseFloat(c.totalSpent), currency)}
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold tabular-nums">
-                      <span
-                        className={
-                          Number(c.balance) > 0
-                            ? "text-indigo-700"
-                            : "text-slate-400"
-                        }
-                      >
-                        {formatMoney(Number(c.balance), currency)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <CustomerBalanceButton
-                        customerId={c.id}
-                        customerName={c.name}
-                        balance={Number(c.balance)}
-                        currency={currency}
-                        canAdjust={canManage(user.role)}
-                      />
-                      <CustomerPackagesButton
-                        customerId={c.id}
-                        customerName={c.name}
-                        customerPhone={c.phone}
-                        currency={currency}
-                        balance={Number(c.balance)}
-                        canVoid={canManage(user.role)}
-                      />
-                      <CustomerEditButton
-                        currency={currency}
-                        customer={{
-                          id: c.id,
-                          name: c.name,
-                          phone: c.phone,
-                          email: c.email,
-                          notes: c.notes,
-                        }}
-                      />
                     </td>
                   </tr>
                 ))

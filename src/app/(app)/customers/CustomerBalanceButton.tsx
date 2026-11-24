@@ -129,7 +129,7 @@ export default function CustomerBalanceButton({
         className="btn btn-ghost text-indigo-700"
         onClick={() => setOpen(true)}
       >
-        👛 Balance
+        👛 الرصيد
       </button>
 
       {open &&

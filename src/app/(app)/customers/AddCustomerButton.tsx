@@ -47,7 +47,7 @@ export default function AddCustomerButton() {
         className="btn btn-primary"
         onClick={() => setOpen(true)}
       >
-        + Add customer
+        + عميل جديد
       </button>
       {open && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4">

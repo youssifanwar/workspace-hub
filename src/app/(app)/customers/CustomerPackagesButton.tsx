@@ -242,7 +242,7 @@ export default function CustomerPackagesButton({
         className="btn btn-ghost text-teal-700"
         onClick={() => setOpen(true)}
       >
-        Packages & hours
+        الباقات والساعات
       </button>
 
       {open &&

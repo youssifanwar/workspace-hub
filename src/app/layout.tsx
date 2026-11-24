@@ -12,6 +12,7 @@ import "@fontsource/fira-code/500.css";
 import "@fontsource-variable/noto-sans-arabic";
 
 import "./globals.css";
+import "./redesign.css";
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +34,8 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="ar"
+      dir="rtl"
       suppressHydrationWarning
     >
       <body className="antialiased">

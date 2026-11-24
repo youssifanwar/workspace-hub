@@ -278,7 +278,7 @@ export default function CustomerEditButton({
         className="btn btn-ghost text-indigo-600"
         onClick={() => setOpen(true)}
       >
-        ✏️ Edit
+        ✏️ تعديل
       </button>
 
       {open &&

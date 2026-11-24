@@ -22,6 +22,7 @@ export default function AppShell({
   workspaceName,
   user,
   activeShift,
+  pendingOrders = 0,
   children,
 }: {
   role: Role;
@@ -29,6 +30,7 @@ export default function AppShell({
   workspaceName: string;
   user: SessionUserProp;
   activeShift: { id: number; openedAt: string } | null;
+  pendingOrders?: number;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,11 +57,13 @@ export default function AppShell({
   }, [open]);
 
   return (
-    <div className="app-frame min-h-screen flex">
+    <div className="x-shell">
       <Sidebar
         role={role}
         hasShift={hasShift}
         workspaceName={workspaceName}
+        pendingOrders={pendingOrders}
+        activeShift={activeShift}
         open={open}
         onClose={() => setOpen(false)}
       />
@@ -72,7 +76,7 @@ export default function AppShell({
           onMenuClick={() => setOpen((v) => !v)}
         />
 
-        <main className="app-main flex-1 min-w-0 p-4 sm:p-6 xl:p-8">
+        <main className="x-main">
           <PageMotion>{children}</PageMotion>
         </main>
       </div>

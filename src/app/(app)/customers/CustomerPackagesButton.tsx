@@ -132,7 +132,7 @@ export default function CustomerPackagesButton({
       }
       setOwned(list);
     } catch {
-      setError("Could not load packages.");
+      setError(tx("Could not load packages."));
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export default function CustomerPackagesButton({
 
   async function voidPackage(item: Owned) {
     const reason = window.prompt(
-      `Void "${item.name}"? Only unused packages can be voided.\nWrite the reason:`,
+      (f.en ? `Void "${item.name}"? Only unused packages can be voided.\nWrite the reason:` : `إلغاء "${item.name}"؟ الباقات اللي لسه ما اتستخدمتش بس هي اللي تتلغي.\nاكتب السبب:`),
     );
     if (reason === null) return;
     if (!reason.trim()) {
@@ -176,10 +176,10 @@ export default function CustomerPackagesButton({
       }
       setSuccess(
         data.refund === "balance"
-          ? "Package voided and refunded to the customer's balance."
+          ? tx("Package voided and refunded to the customer's balance.")
           : data.paymentMethod === "cash"
-            ? "Package voided. Hand the cash back to the customer."
-            : "Package voided. Refund the customer through the same payment method.",
+            ? tx("Package voided. Hand the cash back to the customer.")
+            : tx("Package voided. Refund the customer through the same payment method."),
       );
       await load();
       router.refresh();
@@ -278,7 +278,7 @@ export default function CustomerPackagesButton({
                   <p className="text-sm text-slate-400">Loading…</p>
                 ) : owned.length === 0 ? (
                   <p className="text-sm text-slate-400">
-                    No packages yet for this customer.
+                    {tx("No packages yet for this customer.")}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -291,16 +291,16 @@ export default function CustomerPackagesButton({
                           <div className="font-semibold">
                             {o.name}{" "}
                             <span className="text-xs text-slate-500">
-                              ({o.kind === "desk" ? "Desk" : "Meeting room"})
+                              ({o.kind === "desk" ? tx("Desk") : tx("Meeting room")})
                             </span>
                           </div>
                           <div className="text-slate-500">
-                            Paid: {new Date(o.purchasedAt).toLocaleString()}
+                            {tx("Paid")}: {new Date(o.purchasedAt).toLocaleString()}
                             {o.expiresAt
-                              ? ` · Expires: ${new Date(
+                              ? ` · ${tx("Expires")}: ${new Date(
                                   o.expiresAt,
                                 ).toLocaleDateString()}`
-                              : " · No expiry"}
+                              : ` · ${tx("No expiry")}`}
                           </div>
                         </div>
                         <div className="text-right">
@@ -350,7 +350,7 @@ export default function CustomerPackagesButton({
                         kind === k ? "btn-primary" : "btn-ghost"
                       }`}
                     >
-                      {k === "desk" ? "Desk hours" : "Meeting room hours"}
+                      {k === "desk" ? tx("Desk hours") : tx("Meeting room hours")}
                     </button>
                   ))}
                 </div>
@@ -362,19 +362,18 @@ export default function CustomerPackagesButton({
                     value={packageId}
                     onChange={(e) => setPackageId(e.target.value)}
                   >
-                    <option value="">Select…</option>
+                    <option value="">{tx("Select…")}</option>
                     {list.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} — {Number(p.totalHours)}h —{" "}
                         {Number(p.price)} {currency}
-                        {p.validityDays ? ` — ${p.validityDays} days` : ""}
+                        {p.validityDays ? ` — ${p.validityDays} ${tx("days")}` : ""}
                       </option>
                     ))}
                   </select>
                   {list.length === 0 && !loading && (
                     <p className="text-xs text-amber-600 mt-1">
-                      No active {kind === "desk" ? "desk" : "meeting room"}{" "}
-                      packages. Create them in Settings first.
+                      {f.en ? `No active ${kind === "desk" ? "desk" : "meeting room"} packages. Create them in Settings first.` : `مفيش باقات ${kind === "desk" ? "مكاتب" : "غرف اجتماعات"} نشطة. اعملها من الإعدادات الأول.`}
                     </p>
                   )}
                 </div>
@@ -395,9 +394,9 @@ export default function CustomerPackagesButton({
                           }`}
                         >
                           {m === "instapay"
-                            ? "InstaPay"
+                            ? tx("InstaPay")
                             : m === "balance"
-                              ? `Balance · ${balance.toFixed(2)}`
+                              ? `${tx("Balance")} · ${balance.toFixed(2)}`
                               : m}
                         </button>
                       ),
@@ -415,7 +414,7 @@ export default function CustomerPackagesButton({
                     onChange={(e) => setPaidAt(e.target.value)}
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Expiry is counted from this date.
+                    {tx("Expiry is counted from this date.")}
                   </p>
                 </div>
 
@@ -445,7 +444,7 @@ export default function CustomerPackagesButton({
                   disabled={saving || !packageId}
                   onClick={sell}
                 >
-                  {saving ? "Saving…" : "Register package"}
+                  {saving ? tx("Saving…") : tx("Register package")}
                 </button>
               </div>
             </div>

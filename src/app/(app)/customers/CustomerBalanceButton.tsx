@@ -111,8 +111,8 @@ export default function CustomerBalanceButton({
       }
       setSuccess(
         mode === "deposit"
-          ? `Added ${value.toFixed(2)} ${currency}.`
-          : "Balance adjusted.",
+          ? (f.en ? `Added ${value.toFixed(2)} ${currency}.` : `تمت إضافة ${value.toFixed(2)} ${currency}.`)
+          : tx("Balance adjusted."),
       );
       setAmount("");
       setNote("");
@@ -159,13 +159,13 @@ export default function CustomerBalanceButton({
 
               <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-5">
                 <div className="text-xs uppercase tracking-wide text-white/80">
-                  Available balance
+                  {tx("Available balance")}
                 </div>
                 <div className="text-3xl font-bold tabular-nums mt-1">
                   {current.toFixed(2)} {currency}
                 </div>
                 <div className="text-xs text-white/80 mt-1">
-                  Can be used to pay for sessions and packages.
+                  {tx("Can be used to pay for sessions and packages.")}
                 </div>
               </div>
 
@@ -177,14 +177,14 @@ export default function CustomerBalanceButton({
                       className={`btn flex-1 ${mode === "deposit" ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => setMode("deposit")}
                     >
-                      Add money
+                      {tx("Add money")}
                     </button>
                     <button
                       type="button"
                       className={`btn flex-1 ${mode === "adjustment" ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => setMode("adjustment")}
                     >
-                      Manual adjustment
+                      {tx("Manual adjustment")}
                     </button>
                   </div>
                 )}
@@ -192,8 +192,8 @@ export default function CustomerBalanceButton({
                 <div>
                   <label className="label">
                     {mode === "deposit"
-                      ? `Amount received (${currency})`
-                      : `Adjustment (${currency}, negative to deduct)`}
+                      ? (f.en ? `Amount received (${currency})` : `المبلغ المستلم (${currency})`)
+                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${currency}، بالسالب للخصم)`)}
                   </label>
                   <input
                     className="input"
@@ -222,7 +222,7 @@ export default function CustomerBalanceButton({
                           }`}
                         >
                           {m === "cash" ? "💵" : m === "visa" ? "💳" : "📱"}{" "}
-                          {m === "instapay" ? "InstaPay" : m}
+                          {m === "instapay" ? tx("InstaPay") : m}
                         </button>
                       ))}
                     </div>
@@ -231,7 +231,7 @@ export default function CustomerBalanceButton({
 
                 <div>
                   <label className="label">
-                    Note {mode === "adjustment" ? "(required)" : "(optional)"}
+                    {tx("Note")} {mode === "adjustment" ? tx("(required)") : tx("(optional)")}
                   </label>
                   <input
                     className="input"
@@ -266,10 +266,10 @@ export default function CustomerBalanceButton({
                   onClick={submit}
                 >
                   {saving
-                    ? "Saving…"
+                    ? tx("Saving…")
                     : mode === "deposit"
-                      ? "Add to balance"
-                      : "Apply adjustment"}
+                      ? tx("Add to balance")
+                      : tx("Apply adjustment")}
                 </button>
               </div>
 
@@ -288,7 +288,7 @@ export default function CustomerBalanceButton({
                       >
                         <div className="min-w-0">
                           <div className="font-medium">
-                            {TYPE_LABEL[t.type] ?? t.type}
+                            {tx(TYPE_LABEL[t.type] ?? t.type)}
                             {t.paymentMethod ? ` · ${t.paymentMethod}` : ""}
                           </div>
                           <div className="text-xs text-slate-500 truncate">

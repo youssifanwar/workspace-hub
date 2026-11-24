@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useFmt } from "@/lib/lang-context";
 
 type Subscription = {
   id: number;
@@ -36,6 +37,8 @@ export default function CustomerSubscriptionButton({
   customerId,
   showNewCustomer = true,
 }: Props) {
+  const f = useFmt();
+  const tx = f.t;
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   const [packages, setPackages] = useState<Package[]>([]);
@@ -77,7 +80,7 @@ export default function CustomerSubscriptionButton({
       const packagesData = await packagesRes.json().catch(() => null);
 
       if (!packagesRes.ok) {
-        throw new Error(packagesData?.error || "Could not load packages.");
+        throw new Error(packagesData?.error || tx("Could not load packages."));
       }
 
       setPackages(
@@ -100,7 +103,7 @@ export default function CustomerSubscriptionButton({
 
         if (!subscriptionRes.ok) {
           throw new Error(
-            subscriptionData?.error || "Could not load customer subscription.",
+            subscriptionData?.error || tx("Could not load customer subscription."),
           );
         }
 
@@ -110,7 +113,7 @@ export default function CustomerSubscriptionButton({
       console.error("Load subscription data error:", err);
 
       setError(
-        err instanceof Error ? err.message : "Could not load subscription.",
+        err instanceof Error ? err.message : tx("Could not load subscription."),
       );
     } finally {
       setLoading(false);
@@ -130,9 +133,7 @@ export default function CustomerSubscriptionButton({
     }
 
     const confirmed = window.confirm(
-      `Purchase "${pkg.name}" for this customer?\n\n` +
-        `Hours: ${pkg.totalHours}\n` +
-        `Price: ${pkg.price.toFixed(2)}`,
+      (f.en ? `Purchase "${pkg.name}" for this customer?\n\nHours: ${pkg.totalHours}\nPrice: ${pkg.price.toFixed(2)}` : `شراء "${pkg.name}" للعميل ده؟\n\nالساعات: ${pkg.totalHours}\nالسعر: ${pkg.price.toFixed(2)}`),
     );
 
     if (!confirmed) {
@@ -157,12 +158,12 @@ export default function CustomerSubscriptionButton({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || "Could not purchase package.");
+        throw new Error(data?.error || tx("Could not purchase package."));
       }
 
       setSubscription(data?.subscription ?? null);
 
-      setSuccess("Package purchased successfully.");
+      setSuccess(f.en ? "Package purchased successfully." : "تم شراء الباقة بنجاح.");
 
       setOpen(false);
 
@@ -171,7 +172,7 @@ export default function CustomerSubscriptionButton({
       console.error("Purchase package error:", err);
 
       setError(
-        err instanceof Error ? err.message : "Could not purchase package.",
+        err instanceof Error ? err.message : tx("Could not purchase package."),
       );
     } finally {
       setSaving(false);
@@ -226,9 +227,7 @@ export default function CustomerSubscriptionButton({
     }
 
     const confirmed = window.confirm(
-      `Register "${name}" and purchase "${selectedPackage.name}"?\n\n` +
-        `Hours: ${selectedPackage.totalHours}\n` +
-        `Price: ${selectedPackage.price.toFixed(2)}`,
+      (f.en ? `Register "${name}" and purchase "${selectedPackage.name}"?\n\nHours: ${selectedPackage.totalHours}\nPrice: ${selectedPackage.price.toFixed(2)}` : `تسجيل "${name}" وشراء "${selectedPackage.name}"؟\n\nالساعات: ${selectedPackage.totalHours}\nالسعر: ${selectedPackage.price.toFixed(2)}`),
     );
 
     if (!confirmed) {
@@ -254,11 +253,11 @@ export default function CustomerSubscriptionButton({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || "Could not register customer.");
+        throw new Error(data?.error || tx("Could not register customer."));
       }
 
       setSuccess(
-        `Customer "${data?.customer?.name ?? name}" registered and package purchased successfully.`,
+        (f.en ? `Customer "${data?.customer?.name ?? name}" registered and package purchased successfully.` : `تم تسجيل العميل "${data?.customer?.name ?? name}" وشراء الباقة بنجاح.`),
       );
 
       resetNewCustomerForm();
@@ -272,7 +271,7 @@ export default function CustomerSubscriptionButton({
       console.error("Register new customer error:", err);
 
       setError(
-        err instanceof Error ? err.message : "Could not register customer.",
+        err instanceof Error ? err.message : tx("Could not register customer."),
       );
     } finally {
       setSaving(false);
@@ -282,7 +281,7 @@ export default function CustomerSubscriptionButton({
   if (loading) {
     return (
       <div className="mt-3 text-xs text-slate-400">
-        Loading subscription…
+        {tx("Loading subscription…")}
       </div>
     );
   }
@@ -297,7 +296,7 @@ export default function CustomerSubscriptionButton({
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-indigo-500 font-semibold">
-                    Active Package
+                    {tx("Active Package")}
                   </div>
 
                   <div className="font-bold text-indigo-900 mt-1">
@@ -313,7 +312,7 @@ export default function CustomerSubscriptionButton({
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <div className="rounded-lg bg-white border border-indigo-100 p-2">
                   <div className="text-[10px] text-slate-400 uppercase">
-                    Remaining
+                    {tx("Remaining")}
                   </div>
 
                   <div className="font-bold text-slate-900">
@@ -323,7 +322,7 @@ export default function CustomerSubscriptionButton({
 
                 <div className="rounded-lg bg-white border border-indigo-100 p-2">
                   <div className="text-[10px] text-slate-400 uppercase">
-                    Expires
+                    {tx("Expires")}
                   </div>
 
                   <div className="font-bold text-slate-900">
@@ -331,7 +330,7 @@ export default function CustomerSubscriptionButton({
                       ? new Date(subscription.expiresAt).toLocaleDateString(
                           "en-EG",
                         )
-                      : "No expiry"}
+                      : tx("No expiry")}
                   </div>
                 </div>
               </div>
@@ -392,11 +391,11 @@ export default function CustomerSubscriptionButton({
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">
-                    Customer Package
+                    {tx("Customer Package")}
                   </div>
 
                   <h3 className="text-xl font-bold text-slate-900 mt-1">
-                    Choose a package
+                    {tx("Choose a package")}
                   </h3>
                 </div>
 
@@ -412,7 +411,7 @@ export default function CustomerSubscriptionButton({
 
               {packages.length === 0 ? (
                 <div className="p-6 text-center text-sm text-slate-500">
-                  No active packages available.
+                  {tx("No active packages available.")}
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto">
@@ -444,13 +443,13 @@ export default function CustomerSubscriptionButton({
 
                       <div className="flex gap-2 mt-3 text-xs flex-wrap">
                         <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold">
-                          ⏱ {pkg.totalHours} hours
+                          ⏱ {pkg.totalHours} {tx("hours")}
                         </span>
 
                         <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold">
                           {pkg.validityDays
-                            ? `📅 ${pkg.validityDays} days`
-                            : "∞ No expiry"}
+                            ? `📅 ${pkg.validityDays} ${tx("days")}`
+                            : tx("∞ No expiry")}
                         </span>
                       </div>
                     </button>
@@ -460,7 +459,7 @@ export default function CustomerSubscriptionButton({
 
               {saving && (
                 <div className="text-center text-sm text-slate-500 mt-4">
-                  Processing purchase…
+                  {tx("Processing purchase…")}
                 </div>
               )}
             </div>
@@ -477,7 +476,7 @@ export default function CustomerSubscriptionButton({
               <div className="flex items-start justify-between gap-3 mb-5">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">
-                    New Customer
+                    {tx("New Customer")}
                   </div>
 
                   <h3 className="text-2xl font-bold text-slate-900 mt-1">
@@ -485,8 +484,7 @@ export default function CustomerSubscriptionButton({
                   </h3>
 
                   <p className="text-sm text-slate-500 mt-1">
-                    Create the customer and activate their package in one
-                    operation.
+                    {tx("Create the customer and activate their package in one operation.")}
                   </p>
                 </div>
 
@@ -514,7 +512,7 @@ export default function CustomerSubscriptionButton({
                     className="input"
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
-                    placeholder="Ahmed Mohamed"
+                    placeholder={tx("Ahmed Mohamed")}
                     disabled={saving}
                     autoFocus
                   />
@@ -559,7 +557,7 @@ export default function CustomerSubscriptionButton({
 
                   {packages.length === 0 ? (
                     <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
-                      No active packages available.
+                      {tx("No active packages available.")}
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -600,13 +598,13 @@ export default function CustomerSubscriptionButton({
 
                             <div className="flex gap-2 mt-3 flex-wrap text-xs">
                               <span className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold">
-                                ⏱ {pkg.totalHours} hours
+                                ⏱ {pkg.totalHours} {tx("hours")}
                               </span>
 
                               <span className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold">
                                 {pkg.validityDays
-                                  ? `📅 ${pkg.validityDays} days`
-                                  : "∞ No expiry"}
+                                  ? `📅 ${pkg.validityDays} ${tx("days")}`
+                                  : tx("∞ No expiry")}
                               </span>
 
                               <span className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-indigo-700 font-bold">
@@ -635,7 +633,7 @@ export default function CustomerSubscriptionButton({
                       return (
                         <>
                           <div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
-                            Purchase summary
+                            {tx("Purchase summary")}
                           </div>
 
                           <div className="flex items-center justify-between mt-2">
@@ -649,11 +647,11 @@ export default function CustomerSubscriptionButton({
                           </div>
 
                           <div className="text-sm text-slate-500 mt-1">
-                            {pkg.totalHours} hours
+                            {pkg.totalHours} {tx("hours")}
                             {" · "}
                             {pkg.validityDays
-                              ? `${pkg.validityDays} days validity`
-                              : "No expiry"}
+                              ? `${pkg.validityDays} ${tx("days validity")}`
+                              : tx("No expiry")}
                           </div>
                         </>
                       );
@@ -693,7 +691,7 @@ export default function CustomerSubscriptionButton({
                     }
                     className="btn btn-primary flex-1"
                   >
-                    {saving ? "Processing…" : "Create + Purchase"}
+                    {saving ? tx("Processing…") : tx("Create + Purchase")}
                   </button>
                 </div>
               </div>

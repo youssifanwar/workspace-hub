@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
 
+import { getLang } from "@/lib/i18n";
+import { makeFmt } from "@/lib/i18n-shared";
 import BankForm from "./BankForm";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,8 @@ function formatDateTime(value: Date) {
 }
 
 export default async function BankPage() {
+  const f = makeFmt(await getLang());
+  const tx = f.t;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -100,12 +104,11 @@ export default async function BankPage() {
       {/* HEADER */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900">
-          Bank
+          {tx("Bank")}
         </h1>
 
         <p className="text-slate-500">
-          Track cash deposited to the bank and withdrawals from bank
-          to cash.
+          {tx("Track cash deposited to the bank and withdrawals from bank to cash.")}
         </p>
       </div>
 
@@ -113,7 +116,7 @@ export default async function BankPage() {
       <div className="grid md:grid-cols-3 gap-4">
         <div className="kpi bg-gradient-to-br from-emerald-500 to-teal-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Total deposits
+            {tx("Total deposits")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -123,7 +126,7 @@ export default async function BankPage() {
 
         <div className="kpi bg-gradient-to-br from-amber-500 to-orange-500">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Total withdrawals
+            {tx("Total withdrawals")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -133,7 +136,7 @@ export default async function BankPage() {
 
         <div className="kpi bg-gradient-to-br from-indigo-600 to-purple-600">
           <div className="text-xs uppercase text-white/80 font-semibold">
-            Net bank balance
+            {tx("Net bank balance")}
           </div>
 
           <div className="text-2xl font-bold mt-2 tabular-nums">
@@ -147,7 +150,7 @@ export default async function BankPage() {
         {/* NEW TRANSACTION */}
         <section className="card p-5 lg:col-span-1">
           <h2 className="font-bold mb-3">
-            New transaction
+            {tx("New transaction")}
           </h2>
 
           <BankForm currency={currency} />
@@ -157,17 +160,17 @@ export default async function BankPage() {
         <section className="card p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold">
-              Recent transactions
+              {tx("Recent transactions")}
             </h2>
 
             <span className="text-xs text-slate-400">
-              Latest 50
+              {tx("Latest 50")}
             </span>
           </div>
 
           {rows.length === 0 ? (
             <div className="text-sm text-slate-400 text-center py-8">
-              No transactions yet
+              {tx("No transactions yet")}
             </div>
           ) : (
             <div className="divide-soft">
@@ -195,13 +198,13 @@ export default async function BankPage() {
                     {/* DETAILS */}
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-slate-800">
-                        {isDeposit ? "Deposit" : "Withdraw"}
+                        {isDeposit ? tx("Deposit") : tx("Withdraw")}
                         {" · "}
-                        {row.userName || "Unknown user"}
+                        {row.userName || tx("Unknown user")}
                       </div>
 
                       <div className="text-xs text-slate-500 truncate">
-                        {row.note?.trim() || "No note"}
+                        {row.note?.trim() || tx("No note")}
                         {" · "}
                         {formatDateTime(row.createdAt)}
                       </div>

@@ -157,7 +157,7 @@ export default function InventoryPage() {
         ]}
       />
 
-      {error && <div className="v2-alert red">{error}</div>}
+      {error && <div className="v2-alert red">{tx(error)}</div>}
       {message && <div className="v2-alert green">{message}</div>}
 
       <Panel flush>

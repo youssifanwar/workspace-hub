@@ -34,6 +34,15 @@ const TX_LABEL: Record<string, string> = {
   adjust: "تعديل",
 };
 
+const RES_LABEL: Record<string, string> = {
+  confirmed: "مؤكد",
+  active: "شغال",
+  completed: "خلص",
+  cancelled: "ملغي",
+  no_show: "ما حضرش",
+  pending: "في الانتظار",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   active: "شغالة",
   expired: "منتهية",
@@ -236,7 +245,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                   <div key={r.id} className="v2-list-row">
                     <div><b>{r.roomName}</b><small>{f.dateTime(r.startAt, tz)}</small></div>
                     <b>{f.money(Number(r.total))}</b>
-                    <span className="v2-tag slate">{r.status}</span>
+                    <span className={`v2-tag ${r.status === "confirmed" || r.status === "active" ? "green" : "slate"}`}>{tx(RES_LABEL[r.status] ?? r.status)}</span>
                   </div>
                 ))}
               </div>

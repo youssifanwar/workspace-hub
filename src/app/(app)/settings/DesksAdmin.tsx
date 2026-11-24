@@ -839,7 +839,7 @@ export default function DesksAdmin({
 
       {error && (
         <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 whitespace-pre-wrap">
-          {error}
+          {tx(error)}
         </div>
       )}
 
@@ -2107,7 +2107,7 @@ function AddLocationModal({
 
         {error && (
           <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+            {tx(error)}
           </div>
         )}
 

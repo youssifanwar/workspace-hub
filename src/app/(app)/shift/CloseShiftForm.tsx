@@ -317,7 +317,7 @@ export default function CloseShiftForm({
           role="alert"
           aria-live="assertive"
         >
-          {error}
+          {tx(error)}
         </div>
       )}
 

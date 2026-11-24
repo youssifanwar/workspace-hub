@@ -93,7 +93,7 @@ export default function AddCustomerButton() {
             </div>
             {error && (
               <div className="text-sm text-red-600 bg-red-50 rounded-lg p-2">
-                {error}
+                {tx(error)}
               </div>
             )}
             <div className="flex gap-2 justify-end">

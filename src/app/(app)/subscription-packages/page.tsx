@@ -568,7 +568,7 @@ export default function SubscriptionPackagesPage() {
         ]}
       />
 
-      {error && <div className="v2-alert red" style={{ marginTop: 16 }}>{error}</div>}
+      {error && <div className="v2-alert red" style={{ marginTop: 16 }}>{tx(error)}</div>}
       {success && <div className="v2-alert green" style={{ marginTop: 16 }}>{success}</div>}
 
       <div className="v2-split rev" style={{ marginTop: 20 }}>

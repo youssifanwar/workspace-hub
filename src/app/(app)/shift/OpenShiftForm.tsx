@@ -222,7 +222,7 @@ export default function OpenShiftForm({
           role="alert"
           aria-live="polite"
         >
-          {error}
+          {tx(error)}
         </div>
       )}
 

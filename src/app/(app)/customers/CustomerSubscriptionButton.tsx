@@ -377,7 +377,7 @@ export default function CustomerSubscriptionButton({
       {/* ERROR */}
       {error && (
         <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-          {error}
+          {tx(error)}
         </div>
       )}
 
@@ -662,7 +662,7 @@ export default function CustomerSubscriptionButton({
                 {/* ERROR INSIDE MODAL */}
                 {error && (
                   <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
-                    {error}
+                    {tx(error)}
                   </div>
                 )}
 

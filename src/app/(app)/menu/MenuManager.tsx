@@ -373,7 +373,7 @@ export default function MenuManager({
           aria-live="polite"
           className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
-          {error}
+          {tx(error)}
 
           <button
             type="button"
@@ -1210,7 +1210,7 @@ function ProductModal({
               aria-live="polite"
               className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
 
@@ -1474,7 +1474,7 @@ function CategoryModal({
               aria-live="polite"
               className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
 

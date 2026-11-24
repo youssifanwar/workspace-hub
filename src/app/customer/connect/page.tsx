@@ -129,7 +129,7 @@ export default function CustomerConnectPage() {
 
           {error && (
             <div className="p-3 rounded-xl bg-red-50 text-sm text-red-700">
-              {error}
+              {tx(error)}
             </div>
           )}
 

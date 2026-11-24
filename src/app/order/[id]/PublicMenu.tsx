@@ -601,7 +601,7 @@ export default function PublicMenu({
       <div className="q-wrap grid place-items-center p-6">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-3">😕</div>
-          <div className="font-bold text-lg">{error}</div>
+          <div className="font-bold text-lg">{tx(error)}</div>
         </div>
       </div>
     );
@@ -696,12 +696,12 @@ export default function PublicMenu({
                 {connecting ? tx("بيتصل…") : tx("اتصل")}
               </button>
             </div>
-            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{error}</div>}
+            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{tx(error)}</div>}
           </div>
         )}
 
         {!needsConnection && error && (
-          <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginTop: 12 }}>{error}</div>
+          <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginTop: 12 }}>{tx(error)}</div>
         )}
 
         <div className="q-cats">
@@ -790,7 +790,7 @@ export default function PublicMenu({
               <span style={{ fontSize: 26, fontWeight: 800, color: "#1d4ed8" }} className="x-num">{cartTotal.toFixed(0)} {f.cur}</span>
             </div>
 
-            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 10 }}>{error}</div>}
+            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 10 }}>{tx(error)}</div>}
 
             <button onClick={placeOrder} disabled={placing || !booking || cartArr.length === 0} className="x-btn success block" style={{ padding: 16, fontSize: 17 }}>
               {placing ? tx("بنبعت الطلب…") : !booking ? tx("اربط التليفون الأول") : `${tx("إرسال الطلب")} · ${cartTotal.toFixed(0)} ${f.cur}`}

@@ -483,7 +483,7 @@ export default function StartNowDialog({
                     role="alert"
                     className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3"
                   >
-                    {error}
+                    {tx(error)}
                   </div>
                 )}
                 <button

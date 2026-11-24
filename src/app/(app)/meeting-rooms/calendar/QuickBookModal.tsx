@@ -331,7 +331,7 @@ export default function QuickBookModal({
 
         {error && (
           <div role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg p-2">
-            {error}
+            {tx(error)}
           </div>
         )}
 

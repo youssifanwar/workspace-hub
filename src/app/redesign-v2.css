@@ -238,3 +238,15 @@ html[dir="rtl"] body { letter-spacing: 0; }
 input[data-v2search] { padding-inline-start: 40px !important; border-radius: 12px !important; background-color: #fff !important; background-repeat: no-repeat !important; background-size: 16px !important; background-position: 14px center !important; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") !important; }
 [dir="rtl"] input[data-v2search] { background-position: calc(100% - 14px) center !important; }
 input[data-v2search]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.15) !important; outline: none; }
+/* unified modals */
+@keyframes v2-pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes v2-fade { from { opacity: 0; } to { opacity: 1; } }
+.fixed.inset-0[class*="backdrop-blur"] { background: rgba(15,23,42,.55) !important; backdrop-filter: blur(6px); animation: v2-fade .15s ease-out; }
+.fixed.inset-0[class*="backdrop-blur"] > .card,
+.fixed.inset-0[class*="backdrop-blur"] > div[class*="rounded-3xl"],
+.fixed.inset-0[class*="backdrop-blur"] > div > div[class*="rounded-3xl"] {
+  border-radius: 20px !important; border: 1px solid #e2e8f0 !important; box-shadow: 0 30px 80px -20px rgba(15,23,42,.45) !important; background: #fff; animation: v2-pop .2s ease-out;
+}
+.fixed.inset-0[class*="backdrop-blur"] h2 { letter-spacing: -.01em; }
+.fixed.inset-0[class*="backdrop-blur"] .input, .fixed.inset-0[class*="backdrop-blur"] select, .fixed.inset-0[class*="backdrop-blur"] textarea { border-radius: 12px; }
+.fixed.inset-0[class*="backdrop-blur"] .label { font-size: 12.5px; font-weight: 700; color: #475569; }

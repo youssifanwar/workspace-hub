@@ -13,6 +13,7 @@ import "@fontsource-variable/noto-sans-arabic";
 
 import "./globals.css";
 import "./redesign.css";
+import "./redesign-v2.css";
 import { getLang } from "@/lib/i18n";
 import { LangProvider } from "@/lib/lang-context";
 

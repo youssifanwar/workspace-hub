@@ -464,27 +464,18 @@ export default async function InvoicePage({
           <div className="space-y-1 text-xs">
             <Line
               label={tx("Seat charge")}
-              value={formatMoney(
-                seatCharge,
-                currency,
-              )}
+              value={f.money(seatCharge)}
             />
 
             <Line
               label={tx("F&B")}
-              value={formatMoney(
-                ordersTotal,
-                currency,
-              )}
+              value={f.money(ordersTotal)}
             />
 
             {discount > 0 && (
               <Line
                 label={tx("Discount")}
-                value={`- ${formatMoney(
-                  discount,
-                  currency,
-                )}`}
+                value={`- ${f.money(discount)}`}
               />
             )}
 
@@ -492,10 +483,7 @@ export default async function InvoicePage({
               <span>{tx("TOTAL")}</span>
 
               <span className="tabular-nums">
-                {formatMoney(
-                  total,
-                  currency,
-                )}
+                {f.money(total)}
               </span>
             </div>
           </div>
@@ -509,19 +497,13 @@ export default async function InvoicePage({
 
             <Line
               label={tx("Paid")}
-              value={formatMoney(
-                paidAmount,
-                currency,
-              )}
+              value={f.money(paidAmount)}
             />
 
             {changeAmount > 0 && (
               <Line
                 label={tx("Change")}
-                value={formatMoney(
-                  changeAmount,
-                  currency,
-                )}
+                value={f.money(changeAmount)}
               />
             )}
           </div>

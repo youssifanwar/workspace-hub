@@ -194,19 +194,13 @@ export default async function ShiftPage() {
                     <div className="text-right text-xs shrink-0">
                       <div>
                         {tx("Open:")}{" "}
-                        {formatMoney(
-                          openingCash,
-                          currency,
-                        )}
+                        {f.money(openingCash)}
                       </div>
 
                       <div>
                         {tx("Close:")}{" "}
                         {closingCash !== null
-                          ? formatMoney(
-                              closingCash,
-                              currency,
-                            )
+                          ? f.money(closingCash)
                           : "-"}
                       </div>
                     </div>

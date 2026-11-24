@@ -775,18 +775,18 @@ export default async function ReportsPage({
         <div className="v2-hero-main">
           <span className="v2-hero-label">{tx("Net profit")}</span>
           <span className={`v2-hero-value ${netProfit >= 0 ? "pos" : "neg"}`}>
-            {formatMoney(netProfit, currency)}
+            {f.money(netProfit)}
           </span>
           <span className="v2-hero-sub">
-            {tx("Revenue")} {formatMoney(revenue, currency)} · {tx("Expenses")} {formatMoney(totalExpenses, currency)}
+            {tx("Revenue")} {f.money(revenue)} · {tx("Expenses")} {f.money(totalExpenses)}
           </span>
         </div>
         <StatStrip
           items={[
-            { label: tx("Revenue"), value: formatMoney(revenue, currency), hint: `${f.en ? "Packages" : "الباقات"} ${formatMoney(packageSales, currency)} · ${f.en ? "Other income" : "إيرادات أخرى"} ${formatMoney(manualIncomeTotal, currency)}`, tone: "green" },
-            { label: tx("Seat charges"), value: formatMoney(seatTotal, currency), tone: "brand" },
-            { label: f.en ? "F&B · sessions + Direct POS" : "أكل وشرب · الجلسات + البيع المباشر", value: formatMoney(ordersTotal, currency), hint: `${f.en ? "Direct POS" : "البيع المباشر"} ${formatMoney(directFnbRevenue, currency)} ${f.en ? "included" : "مشمول"}`, tone: "amber" },
-            { label: tx("Expenses"), value: formatMoney(totalExpenses, currency), tone: "red" },
+            { label: tx("Revenue"), value: f.money(revenue), hint: `${f.en ? "Packages" : "الباقات"} ${f.money(packageSales)} · ${f.en ? "Other income" : "إيرادات أخرى"} ${f.money(manualIncomeTotal)}`, tone: "green" },
+            { label: tx("Seat charges"), value: f.money(seatTotal), tone: "brand" },
+            { label: f.en ? "F&B · sessions + Direct POS" : "أكل وشرب · الجلسات + البيع المباشر", value: f.money(ordersTotal), hint: `${f.en ? "Direct POS" : "البيع المباشر"} ${f.money(directFnbRevenue)} ${f.en ? "included" : "مشمول"}`, tone: "amber" },
+            { label: tx("Expenses"), value: f.money(totalExpenses), tone: "red" },
           ]}
         />
       </div>
@@ -794,7 +794,7 @@ export default async function ReportsPage({
       <div className="v2-split">
         <Panel
           title={tx("Daily revenue")}
-          meta={`${bookingCount} ${f.en ? "bookings" : "حجز"} · ${f.en ? "Avg" : "المتوسط"} ${formatMoney(averageBooking, currency)} ${f.en ? "per booking" : "للحجز"}`}
+          meta={`${bookingCount} ${f.en ? "bookings" : "حجز"} · ${f.en ? "Avg" : "المتوسط"} ${f.money(averageBooking)} ${f.en ? "per booking" : "للحجز"}`}
         >
           {dailyRowsMerged.length === 0 ? (
             <div className="v2-empty">{tx("No data")}</div>
@@ -835,7 +835,7 @@ export default async function ReportsPage({
                   <div key={payment.method ?? "unknown"} className="v2-bar-row">
                     <div className="v2-bar-top">
                       <span>{payLabel(payment.method)}</span>
-                      <b>{formatMoney(value, currency)}</b>
+                      <b>{f.money(value)}</b>
                     </div>
                     <div className="v2-meter"><i style={{ width: `${pct}%` }} /></div>
                     <small>{pct.toFixed(0)}%</small>
@@ -845,8 +845,8 @@ export default async function ReportsPage({
             </div>
           )}
           <div className="v2-kv">
-            <div><span>{tx("Bank deposits")}</span><b>{formatMoney(bankDeposits, currency)}</b></div>
-            <div><span>{tx("Bank withdrawals")}</span><b>{formatMoney(bankWithdrawals, currency)}</b></div>
+            <div><span>{tx("Bank deposits")}</span><b>{f.money(bankDeposits)}</b></div>
+            <div><span>{tx("Bank withdrawals")}</span><b>{f.money(bankWithdrawals)}</b></div>
           </div>
         </Panel>
       </div>
@@ -880,7 +880,7 @@ export default async function ReportsPage({
                         <td style={{ minWidth: 120 }}>
                           <div className="v2-meter"><i style={{ width: `${share}%` }} /></div>
                         </td>
-                        <td className="num">{formatMoney(revenueValue, currency)}</td>
+                        <td className="num">{f.money(revenueValue)}</td>
                       </tr>
                     );
                   })}

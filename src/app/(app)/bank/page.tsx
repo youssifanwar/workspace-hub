@@ -102,9 +102,9 @@ export default async function BankPage() {
 
       <StatStrip
         items={[
-          { label: tx("Net bank balance"), value: formatMoney(balance, currency), tone: "brand" },
-          { label: tx("Total deposits"), value: formatMoney(deposits, currency), tone: "green" },
-          { label: tx("Total withdrawals"), value: formatMoney(withdrawals, currency), tone: "amber" },
+          { label: tx("Net bank balance"), value: f.money(balance), tone: "brand" },
+          { label: tx("Total deposits"), value: f.money(deposits), tone: "green" },
+          { label: tx("Total withdrawals"), value: f.money(withdrawals), tone: "amber" },
         ]}
       />
 
@@ -146,7 +146,7 @@ export default async function BankPage() {
                         <td className="muted">{f.dateTime(row.createdAt)}</td>
                         <td className="num" style={{ color: isDeposit ? "#047857" : "#b45309" }}>
                           {isDeposit ? "+" : "-"}
-                          {formatMoney(amount, currency)}
+                          {f.money(amount)}
                         </td>
                       </tr>
                     );

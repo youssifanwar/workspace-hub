@@ -161,10 +161,10 @@ export default async function ExpensesPage({
 
       <StatStrip
         items={[
-          { label: tx("This shift · income"), value: formatMoney(shiftIncomeTotal, currency), tone: "green" },
-          { label: tx("This shift · expenses"), value: formatMoney(shiftExpenseTotal, currency), tone: "red" },
-          { label: tx("Manual income (all-time)"), value: formatMoney(incomeTotal, currency), tone: "slate" },
-          { label: tx("All-time expenses"), value: formatMoney(totalExpenses, currency), tone: "slate" },
+          { label: tx("This shift · income"), value: f.money(shiftIncomeTotal), tone: "green" },
+          { label: tx("This shift · expenses"), value: f.money(shiftExpenseTotal), tone: "red" },
+          { label: tx("Manual income (all-time)"), value: f.money(incomeTotal), tone: "slate" },
+          { label: tx("All-time expenses"), value: f.money(totalExpenses), tone: "slate" },
         ]}
       />
 
@@ -213,12 +213,12 @@ export default async function ExpensesPage({
                           </span>
                         </td>
                         <td>{row.note?.trim() || <span className="muted">{tx("No note")}</span>}</td>
-                        <td className="muted">{String(row.paymentMethod ?? "cash").toUpperCase()}</td>
+                        <td className="muted">{f.pay(String(row.paymentMethod ?? "cash"))}</td>
                         <td className="muted">{row.userName || tx("Unknown user")}</td>
                         <td className="muted">{f.dateTime(row.createdAt)}</td>
                         <td className="num" style={{ color: isIncome ? "#047857" : "#b91c1c" }}>
                           {isIncome ? "+" : "-"}
-                          {formatMoney(amount, currency)}
+                          {f.money(amount)}
                         </td>
                       </tr>
                     );

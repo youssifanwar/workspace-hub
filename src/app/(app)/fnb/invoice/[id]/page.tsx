@@ -168,20 +168,20 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="space-y-1 text-xs">
-            <Line label={tx("Subtotal")} value={formatMoney(subtotal, currency)} />
+            <Line label={tx("Subtotal")} value={f.money(subtotal)} />
             {discount > 0 && (
-              <Line label={tx("Discount")} value={`- ${formatMoney(discount, currency)}`} />
+              <Line label={tx("Discount")} value={`- ${f.money(discount)}`} />
             )}
             <div className="flex items-center justify-between text-lg font-bold pt-2 border-t border-slate-300">
               <span>{tx("TOTAL")}</span>
-              <span className="tabular-nums">{formatMoney(total, currency)}</span>
+              <span className="tabular-nums">{f.money(total)}</span>
             </div>
           </div>
 
           <div className="border-t border-dashed border-slate-300 pt-3 space-y-1 text-xs">
             <Line label={tx("Payment")} value={f.pay(paymentMethod)} />
-            <Line label={tx("Paid")} value={formatMoney(paidAmount, currency)} />
-            <Line label={tx("Change")} value={formatMoney(changeAmount, currency)} />
+            <Line label={tx("Paid")} value={f.money(paidAmount)} />
+            <Line label={tx("Change")} value={f.money(changeAmount)} />
           </div>
 
           {note && (

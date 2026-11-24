@@ -169,7 +169,7 @@ export default async function StaffShiftsPage() {
                       {tx("Opening cash")}
                     </div>
                     <div className="font-bold text-emerald-900 tabular-nums">
-                      {formatMoney(row.openingCash, currency)}
+                      {f.money(row.openingCash)}
                     </div>
                   </div>
                 </div>
@@ -229,11 +229,11 @@ export default async function StaffShiftsPage() {
                         {f.duration(row.openedAt, row.closedAt)}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
-                        {formatMoney(row.openingCash, currency)}
+                        {f.money(row.openingCash)}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {row.closingCash
-                          ? formatMoney(row.closingCash, currency)
+                          ? f.money(row.closingCash)
                           : "-"}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">

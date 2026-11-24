@@ -9,6 +9,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import ReservationDialog from "./ReservationDialog";
 import StartNowDialog from "./StartNowDialog";
 import { useFmt } from "@/lib/lang-context";
+import { PageBar, Panel, StatStrip } from "../_components/ui";
 
 export type HubRoom = {
   id: number;
@@ -257,280 +258,130 @@ export default function MeetingRoomsHub({
     }
   }
 
+  const free = Math.max(0, rooms.length - inUse);
   return (
-    <div className="space-y-8 meeting-room-workspace">
-      {/* Premium room operations hero */}
-      <section className="meeting-rooms-hero" aria-labelledby="meeting-rooms-title">
-        <div className="meeting-hero-ambient" aria-hidden="true">
-          <span className="meeting-hero-orb meeting-hero-orb-a" />
-          <span className="meeting-hero-orb meeting-hero-orb-b" />
-          <span className="meeting-hero-grid" />
-        </div>
-        <div className="meeting-hero-content">
-          <div className="meeting-hero-eyebrow">
-            <span className="meeting-hero-live-dot" />
-            <span>{tx("WORKSPACE HUB")}</span>
-            <span className="meeting-hero-separator">/</span>
-            <span>{tx("ROOM CONTROL")}</span>
-            <span className="meeting-hero-live-pill">{tx("LIVE OPERATIONS")}</span>
-          </div>
-          <h1 id="meeting-rooms-title">{tx("Meeting rooms")}<span className="meeting-hero-title-stop">.</span></h1>
-          <p>{tx("One clear view of room availability, customer check-ins and the schedule ahead.")}</p>
-          <div className="meeting-hero-metrics" aria-label={tx("Current room summary")}>
-            <span><strong>{rooms.length.toString().padStart(2, "0")}</strong> {tx("rooms")}</span>
-            <i aria-hidden="true" />
-            <span><strong>{inUse.toString().padStart(2, "0")}</strong> {tx("in use")}</span>
-            <i aria-hidden="true" />
-            <span><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong> {tx("available")}</span>
-          </div>
-          <div className="meeting-hero-actions">
-            <Link href="/meeting-rooms/calendar" className="btn btn-ghost meeting-hero-secondary">
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.6"/><path d="M7.5 3v4M16.5 3v4M4 9.5h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              {tx("Calendar")}
-            </Link>
-            <button type="button" className="btn btn-ghost meeting-hero-secondary" disabled={rooms.length === 0} onClick={() => setStartNow({ roomId: null })}>
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><path d="m13.2 2.8-8 10.1h5.6l-.9 8.3 8-11h-5.5l.8-7.4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-              {tx("Walk-in")}
-            </button>
-            <button type="button" className="btn btn-primary meeting-hero-primary" disabled={rooms.length === 0} onClick={() => setBooking({ roomId: null, start: nextSlotStart() })}>
-              <span aria-hidden="true">＋</span> {tx("New reservation")}
-            </button>
-          </div>
-        </div>
-        <div className="meeting-hero-visual" aria-hidden="true">
-          <div className="meeting-hero-orbit meeting-hero-orbit-one" />
-          <div className="meeting-hero-orbit meeting-hero-orbit-two" />
-          <div className="meeting-hero-core">
-            <svg viewBox="0 0 64 64" width="44" height="44" fill="none"><path d="M9 28 32 10l23 18v25a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3V28Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"/><path d="M20 56V34h24v22M27 34v22M9 28h46" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M22 22h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-            <span>{tx("HUB")}</span>
-          </div>
-          <div className="meeting-hero-float-card meeting-hero-float-a"><span className="meeting-hero-float-icon is-blue">⌂</span><span><small>{tx("ROOMS ONLINE")}</small><strong>{rooms.length.toString().padStart(2, "0")}</strong></span><i /></div>
-          <div className="meeting-hero-float-card meeting-hero-float-b"><span className="meeting-hero-float-icon is-green">↗</span><span><small>{tx("AVAILABLE NOW")}</small><strong>{Math.max(0, rooms.length - inUse).toString().padStart(2, "0")}</strong></span><i /></div>
-          <div className="meeting-hero-orbit-caption"><span /> {tx("CAPACITY MONITORING")}</div>
-        </div>
-      </section>
+    <div className="meeting-room-workspace">
+      <PageBar
+        crumb={tx("ROOM CONTROL")}
+        title={tx("Meeting rooms")}
+        description={tx("One clear view of room availability, customer check-ins and the schedule ahead.")}
+        actions={
+          <>
+            <Link href="/meeting-rooms/calendar" className="btn btn-ghost">{tx("Calendar")}</Link>
+            <button type="button" className="btn btn-ghost" disabled={rooms.length === 0} onClick={() => setStartNow({ roomId: null })}>⚡ {tx("Walk-in")}</button>
+            <button type="button" className="btn btn-primary" disabled={rooms.length === 0} onClick={() => setBooking({ roomId: null, start: nextSlotStart() })}>＋ {tx("New reservation")}</button>
+          </>
+        }
+      />
 
       {notice && (
-        <div
-          role={notice.kind === "error" ? "alert" : "status"}
-          className={`rounded-xl border px-4 py-3 text-sm font-medium flex items-start justify-between gap-3 ${
-            notice.kind === "error"
-              ? "border-rose-200 bg-rose-50 text-rose-700"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700"
-          }`}
-        >
+        <div role={notice.kind === "error" ? "alert" : "status"} className={`v2-alert ${notice.kind === "error" ? "red" : "green"}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
           <span>{notice.text}</span>
-          <button
-            type="button"
-            aria-label={tx("Dismiss")}
-            className="opacity-60 hover:opacity-100"
-            onClick={() => setNotice(null)}
-          >
-            ✕
-          </button>
+          <button type="button" aria-label={tx("Dismiss")} className="opacity-60 hover:opacity-100" onClick={() => setNotice(null)}>✕</button>
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 meeting-room-stat-grid">
-        <Stat icon="▦" label={tx("Rooms")} value={rooms.length} tone="blue" />
-        <Stat icon="◉" label={tx("In use now")} value={inUse} tone="indigo" />
-        <Stat icon="↗" label={tx("Available now")} value={Math.max(0, rooms.length - inUse)} tone="green" />
-        <Stat icon="◷" label={tx("Upcoming today")} value={todayCount} tone="cyan" />
-      </div>
-
-      {/* Rooms */}
-      <section className="meeting-rooms-section">
-        <div className="meeting-section-heading">
-          <div><span className="meeting-section-kicker">{tx("SPACE AVAILABILITY")}</span><h2 className="text-lg font-bold text-slate-900">{tx("Your rooms")}</h2></div>
-          <span className="meeting-section-count">{rooms.length} spaces</span>
-        </div>
-        {rooms.length === 0 ? (
-          <div className="card p-10 text-center text-slate-500">
-            {tx("No meeting rooms yet. Add one in Settings → Desks.")}
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-            {roomState.map(({ room, current, next, fromRate }) => {
-              const busy = current?.status === "active";
-              return (
-                <article
-                  key={room.id}
-                  className={`card meeting-room-card p-5 flex flex-col gap-4 ${busy ? "is-busy" : "is-available"}`}
-                >
-                  <div className="meeting-room-card-accent" aria-hidden="true" />
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="meeting-room-title-wrap min-w-0">
-                      <span className="meeting-room-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M8 21v-7h8v7M12 14v7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg></span>
-                      <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-slate-900 truncate">
-                          {room.name}
-                        </h3>
-                        <p className="text-sm text-slate-500">
-                          Up to {room.capacity} people
-                          {fromRate !== null
-                            ? ` · ${tx("from")} ${fromRate.toFixed(0)} ${currency}/${tx("h")}`
-                            : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        busy
-                          ? "bg-indigo-50 text-indigo-700"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          busy ? "bg-indigo-500" : "bg-emerald-500"
-                        }`}
-                      />
-                      {busy ? tx("In use") : tx("Available")}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-slate-600 min-h-[40px]">
-                    {current ? (
-                      <>
-                        <div className="font-semibold text-slate-800">
-                          {current.customerName}
-                        </div>
-                        <div className="text-slate-500">
-                          Until {fmtTime(current.endAt)}
-                        </div>
-                      </>
-                    ) : next ? (
-                      <>
-                        <div className="text-slate-500">{tx("Next reservation")}</div>
-                        <div className="font-semibold text-slate-800">
-                          {fmtTime(next.startAt)} · {next.customerName}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-slate-400">
-                        {tx("Nothing scheduled")}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      disabled={busy}
-                      onClick={() => setStartNow({ roomId: room.id })}
-                    >
-                      {tx("⚡ Start now")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() =>
-                        setBooking({ roomId: room.id, start: nextSlotStart() })
-                      }
-                    >
-                      {tx("Reserve")}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* In the room now */}
-      <ActiveMeetingRooms
-        currency={currency}
-        categories={menuCategories}
-        products={menuProducts}
+      <StatStrip
+        items={[
+          { label: tx("Rooms"), value: String(rooms.length), tone: "brand" },
+          { label: tx("In use now"), value: String(inUse), tone: "amber" },
+          { label: tx("Available now"), value: String(free), tone: "green" },
+          { label: tx("Upcoming today"), value: String(todayCount), tone: "slate" },
+        ]}
       />
 
-      {/* Upcoming */}
-      <section className="meeting-rooms-section meeting-upcoming-section">
-        <div className="meeting-section-heading">
-          <div><span className="meeting-section-kicker">{tx("SCHEDULE")}</span><h2 className="text-lg font-bold text-slate-900">{tx("Upcoming reservations")}</h2></div>
-          <span className="meeting-section-count">{upcoming.length} bookings</span>
+      <h2 className="v2-h2">{tx("Your rooms")} <span className="v2-tag slate">{rooms.length}</span></h2>
+      {rooms.length === 0 ? (
+        <div className="v2-empty">{tx("No meeting rooms yet. Add one in Settings → Desks.")}</div>
+      ) : (
+        <div className="v2-rooms">
+          {roomState.map(({ room, current, next, fromRate }) => {
+            const busy = current?.status === "active";
+            return (
+              <article key={room.id} className={`v2-room ${busy ? "busy" : "free"}`}>
+                <div className="v2-room-head">
+                  <div style={{ minWidth: 0 }}>
+                    <h3>{room.name}</h3>
+                    <small>
+                      {f.en ? `Up to ${room.capacity} people` : `لحد ${room.capacity} أفراد`}
+                      {fromRate !== null ? ` · ${tx("from")} ${fromRate.toFixed(0)} ${f.cur}/${tx("h")}` : ""}
+                    </small>
+                  </div>
+                  <span className={`v2-tag ${busy ? "amber" : "green"}`}>{busy ? tx("In use") : tx("Available")}</span>
+                </div>
+                <div className="v2-room-body">
+                  {current ? (
+                    <>
+                      <b>{current.customerName}</b>
+                      <span>{f.en ? `Until ${fmtTime(current.endAt)}` : `لحد ${fmtTime(current.endAt)}`}</span>
+                    </>
+                  ) : next ? (
+                    <>
+                      <span>{tx("Next reservation")}</span>
+                      <b>{fmtTime(next.startAt)} · {next.customerName}</b>
+                    </>
+                  ) : (
+                    <span>{tx("Nothing scheduled")}</span>
+                  )}
+                </div>
+                <div className="v2-room-actions">
+                  <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setStartNow({ roomId: room.id })}>{tx("⚡ Start now")}</button>
+                  <button type="button" className="btn btn-primary" onClick={() => setBooking({ roomId: room.id, start: nextSlotStart() })}>{tx("Reserve")}</button>
+                </div>
+              </article>
+            );
+          })}
         </div>
-        {grouped.length === 0 ? (
-          <div className="card p-10 text-center text-slate-500">
-            {tx("No upcoming reservations.")}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {grouped.map(([key, items]) => (
-              <div key={key}>
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
-                  {dayLabel(key, items[0].startAt)}
-                </div>
-                <div className="card divide-soft overflow-hidden">
-                  {items.map((r) => {
-                    const startMs = new Date(r.startAt).getTime();
-                    const opensAt = startMs - earlyCheckinMinutes * 60_000;
-                    const canCheckIn = now >= opensAt;
-                    return (
-                      <div
-                        key={r.id}
-                        className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4"
-                      >
-                        <div className="w-28 shrink-0">
-                          <div className="font-bold text-slate-900 tabular-nums">
-                            {fmtTime(r.startAt)}
-                          </div>
-                          <div className="text-xs text-slate-500 tabular-nums">
-                            to {fmtTime(r.endAt)}
-                          </div>
-                        </div>
-                        <div className="min-w-0 flex-1 basis-48">
-                          <div className="font-semibold text-slate-900 truncate">
-                            {r.customerName}
-                          </div>
-                          <div className="text-sm text-slate-500 truncate">
-                            {r.roomName} · {r.attendeeCount}{" "}
-                            {r.attendeeCount === 1 ? "person" : "people"}
-                            {r.customerPhone ? ` · ${r.customerPhone}` : ""}
-                          </div>
-                        </div>
-                        {r.usesPackage && (
-                          <span className="rounded-full bg-violet-50 text-violet-700 text-xs font-semibold px-2.5 py-1">
-                            {tx("Package")}
-                          </span>
-                        )}
-                        <div className="flex gap-2 ml-auto">
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            disabled={!canCheckIn || checkingIn !== null}
-                            title={
-                              canCheckIn
-                                ? undefined
-                                : `${tx("Check-in opens at")} ${fmtTime(opensAt)}`
-                            }
-                            onClick={() => void checkIn(r)}
-                          >
-                            {checkingIn === r.id ? tx("Checking in…") : tx("Check in")}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost text-rose-600"
-                            onClick={() => {
-                              setCancelError(null);
-                              setToCancel(r);
-                            }}
-                          >
-                            {tx("Cancel")}
-                          </button>
-                        </div>
+      )}
+
+      <ActiveMeetingRooms currency={currency} categories={menuCategories} products={menuProducts} />
+
+      <h2 className="v2-h2">{tx("Upcoming reservations")} <span className="v2-tag slate">{upcoming.length}</span></h2>
+      {grouped.length === 0 ? (
+        <div className="v2-empty">{tx("No upcoming reservations.")}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {grouped.map(([key, items]) => (
+            <Panel key={key} title={dayLabel(key, items[0].startAt)} flush>
+              <div className="v2-list">
+                {items.map((r) => {
+                  const startMs = new Date(r.startAt).getTime();
+                  const opensAt = startMs - earlyCheckinMinutes * 60_000;
+                  const canCheckIn = now >= opensAt;
+                  return (
+                    <div key={r.id} className="v2-list-row" style={{ flexWrap: "wrap", gap: 12 }}>
+                      <div style={{ width: 96 }}>
+                        <b style={{ fontVariantNumeric: "tabular-nums" }}>{fmtTime(r.startAt)}</b>
+                        <small>{f.en ? `to ${fmtTime(r.endAt)}` : `إلى ${fmtTime(r.endAt)}`}</small>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <b>{r.customerName}</b>
+                        <small>
+                          {r.roomName} · {f.en ? `${r.attendeeCount} ${r.attendeeCount === 1 ? "person" : "people"}` : `${r.attendeeCount} أفراد`}
+                          {r.customerPhone ? ` · ${r.customerPhone}` : ""}
+                        </small>
+                      </div>
+                      {r.usesPackage && <span className="v2-tag blue">{tx("Package")}</span>}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={!canCheckIn || checkingIn !== null}
+                          title={canCheckIn ? undefined : `${tx("Check-in opens at")} ${fmtTime(opensAt)}`}
+                          onClick={() => void checkIn(r)}
+                        >
+                          {checkingIn === r.id ? tx("Checking in…") : tx("Check in")}
+                        </button>
+                        <button type="button" className="btn btn-ghost text-rose-600" onClick={() => { setCancelError(null); setToCancel(r); }}>{tx("Cancel")}</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            </Panel>
+          ))}
+        </div>
+      )}
 
       {booking && (
         <ReservationDialog

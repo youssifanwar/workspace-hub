@@ -223,3 +223,14 @@ html[dir="rtl"] body { letter-spacing: 0; }
 .v2-pkg p { font-size: 12.5px; color: #64748b; margin: 0; }
 .v2-pkg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
 .v2-pkg-actions .btn { padding: 6px 10px; font-size: 12.5px; }
+/* meeting rooms */
+.v2-h2 { font-size: 16px; font-weight: 800; margin: 28px 0 12px; display: flex; align-items: center; gap: 8px; }
+.v2-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.v2-room { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; border-top: 4px solid #10b981; }
+.v2-room.busy { border-top-color: #f59e0b; }
+.v2-room-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.v2-room-head h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.v2-room-head small { color: #64748b; font-size: 12.5px; }
+.v2-room-body { background: #f8fafc; border-radius: 12px; padding: 12px 14px; min-height: 62px; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: #64748b; }
+.v2-room-body b { color: #0f172a; }
+.v2-room-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }

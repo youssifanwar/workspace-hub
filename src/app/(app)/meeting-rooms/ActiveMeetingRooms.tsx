@@ -546,17 +546,11 @@ export default function ActiveMeetingRooms({
 
   return (
     <section className="space-y-4 meeting-active-section">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <div className="meeting-section-title-stack"><span className="meeting-section-kicker">{tx("LIVE OPERATIONS")}</span><h2 className="text-lg font-bold text-slate-900">{tx("In session")}</h2></div>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Live room sessions, customer QR access and F&amp;B orders.
-          </p>
-        </div>
-
-        <div className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-sm font-semibold text-emerald-700">
-          {sessions.length} active
-        </div>
+      <div>
+        <h2 className="v2-h2" style={{ marginBottom: 4 }}>{tx("In session")} <span className="v2-tag green">{f.en ? `${sessions.length} active` : `${sessions.length} شغّالة`}</span></h2>
+        <p className="text-sm text-slate-500">
+          {f.en ? "Live room sessions, customer QR access and F&B orders." : "جلسات الغرف الشغّالة، دخول العميل بالـQR وطلبات الكافيه."}
+        </p>
       </div>
 
       {loading && (

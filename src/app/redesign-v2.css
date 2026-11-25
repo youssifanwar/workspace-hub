@@ -438,3 +438,13 @@ html[dir] body::after { width: 40vw; height: 40vw; bottom: -16vw; inset-inline-s
 .x-main::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5; background-image: radial-gradient(rgba(79,47,26,.09) 1px, transparent 1.2px); background-size: 22px 22px; animation: v3-sheen 40s linear infinite; mask-image: linear-gradient(180deg, #000, transparent 85%); -webkit-mask-image: linear-gradient(180deg, #000, transparent 85%); }
 @media (prefers-reduced-motion: reduce) { html[dir] body::before, html[dir] body::after, .x-main::before { animation: none !important; } }
 @media print { html[dir] body::before, html[dir] body::after, .x-main::before { display: none !important; } }
+
+/* login showcase motion */
+@keyframes v3-drift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(3%,-4%,0) scale(1.12); } }
+@keyframes v3-grad { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes v3-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.login-showcase { background-size: 180% 180% !important; animation: v3-grad 16s ease-in-out infinite; }
+.login-showcase-orb { animation: v3-drift 14s ease-in-out infinite; filter: blur(2px); }
+.login-showcase-orb:nth-of-type(2) { animation-duration: 19s; animation-direction: reverse; }
+.login-logo { animation: v2-rise .6s cubic-bezier(.2,.7,.2,1) backwards, v3-bob 6s ease-in-out .8s infinite; }
+@media (prefers-reduced-motion: reduce) { .login-showcase, .login-showcase-orb, .login-logo { animation: none !important; } }

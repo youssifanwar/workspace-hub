@@ -482,6 +482,7 @@ export const AR_EXTRA: Record<string, string> = {
  "Adjustment": "تسوية",
  "Balance adjusted.": "تم تعديل الرصيد.",
  "Available balance": "الرصيد المتاح",
+ "Food & drinks": "مشروبات وأكل",
  "Pay later (put on customer's account)": "دفع لاحق (على حساب العميل)",
  "Amount owed by customer": "المبلغ المطلوب من العميل",
  "Adding balance first cancels this debt.": "أي رصيد يُضاف يسدد المديونية أولاً.",

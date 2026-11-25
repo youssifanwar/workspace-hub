@@ -142,7 +142,7 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="border-t border-b border-dashed border-slate-300 py-3">
-            <div className="text-xs font-bold mb-2">F&amp;B ITEMS</div>
+            <div className="text-xs font-bold mb-2">{tx("Food & drinks")}</div>
             {items.length === 0 ? (
               <div className="text-xs text-slate-500">{tx("No items recorded.")}</div>
             ) : (

@@ -319,3 +319,19 @@ input[data-v2search]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0
 .v2-loading-logo { display: block; margin: 0 auto 4px; height: 44px; width: auto; opacity: .85; animation: v2-logo-pulse 1.6s ease-in-out infinite; }
 @keyframes v2-logo-pulse { 0%,100% { opacity: .35; transform: scale(.97); } 50% { opacity: .9; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .v2-loading-logo { animation: none; opacity: .8; } }
+
+/* Tailwind's indigo/violet utilities follow the configurable brand color */
+:root {
+  --color-indigo-50: color-mix(in srgb, var(--v2-brand) 8%, white);
+  --color-indigo-100: color-mix(in srgb, var(--v2-brand) 15%, white);
+  --color-indigo-200: color-mix(in srgb, var(--v2-brand) 28%, white);
+  --color-indigo-300: color-mix(in srgb, var(--v2-brand) 45%, white);
+  --color-indigo-400: color-mix(in srgb, var(--v2-brand) 65%, white);
+  --color-indigo-500: color-mix(in srgb, var(--v2-brand) 85%, white);
+  --color-indigo-600: var(--v2-brand);
+  --color-indigo-700: color-mix(in srgb, var(--v2-brand) 85%, black);
+  --color-indigo-800: color-mix(in srgb, var(--v2-brand) 70%, black);
+  --color-indigo-900: color-mix(in srgb, var(--v2-brand) 55%, black);
+  --color-indigo-950: color-mix(in srgb, var(--v2-brand) 40%, black);
+  --color-violet-600: color-mix(in srgb, var(--v2-brand) 80%, black);
+}

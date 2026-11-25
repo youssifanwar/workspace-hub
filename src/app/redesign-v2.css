@@ -424,3 +424,17 @@ tbody tr:hover { background: color-mix(in srgb, var(--v2-brand) 5%, white); }
 .c-avatar { background: linear-gradient(135deg, color-mix(in srgb, var(--v2-brand) 70%, white), var(--v2-brand)); }
 .x-banner { background: linear-gradient(120deg, var(--v3-dark), var(--v2-brand)); }
 .q-hero { background: linear-gradient(160deg, var(--v3-dark), var(--v2-brand) 60%, color-mix(in srgb, var(--v2-brand) 75%, white)); }
+
+/* ---- animated ambient background (behind everything, never blocks clicks) ---- */
+@keyframes v3-float-a { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(6vw,8vh,0) scale(1.15); } 100% { transform: translate3d(0,0,0) scale(1); } }
+@keyframes v3-float-b { 0% { transform: translate3d(0,0,0) scale(1.1); } 50% { transform: translate3d(-8vw,-6vh,0) scale(.95); } 100% { transform: translate3d(0,0,0) scale(1.1); } }
+@keyframes v3-sheen { 0% { background-position: 0 0; } 100% { background-position: 240px 240px; } }
+html[dir] body::before, html[dir] body::after { content: ""; position: fixed; z-index: 0; pointer-events: none; border-radius: 50%; filter: blur(70px); will-change: transform; }
+html[dir] body::before { width: 46vw; height: 46vw; top: -14vw; inset-inline-end: -10vw; background: radial-gradient(circle, color-mix(in srgb, var(--v2-brand) 30%, transparent), transparent 68%); animation: v3-float-a 22s ease-in-out infinite; }
+html[dir] body::after { width: 40vw; height: 40vw; bottom: -16vw; inset-inline-start: 8vw; background: radial-gradient(circle, rgba(233,201,155,.5), transparent 68%); animation: v3-float-b 28s ease-in-out infinite; }
+.x-main, .x-top { position: relative; z-index: 1; }
+.x-top { z-index: 30; }
+/* fine dotted texture over the canvas */
+.x-main::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5; background-image: radial-gradient(rgba(79,47,26,.09) 1px, transparent 1.2px); background-size: 22px 22px; animation: v3-sheen 40s linear infinite; mask-image: linear-gradient(180deg, #000, transparent 85%); -webkit-mask-image: linear-gradient(180deg, #000, transparent 85%); }
+@media (prefers-reduced-motion: reduce) { html[dir] body::before, html[dir] body::after, .x-main::before { animation: none !important; } }
+@media print { html[dir] body::before, html[dir] body::after, .x-main::before { display: none !important; } }

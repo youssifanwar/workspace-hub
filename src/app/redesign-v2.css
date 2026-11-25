@@ -335,3 +335,92 @@ input[data-v2search]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0
   --color-indigo-950: color-mix(in srgb, var(--v2-brand) 40%, black);
   --color-violet-600: color-mix(in srgb, var(--v2-brand) 80%, black);
 }
+
+/* =====================================================================
+   v3 look: Scope Space brown and cream. Dark brand sidebar, warm cream
+   canvas, glass top bar, soft warm shadows and real motion. Everything
+   derives from --v2-brand, so Settings still controls the accent.
+   Visual only. Motion is switched off for reduced-motion users.
+   ===================================================================== */
+:root {
+  --x-bg: #f8f3ed;
+  --x-line: #eadfd2;
+  --x-ink: #231710;
+  --x-muted: #7a6a5d;
+  --v3-dark: color-mix(in srgb, var(--v2-brand) 55%, black);
+  --v3-dark-2: color-mix(in srgb, var(--v2-brand) 38%, black);
+  --v3-gold: #e9c99b;
+  --v3-shadow: 0 1px 2px rgba(60,35,15,.05), 0 8px 24px -14px rgba(60,35,15,.22);
+  --v3-ease: cubic-bezier(.2,.8,.2,1);
+}
+html[dir] body { background: radial-gradient(1200px 500px at 85% -10%, rgba(233,201,155,.28), transparent 60%), var(--x-bg); background-attachment: fixed; }
+
+/* sidebar */
+.x-side { background: linear-gradient(180deg, var(--v3-dark) 0%, var(--v3-dark-2) 100%); color: #e9dccd; border-inline-end: 0; box-shadow: 6px 0 30px -18px rgba(0,0,0,.5); }
+.x-brand { border-bottom-color: rgba(255,255,255,.1); }
+.x-brand-name { color: #fff7ec; }
+.x-brand-sub { color: #bfa88f; }
+.x-brand-logo { box-shadow: 0 10px 26px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.12); transition: transform .4s var(--v3-ease); }
+.x-brand-logo:hover { transform: scale(1.025) rotate(-.4deg); }
+.x-nav-label { color: #a98f74; }
+.x-nav a { color: #e3d4c3; transition: background .2s var(--v3-ease), color .2s, transform .2s var(--v3-ease); }
+.x-nav a:hover { background: rgba(255,255,255,.09); color: #fff; transform: translateX(3px); }
+[dir="rtl"] .x-nav a:hover { transform: translateX(-3px); }
+.x-nav a svg { transition: transform .25s var(--v3-ease), color .2s; }
+.x-nav a:hover svg { transform: scale(1.12); }
+.x-nav a.active { background: linear-gradient(90deg, rgba(233,201,155,.22), rgba(233,201,155,.08)); color: #fff; box-shadow: inset 0 0 0 1px rgba(233,201,155,.25); }
+[dir="rtl"] .x-nav a.active { background: linear-gradient(270deg, rgba(233,201,155,.22), rgba(233,201,155,.08)); }
+.x-nav a.active::before { background: var(--v3-gold); width: 4px; box-shadow: 0 0 12px rgba(233,201,155,.7); }
+.x-shift-card { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); }
+.x-shift-card b { color: #bbf7d0; }
+.x-shift-card small { color: #cdb9a3; }
+.x-shift-card.idle b { color: #f0e3d3; }
+
+/* top bar */
+.x-top { background: rgba(248,243,237,.78); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); border-bottom-color: rgba(234,223,210,.9); }
+.x-chip { border-color: var(--x-line); background: rgba(255,255,255,.8); transition: transform .2s var(--v3-ease), box-shadow .2s; }
+.x-chip:hover, .x-iconbtn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px rgba(60,35,15,.35); }
+
+/* surfaces */
+.card, .x-card, .kpi { border-color: var(--x-line); box-shadow: var(--v3-shadow); }
+.kpi, .v2-stat { transition: transform .3s var(--v3-ease), box-shadow .3s var(--v3-ease); }
+.kpi:hover, .v2-stat:hover { transform: translateY(-3px); box-shadow: 0 2px 4px rgba(60,35,15,.06), 0 18px 34px -16px rgba(60,35,15,.3); }
+.x-head { border-bottom-color: var(--x-line); }
+.v2-crumb { letter-spacing: .12em; }
+tbody tr { transition: background .15s; }
+tbody tr:hover { background: color-mix(in srgb, var(--v2-brand) 5%, white); }
+
+/* controls */
+.btn, .x-btn, button.btn-primary { transition: transform .15s var(--v3-ease), box-shadow .2s, background-color .2s, border-color .2s; }
+.btn:hover:not(:disabled), .x-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled), .x-btn:active:not(:disabled) { transform: translateY(0) scale(.97); }
+.btn-primary { box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--v2-brand) 70%, transparent) !important; }
+.input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--v2-brand) 16%, transparent); }
+
+/* motion */
+@keyframes v3-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes v3-pop { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes v3-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes v3-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+.x-main > * { animation: v3-rise .55s var(--v3-ease) backwards; }
+.x-main > *:nth-child(2) { animation-delay: .06s; }
+.x-main > *:nth-child(3) { animation-delay: .12s; }
+.x-main > *:nth-child(4) { animation-delay: .18s; }
+.x-main > *:nth-child(n+5) { animation-delay: .24s; }
+.fixed.inset-0 { animation: v3-fade .2s ease-out; }
+.fixed.inset-0 > div[class*="rounded"], .fixed.inset-0 > .card { animation: v3-pop .32s var(--v3-ease) backwards; }
+.animate-pulse, [class*="skeleton"] { background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); background-size: 200% 100%; animation: v3-shimmer 1.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* blue leftovers from the first redesign follow the brand */
+.x-bar-fill { background: linear-gradient(180deg, color-mix(in srgb, var(--v2-brand) 55%, white), var(--v2-brand)) !important; transition: filter .2s, transform .3s var(--v3-ease); transform-origin: bottom; }
+.x-bar-fill:hover { filter: brightness(1.12); transform: scaleY(1.03); }
+.x-qty { background: var(--v2-brand-soft); color: var(--v2-brand); }
+.tone-blue { background: var(--v2-brand-soft); color: var(--v2-brand); }
+.q-price { color: var(--v2-brand); }
+.q-add, .q-cart .x-btn { background: var(--v2-brand); }
+.c-avatar { background: linear-gradient(135deg, color-mix(in srgb, var(--v2-brand) 70%, white), var(--v2-brand)); }
+.x-banner { background: linear-gradient(120deg, var(--v3-dark), var(--v2-brand)); }
+.q-hero { background: linear-gradient(160deg, var(--v3-dark), var(--v2-brand) 60%, color-mix(in srgb, var(--v2-brand) 75%, white)); }

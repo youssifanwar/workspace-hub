@@ -31,6 +31,7 @@ const ALLOWED_KEYS: SettingKey[] = [
   "package_max_hours_per_session",
   "staff_max_discount_percent",
   "brand_color",
+  "feature_memberships",
 ];
 
 /**
@@ -118,6 +119,9 @@ export async function PATCH(req: Request) {
       staff_max_discount_percent: [0, 100, "Discount limit must be 0–100."],
       meeting_room_early_checkin_minutes: [0, 1440, "Early check-in minutes must be 0–1440."],
     };
+    if (k === "feature_memberships" && String(v) !== "0" && String(v) !== "1") {
+      return NextResponse.json({ error: "Feature flag must be 0 or 1." }, { status: 400 });
+    }
     if (k === "brand_color" && !(typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()))) {
       return NextResponse.json(
         { error: "Brand color must be a hex value like #4f46e5." },

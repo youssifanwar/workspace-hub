@@ -160,6 +160,7 @@ export default async function SettingsPage() {
           packageMaxHours={settings.package_max_hours_per_session}
           staffMaxDiscount={settings.staff_max_discount_percent}
           brandColor={settings.brand_color}
+          memberships={settings.feature_memberships}
         />
       ),
     });

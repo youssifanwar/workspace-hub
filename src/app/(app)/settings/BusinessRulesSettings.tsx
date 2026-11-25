@@ -16,11 +16,13 @@ export default function BusinessRulesSettings({
   packageMaxHours,
   staffMaxDiscount,
   brandColor,
+  memberships,
 }: {
   qrMaxPending: string;
   packageMaxHours: string;
   staffMaxDiscount: string;
   brandColor: string;
+  memberships: string;
 }) {
   const f = useFmt();
   const router = useRouter();
@@ -28,6 +30,7 @@ export default function BusinessRulesSettings({
   const [pkgCap, setPkgCap] = useState(packageMaxHours);
   const [disc, setDisc] = useState(staffMaxDiscount);
   const [color, setColor] = useState(brandColor);
+  const [mem, setMem] = useState(memberships === "1");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -44,6 +47,7 @@ export default function BusinessRulesSettings({
           staff_max_discount_percent: String(Math.max(0, Math.min(100, Math.floor(Number(disc) === 0 ? 0 : Number(disc) || 100)))),
           package_max_hours_per_session: String(Math.max(0, Math.min(24, Math.floor(Number(pkgCap) || 0)))),
           brand_color: color,
+          feature_memberships: mem ? "1" : "0",
         }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -116,6 +120,16 @@ export default function BusinessRulesSettings({
           ))}
           <input type="color" aria-label={f.en ? "Custom color" : "لون مخصص"} value={color} disabled={loading} onChange={(e) => { setColor(e.target.value); setMsg(null); }} style={{ width: 40, height: 36, border: 0, background: "none", cursor: "pointer" }} />
         </div>
+      </div>
+
+      <div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={mem} disabled={loading} onChange={(e) => { setMem(e.target.checked); setMsg(null); }} />
+          {f.en ? "Monthly memberships (optional feature)" : "الاشتراكات الشهرية (ميزة اختيارية)"}
+        </label>
+        <p className="text-xs text-slate-400 mt-1">
+          {f.en ? "Run optional-migrations/001_memberships.sql first (see the README there)." : "شغّل ملف optional-migrations/001_memberships.sql الأول (التفاصيل في README)."}
+        </p>
       </div>
 
       {msg && (

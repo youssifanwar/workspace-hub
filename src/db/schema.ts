@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   pgEnum,
+  date,
 } from "drizzle-orm/pg-core";
 
 // =============================================================================
@@ -1953,3 +1954,30 @@ export const sessionsTable =
         .defaultNow(),
     },
   );
+// =============================================================================
+// OPTIONAL FEATURE: MONTHLY MEMBERSHIPS (off by default, setting
+// `feature_memberships`). Additive table only. See optional-migrations/.
+// A membership is a recurring monthly plan for a customer. Each month staff
+// press "Charge", which takes the price from the customer's balance (debt
+// allowed, so it shows as money owed) and moves the next billing date.
+// =============================================================================
+
+export const memberships = pgTable("memberships", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "restrict" }),
+  planName: varchar("plan_name", { length: 120 }).notNull(),
+  monthlyPrice: numeric("monthly_price", { precision: 12, scale: 2 }).notNull(),
+  // active | paused | cancelled
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  startedOn: date("started_on").notNull().defaultNow(),
+  nextBillingDate: date("next_billing_date").notNull(),
+  lastChargedAt: timestamp("last_charged_at", { withTimezone: true }),
+  note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

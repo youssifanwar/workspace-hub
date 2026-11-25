@@ -32,6 +32,7 @@ export default async function CustomersPage({
   await loadTimezone();
   if (!user) redirect("/login");
   const currency = await getSetting("currency");
+  const membershipsOn = (await getSetting("feature_memberships")) === "1";
   const { q } = await searchParams;
   const term = (q ?? "").trim().slice(0, 100);
   const digits = term.replace(/\D/g, "");
@@ -198,7 +199,7 @@ export default async function CustomersPage({
         crumb={tx("Directory")}
         title={tx("العملاء")}
         description={`${customerRows.length} ${term ? tx("نتيجة") : tx("عميل مسجّل")}.`}
-        actions={<AddCustomerButton />}
+        actions={<>{membershipsOn && <Link href="/memberships" className="btn btn-ghost">{f.en ? "Memberships" : "الاشتراكات الشهرية"}</Link>}<AddCustomerButton /></>}
       />
 
       <StatStrip

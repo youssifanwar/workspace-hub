@@ -28,7 +28,8 @@ export type SettingKey =
   | "qr_max_pending_orders"
   | "package_max_hours_per_session"
   | "staff_max_discount_percent"
-  | "brand_color";
+  | "brand_color"
+  | "feature_memberships";
 
 /* ============================================================================
  * DEFAULTS
@@ -116,6 +117,9 @@ export const DEFAULTS: Record<
   /* Accent color of the app (hex). */
   brand_color:
     "#4f2f1a",
+  /* Optional features, off until enabled (1 = on). Need optional-migrations/. */
+  feature_memberships:
+    "0",
 };
 
 /* ============================================================================

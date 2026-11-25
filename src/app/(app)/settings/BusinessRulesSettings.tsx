@@ -20,6 +20,7 @@ export default function BusinessRulesSettings({
   companies,
   overtime,
   overtimeGrace,
+  formula,
 }: {
   qrMaxPending: string;
   packageMaxHours: string;
@@ -29,6 +30,7 @@ export default function BusinessRulesSettings({
   companies: string;
   overtime: string;
   overtimeGrace: string;
+  formula: { on: string; base: string; included: string; extra: string };
 }) {
   const f = useFmt();
   const router = useRouter();
@@ -40,6 +42,10 @@ export default function BusinessRulesSettings({
   const [comp, setComp] = useState(companies === "1");
   const [ot, setOt] = useState(overtime === "1");
   const [otGrace, setOtGrace] = useState(overtimeGrace);
+  const [fOn, setFOn] = useState(formula.on === "1");
+  const [fBase, setFBase] = useState(formula.base);
+  const [fInc, setFInc] = useState(formula.included);
+  const [fExtra, setFExtra] = useState(formula.extra);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -59,6 +65,10 @@ export default function BusinessRulesSettings({
           feature_memberships: mem ? "1" : "0",
           feature_companies: comp ? "1" : "0",
           meeting_room_overtime_billing: ot ? "1" : "0",
+          meeting_room_formula_pricing: fOn ? "1" : "0",
+          meeting_room_base_hourly: String(Math.max(0, Math.floor(Number(fBase) || 0))),
+          meeting_room_included_people: String(Math.max(1, Math.floor(Number(fInc) || 1))),
+          meeting_room_extra_person_hourly: String(Math.max(0, Math.floor(Number(fExtra) || 0))),
           meeting_room_overtime_grace_minutes: String(Math.max(0, Math.min(240, Math.floor(Number(otGrace) || 0)))),
         }),
       });
@@ -163,6 +173,30 @@ export default function BusinessRulesSettings({
           <input className="input" style={{ maxWidth: 110 }} type="number" min={0} max={240} value={otGrace} disabled={loading || !ot} onChange={(e) => { setOtGrace(e.target.value); setMsg(null); }} />
           <span className="text-xs text-slate-400">{f.en ? "grace minutes. After that, each started 15 minutes is billed at the booking's hourly rate / 4." : "دقايق سماح. بعدها كل 15 دقيقة بتبدأ بتتحسب بسعر ساعة الحجز ÷ 4."}</span>
         </div>
+      </div>
+
+      <div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={fOn} disabled={loading} onChange={(e) => { setFOn(e.target.checked); setMsg(null); }} />
+          {f.en ? "One price for every meeting room (replaces per-room prices)" : "سعر واحد لكل غرف الاجتماعات (بيستبدل أسعار كل غرفة)"}
+        </label>
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", marginTop: 8 }}>
+          <div>
+            <label className="label" htmlFor="room-base">{f.en ? "Price per hour" : "سعر الساعة"}</label>
+            <input id="room-base" className="input" type="number" min={0} value={fBase} disabled={loading || !fOn} onChange={(e) => { setFBase(e.target.value); setMsg(null); }} />
+          </div>
+          <div>
+            <label className="label" htmlFor="room-inc">{f.en ? "People included" : "عدد الأفراد المشمول"}</label>
+            <input id="room-inc" className="input" type="number" min={1} value={fInc} disabled={loading || !fOn} onChange={(e) => { setFInc(e.target.value); setMsg(null); }} />
+          </div>
+          <div>
+            <label className="label" htmlFor="room-extra">{f.en ? "Extra per person per hour" : "زيادة كل فرد في الساعة"}</label>
+            <input id="room-extra" className="input" type="number" min={0} value={fExtra} disabled={loading || !fOn} onChange={(e) => { setFExtra(e.target.value); setMsg(null); }} />
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 mt-1">
+          {f.en ? "Applies to new bookings and walk-ins. The room's capacity limit still applies." : "بتتطبق على الحجوزات والدخول المباشر الجديد. حد سعة الغرفة لسه شغال."}
+        </p>
       </div>
 
       {msg && (

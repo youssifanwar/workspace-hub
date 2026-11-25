@@ -32,7 +32,11 @@ export type SettingKey =
   | "feature_memberships"
   | "feature_companies"
   | "meeting_room_overtime_billing"
-  | "meeting_room_overtime_grace_minutes";
+  | "meeting_room_overtime_grace_minutes"
+  | "meeting_room_formula_pricing"
+  | "meeting_room_base_hourly"
+  | "meeting_room_included_people"
+  | "meeting_room_extra_person_hourly";
 
 /* ============================================================================
  * DEFAULTS
@@ -129,6 +133,15 @@ export const DEFAULTS: Record<
   meeting_room_overtime_billing:
     "0",
   meeting_room_overtime_grace_minutes:
+    "10",
+  /* Flat room price formula (1 = on, replaces per-room tiers). */
+  meeting_room_formula_pricing:
+    "0",
+  meeting_room_base_hourly:
+    "100",
+  meeting_room_included_people:
+    "8",
+  meeting_room_extra_person_hourly:
     "10",
 };
 

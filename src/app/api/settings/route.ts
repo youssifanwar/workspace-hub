@@ -35,6 +35,10 @@ const ALLOWED_KEYS: SettingKey[] = [
   "feature_companies",
   "meeting_room_overtime_billing",
   "meeting_room_overtime_grace_minutes",
+  "meeting_room_formula_pricing",
+  "meeting_room_base_hourly",
+  "meeting_room_included_people",
+  "meeting_room_extra_person_hourly",
 ];
 
 /**
@@ -120,10 +124,13 @@ export async function PATCH(req: Request) {
       package_max_hours_per_session: [0, 24, "Package hours cap must be 0–24."],
       qr_max_pending_orders: [1, 50, "Pending QR orders limit must be 1–50."],
       staff_max_discount_percent: [0, 100, "Discount limit must be 0–100."],
+      meeting_room_included_people: [1, 200, "Included people must be 1–200."],
+      meeting_room_base_hourly: [0, 100000, "Base hourly price must be a whole number 0–100000."],
+      meeting_room_extra_person_hourly: [0, 100000, "Extra per person must be a whole number 0–100000."],
       meeting_room_overtime_grace_minutes: [0, 240, "Overtime grace minutes must be 0–240."],
       meeting_room_early_checkin_minutes: [0, 1440, "Early check-in minutes must be 0–1440."],
     };
-    if ((k === "feature_memberships" || k === "feature_companies" || k === "meeting_room_overtime_billing") && String(v) !== "0" && String(v) !== "1") {
+    if ((k === "feature_memberships" || k === "feature_companies" || k === "meeting_room_overtime_billing" || k === "meeting_room_formula_pricing") && String(v) !== "0" && String(v) !== "1") {
       return NextResponse.json({ error: "Feature flag must be 0 or 1." }, { status: 400 });
     }
     if (k === "brand_color" && !(typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()))) {

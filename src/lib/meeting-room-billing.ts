@@ -4,6 +4,8 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/db";
+import { formulaHourlyRate } from "@/lib/room-formula";
+import { getSetting } from "@/lib/settings";
 import {
   desks,
   meetingRoomPricing,
@@ -338,6 +340,26 @@ export async function getMeetingRoomPricingTier(
       attendeeCount,
       room.capacity,
     );
+
+  // Optional flat formula (Settings, off by default): the same price for every
+  // room = base price for the included people + a fixed extra per person above
+  // that. Replaces the per-room tiers while it is on.
+  if ((await getSetting("meeting_room_formula_pricing")) === "1") {
+    const base = Number(await getSetting("meeting_room_base_hourly"));
+    const included = Number(await getSetting("meeting_room_included_people")) || 1;
+    const extra = Number(await getSetting("meeting_room_extra_person_hourly"));
+    if (Number.isFinite(base) && base >= 0 && Number.isFinite(extra) && extra >= 0) {
+      const rate = formulaHourlyRate({ people, base, included, extraPerPerson: extra });
+      return {
+        id: 0,
+        deskId: room.id,
+        minPeople: people,
+        maxPeople: people,
+        hourlyRate: rate.toFixed(2),
+        active: true,
+      };
+    }
+  }
 
   const rows =
     await db

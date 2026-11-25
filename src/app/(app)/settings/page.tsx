@@ -164,6 +164,7 @@ export default async function SettingsPage() {
           companies={settings.feature_companies}
           overtime={settings.meeting_room_overtime_billing}
           overtimeGrace={settings.meeting_room_overtime_grace_minutes}
+          formula={{ on: settings.meeting_room_formula_pricing, base: settings.meeting_room_base_hourly, included: settings.meeting_room_included_people, extra: settings.meeting_room_extra_person_hourly }}
         />
       ),
     });

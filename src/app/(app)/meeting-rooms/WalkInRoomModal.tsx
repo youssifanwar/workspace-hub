@@ -884,7 +884,7 @@ export default function WalkInRoomModal({
                   </div>
 
                   <div className="font-bold text-indigo-950 mt-1">
-                    {selectedTier.hourlyRate}{" "}
+                    {pricePreview?.hourlyRate ?? selectedTier.hourlyRate}{" "}
                     {currency} / hour
                   </div>
                 </div>

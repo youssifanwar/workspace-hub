@@ -451,3 +451,9 @@ html[dir] body::after { width: 40vw; height: 40vw; bottom: -16vw; inset-inline-s
 .v2-tag.blue { background: var(--v2-brand-soft); color: var(--v2-brand); }
 .v2-pkg-price { color: var(--v2-brand); }
 .bg-blue-50 { background-color: var(--v2-brand-soft) !important; } .text-blue-800, .text-blue-700 { color: var(--v2-brand) !important; }
+
+/* login form side: warm cream instead of the old blue wash */
+.login-page { background: linear-gradient(140deg, #fbf7f1 0%, #f6efe6 55%, #f1e6d8 100%) !important; }
+.login-form-panel::before { background: radial-gradient(circle, rgba(233,201,155,.4), transparent 70%) !important; }
+@media (max-width: 1023px) { .login-page { background: radial-gradient(ellipse at 50% 0%, rgba(233,201,155,.35), transparent 50%), linear-gradient(140deg,#fbf7f1,#f1e6d8) !important; } }
+.login-form-mark { background: var(--v2-brand-soft) !important; color: var(--v2-brand) !important; }

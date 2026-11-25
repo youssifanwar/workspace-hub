@@ -165,6 +165,33 @@ export default async function CustomersPage({
 
   const tz = activeTimeZone();
 
+  // Packages that end within 7 days (read-only list, no schema involved).
+  const expiringRes = await db
+    .execute(sql`
+      SELECT c.id AS customer_id, c.name AS customer_name, p.pkg, p.expires_at
+      FROM (
+        SELECT customer_id, package_name_snapshot AS pkg, expires_at
+        FROM customer_subscriptions
+        WHERE status = 'active' AND expires_at IS NOT NULL
+          AND expires_at > now() AND expires_at <= now() + interval '7 days'
+        UNION ALL
+        SELECT customer_id, package_name_snapshot AS pkg, expires_at
+        FROM customer_meeting_room_packages
+        WHERE status = 'active' AND expires_at IS NOT NULL
+          AND expires_at > now() AND expires_at <= now() + interval '7 days'
+      ) p
+      INNER JOIN customers c ON c.id = p.customer_id
+      ORDER BY p.expires_at ASC
+      LIMIT 8
+    `)
+    .catch(() => null);
+  const expiring = ((expiringRes as { rows?: Array<Record<string, unknown>> } | null)?.rows ?? []) as Array<{
+    customer_id: number;
+    customer_name: string;
+    pkg: string;
+    expires_at: string | Date;
+  }>;
+
   return (
     <div>
       <PageBar
@@ -182,6 +209,19 @@ export default async function CustomersPage({
           { label: tx("باقات غرف الاجتماعات"), value: summary.activeMeetingPackages, hint: `${tx("شغالة")} · ${tx("قيمة المبيعات")} ${f.money(summary.meetingPackageSpend)}`, tone: "amber" },
         ]}
       />
+
+      {expiring.length > 0 && (
+        <div className="v2-alert amber" style={{ marginBottom: 16 }}>
+          <b>{f.en ? "Packages ending within 7 days" : "باقات هتخلص خلال 7 أيام"}</b>
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {expiring.map((e, i) => (
+              <Link key={i} href={`/customers/${e.customer_id}`} className="v2-tag amber">
+                {e.customer_name} · {e.pkg} · {f.dateTime(new Date(e.expires_at))}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Panel flush>
         <form method="get" className="v2-toolbar">

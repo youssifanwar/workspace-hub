@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { customers, memberships } from "@/db/schema";
@@ -23,7 +23,7 @@ export default async function MembershipsPage() {
 
   let rows: Array<{
     id: number; customerId: number; customerName: string; planName: string;
-    monthlyPrice: string; status: string; nextBillingDate: string; lastChargedAt: Date | null;
+    monthlyPrice: string; includedRoomHours: string; roomCredit: string; status: string; nextBillingDate: string; lastChargedAt: Date | null;
   }> = [];
   let missingTable = false;
   let custs: Array<{ id: number; name: string }> = [];
@@ -32,7 +32,8 @@ export default async function MembershipsPage() {
       rows = await db
         .select({
           id: memberships.id, customerId: memberships.customerId, customerName: customers.name,
-          planName: memberships.planName, monthlyPrice: memberships.monthlyPrice, status: memberships.status,
+          planName: memberships.planName, monthlyPrice: memberships.monthlyPrice, includedRoomHours: memberships.includedRoomHours,
+          roomCredit: sql<string>`coalesce((select sum(hours_delta) from membership_room_credits r where r.membership_id = ${memberships.id}), 0)`, status: memberships.status,
           nextBillingDate: memberships.nextBillingDate, lastChargedAt: memberships.lastChargedAt,
         })
         .from(memberships)
@@ -58,14 +59,14 @@ export default async function MembershipsPage() {
           <p>{f.en ? "This feature is off. Turn it on in Settings after running optional-migrations/001_memberships.sql." : "الميزة دي مقفولة. فعّلها من الإعدادات بعد ما تشغّل ملف optional-migrations/001_memberships.sql."}</p>
         </Panel>
       ) : missingTable ? (
-        <div className="v2-alert red">{f.en ? "The memberships table does not exist yet. Run optional-migrations/001_memberships.sql (see README there)." : "جدول الاشتراكات لسه مش موجود. شغّل optional-migrations/001_memberships.sql (التفاصيل في README)."}</div>
+        <div className="v2-alert red">{f.en ? "The memberships table does not exist yet. Run optional-migrations/001_memberships.sql and 002_membership_room_credits.sql (see README there)." : "جدول الاشتراكات لسه مش موجود. شغّل optional-migrations/001 و 002 (التفاصيل في README)."}</div>
       ) : (
         <MembershipsClient
           canManage={canManage(user.role)}
           customers={custs}
           rows={rows.map((r) => ({
             id: r.id, customerId: r.customerId, customerName: r.customerName, planName: r.planName,
-            price: Number(r.monthlyPrice), status: r.status, next: String(r.nextBillingDate),
+            price: Number(r.monthlyPrice), inc: Number(r.includedRoomHours), credit: Number(r.roomCredit), status: r.status, next: String(r.nextBillingDate),
             last: r.lastChargedAt ? f.dateTime(r.lastChargedAt) : "",
           }))}
         />

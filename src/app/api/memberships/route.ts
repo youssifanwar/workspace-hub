@@ -30,6 +30,8 @@ export async function GET() {
       status: memberships.status,
       nextBillingDate: memberships.nextBillingDate,
       lastChargedAt: memberships.lastChargedAt,
+      includedRoomHours: memberships.includedRoomHours,
+      roomCredit: sql<string>`coalesce((select sum(hours_delta) from membership_room_credits r where r.membership_id = ${memberships.id}), 0)`,
       note: memberships.note,
     })
     .from(memberships)
@@ -50,16 +52,18 @@ export async function POST(req: Request) {
     planName?: unknown;
     monthlyPrice?: unknown;
     firstBillingDate?: unknown;
+    includedRoomHours?: unknown;
     note?: unknown;
   } | null;
   const customerId = Number(b?.customerId);
   const price = Number(b?.monthlyPrice);
   const plan = typeof b?.planName === "string" ? b.planName.trim().slice(0, 120) : "";
+  const roomHours = Number(b?.includedRoomHours ?? 0);
   const first =
     typeof b?.firstBillingDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.firstBillingDate)
       ? b.firstBillingDate
       : null;
-  if (!Number.isSafeInteger(customerId) || customerId <= 0 || !plan || !Number.isFinite(price) || price <= 0 || price > 1_000_000) {
+  if (!Number.isSafeInteger(customerId) || customerId <= 0 || !plan || !Number.isFinite(price) || price <= 0 || price > 1_000_000 || !Number.isFinite(roomHours) || roomHours < 0 || roomHours > 744) {
     return NextResponse.json({ error: "Customer, plan name and a price above 0 are required." }, { status: 400 });
   }
   const [c] = await db.select({ id: customers.id }).from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -70,6 +74,7 @@ export async function POST(req: Request) {
       customerId,
       planName: plan,
       monthlyPrice: price.toFixed(2),
+      includedRoomHours: roomHours.toFixed(2),
       nextBillingDate: first ?? sql`current_date`,
       note: typeof b?.note === "string" && b.note.trim() ? b.note.trim().slice(0, 500) : null,
       createdByUserId: g.user!.id,

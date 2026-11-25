@@ -1974,10 +1974,27 @@ export const memberships = pgTable("memberships", {
   startedOn: date("started_on").notNull().defaultNow(),
   nextBillingDate: date("next_billing_date").notNull(),
   lastChargedAt: timestamp("last_charged_at", { withTimezone: true }),
+  // Meeting-room hours added to the plan's credit each time it is charged.
+  includedRoomHours: numeric("included_room_hours", { precision: 8, scale: 2 }).notNull().default("0"),
   note: text("note"),
   createdByUserId: integer("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Ledger of meeting-room hours a membership includes. +grant on charge,
+// -use when staff record hours used. Balance = SUM(hours_delta).
+// Tracked by hand: NOT wired into room reservations or their pricing.
+export const membershipRoomCredits = pgTable("membership_room_credits", {
+  id: serial("id").primaryKey(),
+  membershipId: integer("membership_id")
+    .notNull()
+    .references(() => memberships.id, { onDelete: "cascade" }),
+  hoursDelta: numeric("hours_delta", { precision: 8, scale: 2 }).notNull(),
+  reason: varchar("reason", { length: 20 }).notNull(),
+  note: text("note"),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

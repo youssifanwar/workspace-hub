@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useFmt } from "@/lib/lang-context";
 import { Panel } from "../_components/ui";
 
-type Row = { id: number; customerId: number; customerName: string; planName: string; price: number; status: string; next: string; last: string };
+type Row = { id: number; customerId: number; customerName: string; planName: string; price: number; inc: number; credit: number; status: string; next: string; last: string };
 
 export default function MembershipsClient({
   rows, customers, canManage,
@@ -15,6 +15,7 @@ export default function MembershipsClient({
   const [cid, setCid] = useState("");
   const [plan, setPlan] = useState("");
   const [price, setPrice] = useState("");
+  const [inc, setInc] = useState("");
   const [first, setFirst] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -46,9 +47,10 @@ export default function MembershipsClient({
             </select>
             <input className="input" placeholder={f.en ? "Plan name" : "اسم الخطة"} value={plan} onChange={(e) => setPlan(e.target.value)} />
             <input className="input" type="number" min={1} placeholder={f.en ? "Monthly price" : "السعر الشهري"} value={price} onChange={(e) => setPrice(e.target.value)} />
+            <input className="input" type="number" min={0} placeholder={f.en ? "Room hours per month" : "ساعات غرف شهرياً"} value={inc} onChange={(e) => setInc(e.target.value)} />
             <input className="input" type="date" value={first} onChange={(e) => setFirst(e.target.value)} />
             <button className="btn btn-primary" disabled={busy || !cid || !plan.trim() || !(Number(price) > 0)}
-              onClick={() => call("/api/memberships", "POST", { customerId: Number(cid), planName: plan, monthlyPrice: Number(price), firstBillingDate: first }, f.en ? "Created ✓" : "اتعمل ✓").then(() => { setPlan(""); setPrice(""); })}>
+              onClick={() => call("/api/memberships", "POST", { customerId: Number(cid), planName: plan, monthlyPrice: Number(price), includedRoomHours: Number(inc) || 0, firstBillingDate: first }, f.en ? "Created ✓" : "اتعمل ✓").then(() => { setPlan(""); setPrice(""); setInc(""); })}>
               {f.en ? "Add" : "إضافة"}
             </button>
           </div>
@@ -62,7 +64,7 @@ export default function MembershipsClient({
           <div className="x-table-wrap"><table className="v2-tbl">
             <thead><tr>
               <th>{f.en ? "Customer" : "العميل"}</th><th>{f.en ? "Plan" : "الخطة"}</th><th>{f.en ? "Price" : "السعر"}</th>
-              <th>{f.en ? "Status" : "الحالة"}</th><th>{f.en ? "Next billing" : "التحصيل الجاي"}</th><th />
+              <th>{f.en ? "Room hours left" : "ساعات الغرف المتبقية"}</th><th>{f.en ? "Status" : "الحالة"}</th><th>{f.en ? "Next billing" : "التحصيل الجاي"}</th><th />
             </tr></thead>
             <tbody>
               {rows.map((r) => {
@@ -70,12 +72,14 @@ export default function MembershipsClient({
                 return (
                   <tr key={r.id}>
                     <td>{r.customerName}</td><td>{r.planName}</td><td>{f.money(r.price)}</td>
+                    <td>{r.inc > 0 || r.credit > 0 ? `${r.credit}${r.inc > 0 ? ` (+${r.inc}/${f.en ? "mo" : "شهر"})` : ""}` : "-"}</td>
                     <td><span className={`v2-tag ${r.status === "active" ? "green" : "amber"}`}>{f.en ? r.status : statusAr[r.status] ?? r.status}</span></td>
                     <td>{r.next}{due ? (f.en ? " · due" : " · مستحق") : ""}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {canManage && r.status !== "cancelled" && (
                         <>
                           {due && <button className="btn btn-primary" disabled={busy} onClick={() => { if (confirm(f.en ? `Charge ${r.price} to ${r.customerName}'s balance?` : `تخصم ${r.price} من رصيد ${r.customerName}؟`)) call(`/api/memberships/${r.id}`, "PATCH", { action: "charge" }, f.en ? "Charged ✓" : "اتحصّل ✓"); }}>{f.en ? "Charge" : "حصّل"}</button>}{" "}
+                          {r.credit > 0 && <><button className="btn btn-ghost" disabled={busy} onClick={() => { const h = Number(prompt(f.en ? "Room hours used?" : "كام ساعة غرف اتستخدمت؟")); if (h > 0) call(`/api/memberships/${r.id}`, "PATCH", { action: "use_room_hours", hours: h }, "✓"); }}>{f.en ? "Use room hours" : "استخدم ساعات"}</button>{" "}</>}
                           {r.status === "active"
                             ? <button className="btn btn-ghost" disabled={busy} onClick={() => call(`/api/memberships/${r.id}`, "PATCH", { action: "pause" }, "✓")}>{f.en ? "Pause" : "إيقاف"}</button>
                             : <button className="btn btn-ghost" disabled={busy} onClick={() => call(`/api/memberships/${r.id}`, "PATCH", { action: "resume" }, "✓")}>{f.en ? "Resume" : "استئناف"}</button>}{" "}

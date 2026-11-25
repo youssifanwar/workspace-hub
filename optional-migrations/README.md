@@ -13,3 +13,4 @@ src/db/schema.ts) or run the .sql files with psql, in order.
 | File | Feature | Settings key to turn on |
 |------|---------|--------------------------|
 | 001_memberships.sql | Monthly memberships | feature_memberships = 1 |
+| 002_membership_room_credits.sql | Meeting-room hours included in a membership (tracked by hand, not linked to reservations) | same switch as memberships |

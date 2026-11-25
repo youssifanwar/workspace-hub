@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { memberships } from "@/db/schema";
+import { membershipRoomCredits, memberships } from "@/db/schema";
 import { canManage, getCurrentUser } from "@/lib/auth";
 import { applyBalanceChange, BalanceError } from "@/lib/customer-balance";
 import { getSetting } from "@/lib/settings";
@@ -23,9 +23,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Only managers can change memberships." }, { status: 403 });
   }
   const id = Number((await params).id);
-  const b = (await req.json().catch(() => null)) as { action?: unknown } | null;
+  const b = (await req.json().catch(() => null)) as { action?: unknown; hours?: unknown } | null;
   const action = typeof b?.action === "string" ? b.action : "";
-  if (!Number.isSafeInteger(id) || id <= 0 || !["pause", "resume", "cancel", "charge"].includes(action)) {
+  if (!Number.isSafeInteger(id) || id <= 0 || !["pause", "resume", "cancel", "charge", "use_room_hours"].includes(action)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
@@ -34,6 +34,19 @@ export async function PATCH(
       const [m] = await tx.select().from(memberships).where(eq(memberships.id, id)).for("update").limit(1);
       if (!m) throw new BalanceError("Membership not found.", 404);
       if (m.status === "cancelled") throw new BalanceError("This membership is cancelled.", 409);
+
+      if (action === "use_room_hours") {
+        const h = Number(b?.hours);
+        if (!Number.isFinite(h) || h <= 0 || h > 744) throw new BalanceError("Enter hours above 0.", 400);
+        const [{ bal }] = (await tx.execute(
+          sql`select coalesce(sum(hours_delta),0)::float as bal from membership_room_credits where membership_id = ${id}`,
+        ).then((r) => (r as unknown as { rows: Array<{ bal: number }> }).rows.map((x) => ({ bal: Number(x.bal) }))));
+        if (h > bal + 1e-9) throw new BalanceError(`Only ${bal} room hours left.`, 409);
+        await tx.insert(membershipRoomCredits).values({
+          membershipId: id, hoursDelta: (-h).toFixed(2), reason: "use", userId: user.id,
+        });
+        return;
+      }
 
       if (action === "charge") {
         if (m.status !== "active") throw new BalanceError("Only an active membership can be charged.", 409);
@@ -57,6 +70,11 @@ export async function PATCH(
             updatedAt: sql`now()`,
           })
           .where(eq(memberships.id, id));
+        if (Number(m.includedRoomHours) > 0) {
+          await tx.insert(membershipRoomCredits).values({
+            membershipId: id, hoursDelta: Number(m.includedRoomHours).toFixed(2), reason: "grant", userId: user.id,
+          });
+        }
         return;
       }
       const status = action === "pause" ? "paused" : action === "resume" ? "active" : "cancelled";

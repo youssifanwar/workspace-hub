@@ -308,6 +308,9 @@ export default function CustomerBalanceButton({
                           <div className="text-xs text-slate-400 tabular-nums">
                             = {t.balanceAfter.toFixed(2)}
                           </div>
+                          <a href={`/receipt/${t.id}`} target="_blank" rel="noreferrer" className="text-xs underline text-slate-500">
+                            {tx("Receipt")}
+                          </a>
                         </div>
                       </div>
                     ))}

@@ -477,6 +477,7 @@ export const AR_EXTRA: Record<string, string> = {
  "Invoice / Print": "الفاتورة / طباعة",
  "Direct F&B Sale": "بيع مباشر",
  "Top-up": "شحن",
+ "Receipt": "إيصال",
  "Payment": "دفع",
  "Refund": "استرجاع",
  "Adjustment": "تسوية",

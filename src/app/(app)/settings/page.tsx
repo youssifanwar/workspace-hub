@@ -162,6 +162,8 @@ export default async function SettingsPage() {
           brandColor={settings.brand_color}
           memberships={settings.feature_memberships}
           companies={settings.feature_companies}
+          overtime={settings.meeting_room_overtime_billing}
+          overtimeGrace={settings.meeting_room_overtime_grace_minutes}
         />
       ),
     });

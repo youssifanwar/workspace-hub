@@ -18,6 +18,8 @@ export default function BusinessRulesSettings({
   brandColor,
   memberships,
   companies,
+  overtime,
+  overtimeGrace,
 }: {
   qrMaxPending: string;
   packageMaxHours: string;
@@ -25,6 +27,8 @@ export default function BusinessRulesSettings({
   brandColor: string;
   memberships: string;
   companies: string;
+  overtime: string;
+  overtimeGrace: string;
 }) {
   const f = useFmt();
   const router = useRouter();
@@ -34,6 +38,8 @@ export default function BusinessRulesSettings({
   const [color, setColor] = useState(brandColor);
   const [mem, setMem] = useState(memberships === "1");
   const [comp, setComp] = useState(companies === "1");
+  const [ot, setOt] = useState(overtime === "1");
+  const [otGrace, setOtGrace] = useState(overtimeGrace);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -52,6 +58,8 @@ export default function BusinessRulesSettings({
           brand_color: color,
           feature_memberships: mem ? "1" : "0",
           feature_companies: comp ? "1" : "0",
+          meeting_room_overtime_billing: ot ? "1" : "0",
+          meeting_room_overtime_grace_minutes: String(Math.max(0, Math.min(240, Math.floor(Number(otGrace) || 0)))),
         }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -132,7 +140,7 @@ export default function BusinessRulesSettings({
           {f.en ? "Monthly memberships (optional feature)" : "الاشتراكات الشهرية (ميزة اختيارية)"}
         </label>
         <p className="text-xs text-slate-400 mt-1">
-          {f.en ? "Run optional-migrations/001_memberships.sql first (see the README there)." : "شغّل ملف optional-migrations/001_memberships.sql الأول (التفاصيل في README)."}
+          {f.en ? "Run optional-migrations/001 and 002 first (see the README there)." : "شغّل ملفات optional-migrations/001 و 002 الأول (التفاصيل في README)."}
         </p>
       </div>
 
@@ -144,6 +152,17 @@ export default function BusinessRulesSettings({
         <p className="text-xs text-slate-400 mt-1">
           {f.en ? "Run optional-migrations/003_companies_and_guests.sql first." : "شغّل ملف optional-migrations/003_companies_and_guests.sql الأول."}
         </p>
+      </div>
+
+      <div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={ot} disabled={loading} onChange={(e) => { setOt(e.target.checked); setMsg(null); }} />
+          {f.en ? "Bill meeting-room overtime at checkout" : "حساب زيادة الوقت في الغرف عند الإنهاء"}
+        </label>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+          <input className="input" style={{ maxWidth: 110 }} type="number" min={0} max={240} value={otGrace} disabled={loading || !ot} onChange={(e) => { setOtGrace(e.target.value); setMsg(null); }} />
+          <span className="text-xs text-slate-400">{f.en ? "grace minutes. After that, each started 15 minutes is billed at the booking's hourly rate / 4." : "دقايق سماح. بعدها كل 15 دقيقة بتبدأ بتتحسب بسعر ساعة الحجز ÷ 4."}</span>
+        </div>
       </div>
 
       {msg && (

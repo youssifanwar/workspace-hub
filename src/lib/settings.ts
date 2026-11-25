@@ -30,7 +30,9 @@ export type SettingKey =
   | "staff_max_discount_percent"
   | "brand_color"
   | "feature_memberships"
-  | "feature_companies";
+  | "feature_companies"
+  | "meeting_room_overtime_billing"
+  | "meeting_room_overtime_grace_minutes";
 
 /* ============================================================================
  * DEFAULTS
@@ -123,6 +125,11 @@ export const DEFAULTS: Record<
     "0",
   feature_companies:
     "0",
+  /* Bill meeting-room time past the booked end (1 = on). */
+  meeting_room_overtime_billing:
+    "0",
+  meeting_room_overtime_grace_minutes:
+    "10",
 };
 
 /* ============================================================================

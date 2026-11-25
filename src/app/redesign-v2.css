@@ -448,3 +448,6 @@ html[dir] body::after { width: 40vw; height: 40vw; bottom: -16vw; inset-inline-s
 .login-showcase-orb:nth-of-type(2) { animation-duration: 19s; animation-direction: reverse; }
 .login-logo { animation: v2-rise .6s cubic-bezier(.2,.7,.2,1) backwards, v3-bob 6s ease-in-out .8s infinite; }
 @media (prefers-reduced-motion: reduce) { .login-showcase, .login-showcase-orb, .login-logo { animation: none !important; } }
+.v2-tag.blue { background: var(--v2-brand-soft); color: var(--v2-brand); }
+.v2-pkg-price { color: var(--v2-brand); }
+.bg-blue-50 { background-color: var(--v2-brand-soft) !important; } .text-blue-800, .text-blue-700 { color: var(--v2-brand) !important; }

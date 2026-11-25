@@ -17,12 +17,14 @@ export default function BusinessRulesSettings({
   staffMaxDiscount,
   brandColor,
   memberships,
+  companies,
 }: {
   qrMaxPending: string;
   packageMaxHours: string;
   staffMaxDiscount: string;
   brandColor: string;
   memberships: string;
+  companies: string;
 }) {
   const f = useFmt();
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function BusinessRulesSettings({
   const [disc, setDisc] = useState(staffMaxDiscount);
   const [color, setColor] = useState(brandColor);
   const [mem, setMem] = useState(memberships === "1");
+  const [comp, setComp] = useState(companies === "1");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -48,6 +51,7 @@ export default function BusinessRulesSettings({
           package_max_hours_per_session: String(Math.max(0, Math.min(24, Math.floor(Number(pkgCap) || 0)))),
           brand_color: color,
           feature_memberships: mem ? "1" : "0",
+          feature_companies: comp ? "1" : "0",
         }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -129,6 +133,16 @@ export default function BusinessRulesSettings({
         </label>
         <p className="text-xs text-slate-400 mt-1">
           {f.en ? "Run optional-migrations/001_memberships.sql first (see the README there)." : "شغّل ملف optional-migrations/001_memberships.sql الأول (التفاصيل في README)."}
+        </p>
+      </div>
+
+      <div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={comp} disabled={loading} onChange={(e) => { setComp(e.target.checked); setMsg(null); }} />
+          {f.en ? "Company accounts and guest passes (optional feature)" : "حسابات الشركات وتصاريح الزوار (ميزة اختيارية)"}
+        </label>
+        <p className="text-xs text-slate-400 mt-1">
+          {f.en ? "Run optional-migrations/003_companies_and_guests.sql first." : "شغّل ملف optional-migrations/003_companies_and_guests.sql الأول."}
         </p>
       </div>
 

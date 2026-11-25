@@ -1998,3 +1998,40 @@ export const membershipRoomCredits = pgTable("membership_room_credits", {
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// =============================================================================
+// OPTIONAL FEATURE: COMPANY ACCOUNTS + GUEST PASSES (off by default, setting
+// `feature_companies`). Additive tables only. See optional-migrations/003.
+// Read/record only: no charges are made by these tables.
+// =============================================================================
+
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 160 }).notNull(),
+  contactPhone: varchar("contact_phone", { length: 40 }),
+  note: text("note"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const companyMembers = pgTable(
+  "company_members",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    customerId: integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("company_members_unique").on(t.companyId, t.customerId)],
+);
+
+export const guestPasses = pgTable("guest_passes", {
+  id: serial("id").primaryKey(),
+  hostCustomerId: integer("host_customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  guestName: varchar("guest_name", { length: 160 }).notNull(),
+  guestPhone: varchar("guest_phone", { length: 40 }),
+  visitDate: date("visit_date").notNull().defaultNow(),
+  note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

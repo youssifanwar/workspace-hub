@@ -161,6 +161,7 @@ export default async function SettingsPage() {
           staffMaxDiscount={settings.staff_max_discount_percent}
           brandColor={settings.brand_color}
           memberships={settings.feature_memberships}
+          companies={settings.feature_companies}
         />
       ),
     });

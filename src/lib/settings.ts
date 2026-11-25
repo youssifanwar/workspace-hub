@@ -29,7 +29,8 @@ export type SettingKey =
   | "package_max_hours_per_session"
   | "staff_max_discount_percent"
   | "brand_color"
-  | "feature_memberships";
+  | "feature_memberships"
+  | "feature_companies";
 
 /* ============================================================================
  * DEFAULTS
@@ -119,6 +120,8 @@ export const DEFAULTS: Record<
     "#4f2f1a",
   /* Optional features, off until enabled (1 = on). Need optional-migrations/. */
   feature_memberships:
+    "0",
+  feature_companies:
     "0",
 };
 

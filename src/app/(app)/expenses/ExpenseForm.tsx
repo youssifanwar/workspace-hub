@@ -35,10 +35,12 @@ export default function ExpenseForm({
   currency,
   kind = "expense",
   categories = [],
+  expectedCash = null,
 }: {
   currency: string;
   kind?: "expense" | "income";
   categories?: string[];
+  expectedCash?: number | null;
 }) {
   const f = useFmt();
   const tx = f.t;
@@ -208,6 +210,14 @@ export default function ExpenseForm({
           disabled={loading}
         />
       </div>
+
+      {!isIncome && paymentMethod === "cash" && expectedCash !== null && Number(amount) > expectedCash + 0.005 && (
+        <div className="v2-alert amber" role="alert">
+          {f.en
+            ? `Heads up: this is more than the cash the system expects in the drawer (${f.money(expectedCash)}), so the drawer would go negative. You can still save it.`
+            : `تنبيه: المبلغ أكبر من النقدية المتوقعة في الدرج (${f.money(expectedCash)})، يعني الدرج هيبقى بالسالب. تقدر تحفظه برضه.`}
+        </div>
+      )}
 
       {/* CATEGORY */}
       <div>

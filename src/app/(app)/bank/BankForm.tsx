@@ -18,8 +18,10 @@ function isValidAmount(value: string) {
 
 export default function BankForm({
   currency,
+  expectedCash = null,
 }: {
   currency: string;
+  expectedCash?: number | null;
 }) {
   const f = useFmt();
   const tx = f.t;
@@ -178,6 +180,14 @@ export default function BankForm({
           autoComplete="off"
         />
       </div>
+
+      {type === "deposit" && expectedCash !== null && isValidAmount(amount) && Number(amount) > expectedCash + 0.005 && (
+        <div className="v2-alert amber" role="alert">
+          {f.en
+            ? `Heads up: this is more than the cash the system expects in the drawer (${f.money(expectedCash)}). You can still save it.`
+            : `تنبيه: المبلغ أكبر من النقدية المتوقعة في الدرج (${f.money(expectedCash)}). تقدر تحفظه برضه.`}
+        </div>
+      )}
 
       {/* NOTE */}
       <div>

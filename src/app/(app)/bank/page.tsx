@@ -7,6 +7,7 @@ import { bankTransactions, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getExpectedDrawerCash } from "@/lib/drawer-cash";
 
 import { getLang } from "@/lib/i18n";
 import { makeFmt } from "@/lib/i18n-shared";
@@ -41,6 +42,7 @@ export default async function BankPage() {
   }
 
   const currency = await getSetting("currency");
+  const expectedCash = await getExpectedDrawerCash(db, shift.id, Number(shift.openingCash) || 0).catch(() => null);
 
   const [totalsRow] = await db
     .select({
@@ -111,7 +113,7 @@ export default async function BankPage() {
       <div className="v2-split rev">
         <div className="v2-sticky">
           <Panel title={tx("New transaction")}>
-            <BankForm currency={currency} />
+            <BankForm currency={currency} expectedCash={expectedCash} />
           </Panel>
         </div>
 

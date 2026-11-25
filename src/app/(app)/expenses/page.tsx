@@ -7,6 +7,7 @@ import { expenses, manualIncomes, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getExpectedDrawerCash } from "@/lib/drawer-cash";
 
 import { getLang } from "@/lib/i18n";
 import { makeFmt } from "@/lib/i18n-shared";
@@ -59,6 +60,7 @@ export default async function ExpensesPage({
   }
 
   const currency = await getSetting("currency");
+  const expectedCash = await getExpectedDrawerCash(db, shift.id, Number(shift.openingCash) || 0).catch(() => null);
   const { tab } = await searchParams;
   const isIncome = tab === "income";
 
@@ -174,6 +176,7 @@ export default async function ExpensesPage({
             <ExpenseForm
               key={isIncome ? "income" : "expense"}
               currency={currency}
+              expectedCash={expectedCash}
               kind={isIncome ? "income" : "expense"}
               categories={isIncome ? incomeCategories : expenseCategories}
             />

@@ -44,6 +44,16 @@ type CartItem = {
   note: string;
 };
 
+// Bilingual names without a schema change: "قهوة | Coffee" shows the Arabic part
+// in Arabic and the English part in English. Names without " | " are unchanged.
+function loc(name: string, en: boolean): string {
+  const i = name.indexOf("|");
+  if (i < 0) return name;
+  const ar = name.slice(0, i).trim();
+  const e = name.slice(i + 1).trim();
+  return (en ? e : ar) || name;
+}
+
 function createRequestId(): string {
   if (
     typeof crypto !== "undefined" &&
@@ -378,7 +388,7 @@ export default function PublicMenu({
     }
 
     if (!product.orderable) {
-      setError(f.en ? `${product.name} is not available to order right now.` : `${product.name} مش متاح للطلب دلوقتي.`);
+      setError(f.en ? `${loc(product.name, true)} is not available to order right now.` : `${loc(product.name, false)} مش متاح للطلب دلوقتي.`);
       return;
     }
 
@@ -664,7 +674,7 @@ export default function PublicMenu({
           <p style={{ color: "#64748b", margin: "0 0 16px" }}>{tx("الباريستا استلم الطلب وهيجهّزه.")}</p>
           <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="x-pill" style={{ background: "#0f172a", color: "#fff", padding: "8px 14px", fontSize: 15 }}>#{String(placed.ticketNumber).padStart(3, "0")}</span>
-            {desk && <span className="x-pill" style={{ padding: "8px 14px", fontSize: 14 }}>{desk.name}{booking ? ` · ${booking.customerName}` : ""}</span>}
+            {desk && <span className="x-pill" style={{ padding: "8px 14px", fontSize: 14 }}>{loc(desk.name, f.en)}{booking ? ` · ${booking.customerName}` : ""}</span>}
           </div>
           <div className="q-card" style={{ textAlign: "start", marginTop: 20 }}>
             <div className="x-row-sub">{tx("إجمالي الطلب")}</div>
@@ -689,7 +699,7 @@ export default function PublicMenu({
       <div className="q-hero">
         <div className="q-hero-row">
           <div className="q-logo"><i>WS</i><span>{tx("ورك سبيس هب")}</span></div>
-          <span className="q-place">📍 {desk?.name}</span>
+          <span className="q-place">📍 {desk ? loc(desk.name, f.en) : ""}</span>
           <button
             type="button"
             className="q-place"
@@ -755,7 +765,7 @@ export default function PublicMenu({
           <button type="button" className={`q-cat ${activeCat === null ? "active" : ""}`} onClick={() => setActiveCat(null)}>{tx("الكل")}</button>
           {categories.map((category) => (
             <button key={category.id} type="button" onClick={() => setActiveCat(category.id)} className={`q-cat ${activeCat === category.id ? "active" : ""}`}>
-              {category.icon} {category.name}
+              {category.icon} {loc(category.name, f.en)}
             </button>
           ))}
         </div>
@@ -773,7 +783,7 @@ export default function PublicMenu({
                     product.icon
                   )}
                 </div>
-                <div className="q-name">{product.name}{!product.orderable && <span className="q-off-tag" style={{ position: "static", display: "inline-block", marginInlineStart: 6 }}>{tx("اتوقف مؤقتاً")}</span>}</div>
+                <div className="q-name">{loc(product.name, f.en)}{!product.orderable && <span className="q-off-tag" style={{ position: "static", display: "inline-block", marginInlineStart: 6 }}>{tx("اتوقف مؤقتاً")}</span>}</div>
                 <div className="q-price-row">
                   <span className="q-price x-num">{parseFloat(product.price).toFixed(0)} {f.cur}</span>
                   {inCart > 0 && product.orderable ? (
@@ -783,7 +793,7 @@ export default function PublicMenu({
                       <button type="button" aria-label={tx("زوّد")} disabled={placing || !booking} onClick={() => changeQty(product.id, 1)}>+</button>
                     </span>
                   ) : (
-                    <button type="button" className="q-add" aria-label={(f.en ? `Add ${product.name}` : `أضف ${product.name}`)} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
+                    <button type="button" className="q-add" aria-label={(f.en ? `Add ${loc(product.name, true)}` : `أضف ${loc(product.name, false)}`)} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
                   )}
                 </div>
               </div>
@@ -816,7 +826,7 @@ export default function PublicMenu({
                 <div key={item.product.id} className="x-row" style={{ alignItems: "flex-start" }}>
                   <span className="x-kpi-ico tone-amber" style={{ width: 48, height: 48, fontSize: 24, flexShrink: 0 }}>{item.product.icon}</span>
                   <div className="x-row-main">
-                    <div className="x-row-title">{item.product.name}</div>
+                    <div className="x-row-title">{loc(item.product.name, f.en)}</div>
                     <div className="x-row-sub x-num">{parseFloat(item.product.price).toFixed(0)} × {item.quantity} = <b>{(item.quantity * parseFloat(item.product.price)).toFixed(0)} {f.cur}</b></div>
                     <input type="text" placeholder={tx("ملاحظة (مثلاً: من غير سكر)")} value={item.note} disabled={placing} onChange={(e) => setNote(item.product.id, e.target.value)} style={{ marginTop: 6, width: "100%", fontSize: 13, padding: "6px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }} />
                   </div>

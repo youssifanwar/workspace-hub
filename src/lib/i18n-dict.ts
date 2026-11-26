@@ -250,6 +250,13 @@ export const EN_EXTRA: Record<string, string> = {
  "اتلغى": "Cancelled"
 };
 export const AR_EXTRA: Record<string, string> = {
+ "Invalid location id": "رقم المكان غير صحيح.",
+ "Location not found": "المكان ده مش موجود.",
+ "Failed to create order ticket": "مقدرناش نسجّل الطلب.",
+ "No valid items in order": "مفيش أصناف صالحة في الطلب.",
+ "No valid products in order": "مفيش منتجات صالحة في الطلب.",
+ "Product validation failed": "في منتج في الطلب مش متاح.",
+ "Your customer session is no longer active. Please ask the staff for a new session.": "جلستك خلصت. اطلب من الموظف جلسة جديدة.",
  "Please enter your username.": "من فضلك اكتب اسم المستخدم.",
  "Please enter your password.": "من فضلك اكتب كلمة المرور.",
  "Invalid username.": "اسم المستخدم غير صحيح.",

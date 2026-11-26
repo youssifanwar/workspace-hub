@@ -246,8 +246,7 @@ export const EN_EXTRA: Record<string, string> = {
  "حالة طلباتك": "Your order status",
  "اتستلم": "Received",
  "بيتجهّز": "Preparing",
- "جاهز": "Ready",
- "اتلغى": "Cancelled"
+ "جاهز": "Ready"
 };
 export const AR_EXTRA: Record<string, string> = {
  "Invalid location id": "رقم المكان غير صحيح.",

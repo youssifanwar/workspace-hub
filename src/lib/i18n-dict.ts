@@ -242,7 +242,12 @@ export const EN_EXTRA: Record<string, string> = {
  "الجلسة شغالة": "session active",
  "أصناف في السلة": "items in cart",
  "إرسال الطلب": "Send order",
- "مراجعة الطلب": "Review order"
+ "مراجعة الطلب": "Review order",
+ "حالة طلباتك": "Your order status",
+ "اتستلم": "Received",
+ "بيتجهّز": "Preparing",
+ "جاهز": "Ready",
+ "اتلغى": "Cancelled"
 };
 export const AR_EXTRA: Record<string, string> = {
  "Please enter your username.": "من فضلك اكتب اسم المستخدم.",

@@ -118,6 +118,24 @@ export default function PublicMenu({
   const [reloadKey, setReloadKey] =
     useState(0);
 
+  const [myOrders, setMyOrders] = useState<{ ticketNumber: number; status: string }[]>([]);
+  const [badImg, setBadImg] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (!booking) return;
+    let stop = false;
+    async function poll() {
+      try {
+        const r = await fetch(`/api/public/desks/${deskId}/orders`, { cache: "no-store", credentials: "include" });
+        const d = await r.json();
+        if (!stop && Array.isArray(d.orders)) setMyOrders(d.orders);
+      } catch {}
+    }
+    void poll();
+    const t = window.setInterval(poll, 8000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, [booking, deskId, placed]);
+
   // ---------------------------------------------------------------------------
   // IMPORTANT:
   // Keep the same requestId when retrying the exact same order.
@@ -580,6 +598,32 @@ export default function PublicMenu({
     }
   }
 
+
+  const statusCard = booking && myOrders.length > 0 ? (
+<div className="q-card" style={{ marginTop: 12 }}>
+            <div className="x-row-title">{tx("حالة طلباتك")}</div>
+            {myOrders.filter((o) => o.status !== "cancelled" || true).map((o) => {
+              const idx = o.status === "pending" ? 0 : o.status === "printed" ? 1 : o.status === "served" ? 2 : -1;
+              const labels = [tx("اتستلم"), tx("بيتجهّز"), tx("جاهز")];
+              return (
+                <div key={o.ticketNumber} style={{ marginTop: 12 }}>
+                  <div className="x-row-sub">#{String(o.ticketNumber).padStart(3, "0")}{o.status === "cancelled" ? ` · ${tx("اتلغى")}` : ""}</div>
+                  {idx >= 0 && (
+                    <div className="q-steps">
+                      {labels.map((l, i) => (
+                        <div key={l} style={{ display: "contents" }}>
+                          <div className={`q-step ${i < idx || (idx === 2 && i === 2) ? "done" : i === idx ? "now" : ""}`}><i>{i < idx || (idx === 2 && i === 2) ? "✓" : i + 1}</i>{l}</div>
+                          {i < 2 && <div className={`q-bar ${i < idx ? "done" : ""}`} />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+  ) : null;
+
   // ---------------------------------------------------------------------------
   // LOADING
   // ---------------------------------------------------------------------------
@@ -627,6 +671,7 @@ export default function PublicMenu({
             <div style={{ fontSize: 30, fontWeight: 800 }} className="x-num">{placed.total.toFixed(2)} <small style={{ fontSize: 14, color: "#64748b" }}>{f.cur}</small></div>
             <div className="x-note" style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af" }}>{tx("هيتحسب على فاتورة جلستك وتدفعه وقت الخروج.")}</div>
           </div>
+          <div style={{ textAlign: "start" }}>{statusCard}</div>
           <button onClick={() => setPlaced(null)} className="x-btn dark block" style={{ marginTop: 16, padding: "14px" }}>{tx("اطلب حاجة تانية")}</button>
         </div>
       </div>
@@ -675,6 +720,8 @@ export default function PublicMenu({
           </div>
         )}
 
+        {statusCard}
+
         {needsConnection && (
           <div className="q-card">
             <div className="x-row-title">{tx("🔐 اربط تليفونك")}</div>
@@ -718,16 +765,15 @@ export default function PublicMenu({
             const inCart = cart[product.id]?.quantity || 0;
             return (
               <div key={product.id} className={`q-item ${product.orderable ? "" : "off"}`}>
-                <div className="q-thumb">
-                  {product.imageUrl ? (
+                <div className="q-thumb" style={{ position: "relative", overflow: "hidden" }}>
+                  {product.imageUrl && !badImg[product.id] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
+                    <img src={product.imageUrl} alt="" aria-hidden="true" onError={() => setBadImg((m) => ({ ...m, [product.id]: true }))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     product.icon
                   )}
                 </div>
-                {!product.orderable && <span className="q-off-tag">{tx("اتوقف مؤقتاً")}</span>}
-                <div className="q-name">{product.name}</div>
+                <div className="q-name">{product.name}{!product.orderable && <span className="q-off-tag" style={{ position: "static", display: "inline-block", marginInlineStart: 6 }}>{tx("اتوقف مؤقتاً")}</span>}</div>
                 <div className="q-price-row">
                   <span className="q-price x-num">{parseFloat(product.price).toFixed(0)} {f.cur}</span>
                   {inCart > 0 && product.orderable ? (

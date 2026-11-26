@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFmt } from "@/lib/lang-context";
+import { PageBar } from "../_components/ui";
 
 type Product = {
   id: number;
@@ -64,6 +65,7 @@ export default function FnbSalesPage() {
   const [error, setError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "visa" | "instapay">("cash");
   const [paidAmount, setPaidAmount] = useState("");
+  const [search, setSearch] = useState("");
   const [saleNote, setSaleNote] = useState("");
   const [receipt, setReceipt] = useState<SaleResult | null>(null);
 
@@ -97,12 +99,13 @@ export default function FnbSalesPage() {
   }, [load]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === null) {
-      return products;
-    }
-
-    return products.filter((product) => product.categoryId === activeCategory);
-  }, [activeCategory, products]);
+    const q = search.trim().toLowerCase();
+    return products.filter(
+      (product) =>
+        (activeCategory === null || product.categoryId === activeCategory) &&
+        (!q || product.name.toLowerCase().includes(q)),
+    );
+  }, [activeCategory, products, search]);
 
   const cartItems = useMemo(() => Object.values(cart), [cart]);
 
@@ -234,30 +237,30 @@ export default function FnbSalesPage() {
   }
 
   return (
-    <main className="p-4 lg:p-6 space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("F&B")}</div>
-          <h1 className="text-3xl font-black text-slate-900 mt-1">{tx("Direct F&B Sale")}</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {tx("Sell food and drinks without opening a customer session or assigning a desk.")}
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm">
-          <div className="text-xs text-slate-500">{tx("Cart")}</div>
-          <div className="text-2xl font-black text-slate-900">{cartCount}</div>
-        </div>
-      </div>
+    <main className="space-y-6">
+      <PageBar
+        crumb={tx("F&B")}
+        title={tx("Direct F&B Sale")}
+        description={tx("Sell food and drinks without opening a customer session or assigning a desk.")}
+        actions={<span className="v2-tag blue">{tx("Cart")}: {cartCount}</span>}
+      />
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-          {error}
+          {tx(error)}
         </div>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_390px] gap-6 items-start">
         <section className="space-y-4">
+          <input
+            data-v2search=""
+            type="search"
+            className="input w-full"
+            placeholder={tx("Search product…")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button
               type="button"
@@ -287,6 +290,7 @@ export default function FnbSalesPage() {
             ))}
           </div>
 
+          {filteredProducts.length === 0 && !loading && <div className="v2-empty">{tx("No products")}</div>}
           <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4">
             {filteredProducts.map((product) => {
               const inCart = cart[product.id]?.quantity ?? 0;
@@ -300,7 +304,7 @@ export default function FnbSalesPage() {
                   type="button"
                   onClick={() => addProduct(product)}
                   disabled={saving || outOfStock || atLimit}
-                  className="text-left rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="text-left rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 active:scale-[.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
                     {product.imageUrl ? (
@@ -336,7 +340,7 @@ export default function FnbSalesPage() {
           </div>
         </section>
 
-        <aside className="sticky top-4 rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+        <aside className="sticky top-4 rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
           <div className="p-5 border-b border-slate-100">
             <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("Current Sale")}</div>
             <h2 className="text-2xl font-black text-slate-900 mt-1">{tx("Walk-in Customer")}</h2>
@@ -418,7 +422,7 @@ export default function FnbSalesPage() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="fnb-sale-note">
-                Note (optional)
+                {tx("Note (optional)")}
               </label>
               <textarea
                 id="fnb-sale-note"

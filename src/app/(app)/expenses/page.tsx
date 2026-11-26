@@ -1,3 +1,4 @@
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import { desc, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,7 @@ import { expenses, manualIncomes, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getExpectedDrawerCash } from "@/lib/drawer-cash";
 
 import { getLang } from "@/lib/i18n";
 import { makeFmt } from "@/lib/i18n-shared";
@@ -58,6 +60,7 @@ export default async function ExpensesPage({
   }
 
   const currency = await getSetting("currency");
+  const expectedCash = await getExpectedDrawerCash(db, shift.id, Number(shift.openingCash) || 0).catch(() => null);
   const { tab } = await searchParams;
   const isIncome = tab === "income";
 
@@ -141,140 +144,93 @@ export default async function ExpensesPage({
   );
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Expenses &amp; Income
-          </h1>
-          <p className="text-slate-500">
-            {tx("Record money going out (expenses) and extra money coming in (income). Session, café and package sales are counted automatically — only add income here if it is not recorded anywhere else.")}
-          </p>
+    <div>
+      <PageBar
+        crumb={tx("Finance")}
+        title={f.en ? "Expenses & Income" : "المصروفات والإيرادات"}
+        description={tx("Record money going out (expenses) and extra money coming in (income). Session, café and package sales are counted automatically — only add income here if it is not recorded anywhere else.")}
+        actions={
+          <div className="x-tabs">
+            <a href="/expenses" className={`x-tab ${!isIncome ? "active" : ""}`}>
+              {tx("💸 Expenses")}
+            </a>
+            <a href="/expenses?tab=income" className={`x-tab ${isIncome ? "active" : ""}`}>
+              {tx("💰 Income")}
+            </a>
+          </div>
+        }
+      />
+
+      <StatStrip
+        items={[
+          { label: tx("This shift · income"), value: f.money(shiftIncomeTotal), tone: "green" },
+          { label: tx("This shift · expenses"), value: f.money(shiftExpenseTotal), tone: "red" },
+          { label: tx("Manual income (all-time)"), value: f.money(incomeTotal), tone: "slate" },
+          { label: tx("All-time expenses"), value: f.money(totalExpenses), tone: "slate" },
+        ]}
+      />
+
+      <div className="v2-split rev">
+        <div className="v2-sticky">
+          <Panel title={isIncome ? tx("New income") : tx("New expense")}>
+            <ExpenseForm
+              key={isIncome ? "income" : "expense"}
+              currency={currency}
+              expectedCash={expectedCash}
+              kind={isIncome ? "income" : "expense"}
+              categories={isIncome ? incomeCategories : expenseCategories}
+            />
+          </Panel>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          <div className="kpi bg-gradient-to-br from-emerald-500 to-green-600 min-w-[200px]">
-            <div className="text-xs uppercase text-white/80 font-semibold">
-              {tx("Manual income (all-time)")}
-            </div>
-            <div className="text-2xl font-bold mt-2 tabular-nums">
-              {formatMoney(incomeTotal, currency)}
-            </div>
-          </div>
-          <div className="kpi bg-gradient-to-br from-rose-500 to-red-500 min-w-[200px]">
-            <div className="text-xs uppercase text-white/80 font-semibold">
-              {tx("All-time expenses")}
-            </div>
-            <div className="text-2xl font-bold mt-2 tabular-nums">
-              {formatMoney(totalExpenses, currency)}
-            </div>
-          </div>
-          <div className="kpi bg-gradient-to-br from-cyan-600 to-blue-600 min-w-[190px]">
-            <div className="text-xs uppercase text-white/80 font-semibold">
-              {tx("This shift · income")}
-            </div>
-            <div className="text-2xl font-bold mt-2 tabular-nums">
-              {formatMoney(shiftIncomeTotal, currency)}
-            </div>
-          </div>
-          <div className="kpi bg-gradient-to-br from-violet-600 to-indigo-600 min-w-[190px]">
-            <div className="text-xs uppercase text-white/80 font-semibold">
-              {tx("This shift · expenses")}
-            </div>
-            <div className="text-2xl font-bold mt-2 tabular-nums">
-              {formatMoney(shiftExpenseTotal, currency)}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* TABS */}
-      <div className="flex gap-2">
-        <a
-          href="/expenses"
-          className={`btn ${!isIncome ? "btn-primary" : "btn-ghost"}`}
+        <Panel
+          title={isIncome ? tx("Recent income") : tx("Recent expenses")}
+          meta={tx("Latest 50")}
+          flush
         >
-          {tx("💸 Expenses")}
-        </a>
-        <a
-          href="/expenses?tab=income"
-          className={`btn ${isIncome ? "btn-primary" : "btn-ghost"}`}
-        >
-          {tx("💰 Income")}
-        </a>
-      </div>
-
-      {/* CONTENT */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* NEW ENTRY */}
-        <section className="card p-5 lg:col-span-1">
-          <h2 className="font-bold mb-3">
-            {isIncome ? tx("New income") : tx("New expense")}
-          </h2>
-          <ExpenseForm
-            key={isIncome ? "income" : "expense"}
-            currency={currency}
-            kind={isIncome ? "income" : "expense"}
-            categories={isIncome ? incomeCategories : expenseCategories}
-          />
-        </section>
-
-        {/* RECENT */}
-        <section className="card p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold">
-              {isIncome ? tx("Recent income") : tx("Recent expenses")}
-            </h2>
-            <span className="text-xs text-slate-400">{tx("Latest 50")}</span>
-          </div>
           {activeRows.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-8">
+            <div className="v2-empty">
               {isIncome ? tx("No income entries yet") : tx("No expenses yet")}
             </div>
           ) : (
-            <div className="divide-soft">
-              {activeRows.map((row) => {
-                const amount = safeNumber(row.amount);
-                return (
-                  <div key={row.id} className="py-3 flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${
-                        isIncome
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-rose-100 text-rose-700"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {isIncome ? "💰" : "💸"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-slate-800">
-                        {tx(row.category || "General")}
-                      </div>
-                      <div className="text-xs text-slate-500 truncate">
-                        {row.note?.trim() || tx("No note")}
-                        {" · "}
-                        {String(row.paymentMethod ?? "cash").toUpperCase()}
-                        {" · "}
-                        {row.userName || tx("Unknown user")}
-                        {" · "}
-                        {formatDateTime(row.createdAt)}
-                      </div>
-                    </div>
-                    <div
-                      className={`font-bold tabular-nums shrink-0 ${
-                        isIncome ? "text-emerald-600" : "text-rose-600"
-                      }`}
-                    >
-                      {isIncome ? "+" : "-"}
-                      {formatMoney(amount, currency)}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="x-table-wrap">
+              <table className="v2-tbl">
+                <thead>
+                  <tr>
+                    <th>{tx("Category")}</th>
+                    <th>{tx("Note")}</th>
+                    <th>{tx("Paid by")}</th>
+                    <th>{tx("Staff")}</th>
+                    <th>{tx("Date")}</th>
+                    <th className="num">{tx("Amount")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeRows.map((row) => {
+                    const amount = safeNumber(row.amount);
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <span className={`v2-tag ${isIncome ? "green" : "red"}`}>
+                            {tx(row.category || "General")}
+                          </span>
+                        </td>
+                        <td>{row.note?.trim() || <span className="muted">{tx("No note")}</span>}</td>
+                        <td className="muted">{f.pay(String(row.paymentMethod ?? "cash"))}</td>
+                        <td className="muted">{row.userName || tx("Unknown user")}</td>
+                        <td className="muted">{f.dateTime(row.createdAt)}</td>
+                        <td className="num" style={{ color: isIncome ? "#047857" : "#b91c1c" }}>
+                          {isIncome ? "+" : "-"}
+                          {f.money(amount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </section>
+        </Panel>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFmt } from "@/lib/lang-context";
+import { PageBar, Panel, StatStrip } from "../_components/ui";
 
 type SubscriptionPackage = {
   id: number;
@@ -544,451 +545,125 @@ export default function SubscriptionPackagesPage() {
   // RENDER
   // ===========================================================================
 
+  const activeCount = packages.length - inactiveCount;
+  const avgPerHour = (() => {
+    const act = packages.filter((p) => p.active && p.totalHours > 0);
+    return act.length ? act.reduce((s, p) => s + p.price / p.totalHours, 0) / act.length : 0;
+  })();
+
   return (
-    <div className="space-y-6">
+    <div>
+      <PageBar
+        crumb={tx("Subscriptions")}
+        title={tx("Subscription Packages")}
+        description={tx("Create and manage the packages customers can purchase.")}
+      />
 
-      {/* HEADER */}
+      <StatStrip
+        items={[
+          { label: tx("packages"), value: String(packages.length), tone: "brand" },
+          { label: tx("Active"), value: String(activeCount), tone: "green" },
+          { label: tx("Inactive"), value: String(inactiveCount), tone: "slate" },
+          { label: f.en ? "Avg. price per hour" : "متوسط سعر الساعة", value: formatNumber(avgPerHour), tone: "amber" },
+        ]}
+      />
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      {error && <div className="v2-alert red" style={{ marginTop: 16 }}>{tx(error)}</div>}
+      {success && <div className="v2-alert green" style={{ marginTop: 16 }}>{success}</div>}
 
-        <div>
-          <div className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">
-            {tx("Subscriptions")}
-          </div>
+      <div className="v2-split rev" style={{ marginTop: 20 }}>
+        <aside className="v2-sticky">
+          <Panel title={editingId === null ? tx("Create package") : tx("Edit package")}>
+            <form onSubmit={savePackage} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label className="label">{tx("Package name")}</label>
+                <input className="input" value={form.name} onChange={(e) => updateField("name", e.target.value)} placeholder={tx("e.g. 60 Hours")} disabled={saving} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label className="label">{tx("Total hours")}</label>
+                  <input className="input" type="number" min="0.01" step="0.01" value={form.totalHours} onChange={(e) => updateField("totalHours", e.target.value)} placeholder="60" disabled={saving} />
+                </div>
+                <div>
+                  <label className="label">{tx("Price")}</label>
+                  <input className="input" type="number" min="0" step="0.01" value={form.price} onChange={(e) => updateField("price", e.target.value)} placeholder="1500" disabled={saving} />
+                </div>
+              </div>
+              <div>
+                <label className="label">{tx("Validity")}</label>
+                <input className="input" type="number" min="1" step="1" value={form.validityDays} onChange={(e) => updateField("validityDays", e.target.value)} placeholder="30" disabled={saving} />
+                <p className="text-xs text-slate-400 mt-1">{tx("Leave empty for no expiry.")}</p>
+              </div>
+              <div>
+                <label className="label">{tx("Description")}</label>
+                <textarea className="input min-h-24 resize-y" value={form.description} onChange={(e) => updateField("description", e.target.value)} placeholder={tx("Optional package details...")} disabled={saving} />
+              </div>
+              <label htmlFor="package-active" style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5, fontWeight: 600 }}>
+                <input id="package-active" type="checkbox" checked={form.active} onChange={(e) => updateField("active", e.target.checked)} disabled={saving} className="w-4 h-4" />
+                {tx("Available for new purchases")}
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? tx("Saving…") : editingId === null ? tx("Create package") : tx("Save changes")}
+                </button>
+                {editingId !== null && (
+                  <button type="button" onClick={resetForm} className="btn btn-ghost" disabled={saving}>{tx("Cancel")}</button>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">{tx("The values entered here become the package definition for future purchases.")}</p>
+            </form>
+          </Panel>
+        </aside>
 
-          <h1 className="text-3xl font-bold text-slate-900 mt-1">
-            {tx("Subscription Packages")}
-          </h1>
-
-          <p className="text-slate-500 mt-1">
-            {tx("Create and manage the packages customers can purchase.")}
-          </p>
-        </div>
-
-        <div className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm">
-          {packages.length}{" "}
-          {packages.length === 1
-            ? "package"
-            : "packages"}
-        </div>
-
-      </div>
-
-      {/* MESSAGES */}
-
-      {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
-          {success}
-        </div>
-      )}
-
-      {/* CREATE / EDIT FORM */}
-
-      <div className="card p-6">
-
-        <div className="flex items-center justify-between gap-3 mb-5">
-
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              {editingId === null
-                ? tx("Create package")
-                : tx("Edit package")}
-            </h2>
-
-            <p className="text-sm text-slate-500 mt-1">
-              {tx("The values entered here become the package definition for future purchases.")}
-            </p>
-          </div>
-
-          {editingId !== null && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="btn btn-ghost"
-              disabled={saving}
-            >
-              {tx("Cancel edit")}
-            </button>
-          )}
-
-        </div>
-
-        <form
-          onSubmit={savePackage}
-          className="grid md:grid-cols-2 gap-4"
-        >
-
-          {/* NAME */}
-
-          <div className="md:col-span-2">
-            <label className="label">
-              {tx("Package name")}
-            </label>
-
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) =>
-                updateField(
-                  "name",
-                  e.target.value,
-                )
-              }
-              placeholder={tx("e.g. 60 Hours")}
-              disabled={saving}
-            />
-          </div>
-
-          {/* HOURS */}
-
-          <div>
-            <label className="label">
-              {tx("Total hours")}
-            </label>
-
-            <input
-              className="input"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={
-                form.totalHours
-              }
-              onChange={(e) =>
-                updateField(
-                  "totalHours",
-                  e.target.value,
-                )
-              }
-              placeholder="60"
-              disabled={saving}
-            />
-          </div>
-
-          {/* PRICE */}
-
-          <div>
-            <label className="label">
-              {tx("Price")}
-            </label>
-
-            <input
-              className="input"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={(e) =>
-                updateField(
-                  "price",
-                  e.target.value,
-                )
-              }
-              placeholder="1500"
-              disabled={saving}
-            />
-          </div>
-
-          {/* VALIDITY */}
-
-          <div>
-            <label className="label">
-              {tx("Validity")}
-            </label>
-
-            <input
-              className="input"
-              type="number"
-              min="1"
-              step="1"
-              value={
-                form.validityDays
-              }
-              onChange={(e) =>
-                updateField(
-                  "validityDays",
-                  e.target.value,
-                )
-              }
-              placeholder="30"
-              disabled={saving}
-            />
-
-            <p className="text-xs text-slate-400 mt-1">
-              {tx("Leave empty for no expiry.")}
-            </p>
-          </div>
-
-          {/* ACTIVE */}
-
-          <div className="flex items-center gap-3 pt-7">
-            <input
-              id="package-active"
-              type="checkbox"
-              checked={form.active}
-              onChange={(e) =>
-                updateField(
-                  "active",
-                  e.target.checked,
-                )
-              }
-              disabled={saving}
-              className="w-4 h-4"
-            />
-
-            <label
-              htmlFor="package-active"
-              className="text-sm font-semibold text-slate-700"
-            >
-              {tx("Available for new purchases")}
-            </label>
-          </div>
-
-          {/* DESCRIPTION */}
-
-          <div className="md:col-span-2">
-            <label className="label">
-              {tx("Description")}
-            </label>
-
-            <textarea
-              className="input min-h-24 resize-y"
-              value={
-                form.description
-              }
-              onChange={(e) =>
-                updateField(
-                  "description",
-                  e.target.value,
-                )
-              }
-              placeholder={tx("Optional package details...")}
-              disabled={saving}
-            />
-          </div>
-
-          {/* ACTIONS */}
-
-          <div className="md:col-span-2 flex gap-2 pt-2">
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
-              {saving
-                ? tx("Saving…")
-                : editingId === null
-                  ? tx("Create package")
-                  : tx("Save changes")}
-            </button>
-
-            {editingId !== null && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="btn btn-ghost"
-                disabled={saving}
-              >
-                {tx("Cancel")}
+        <div style={{ minWidth: 0 }}>
+          <div className="v2-toolbar" style={{ marginBottom: 14 }}>
+            <span className="text-sm text-slate-500">
+              {showInactive ? tx("Showing active and inactive packages.") : tx("Showing active packages only.")}
+            </span>
+            {inactiveCount > 0 && (
+              <button type="button" className="btn btn-ghost" onClick={() => setShowInactive((c) => !c)} disabled={saving}>
+                {showInactive ? tx("Hide inactive packages") : (f.en ? `Show inactive packages (${inactiveCount})` : `عرض الباقات غير النشطة (${inactiveCount})`)}
               </button>
             )}
-
           </div>
 
-        </form>
-      </div>
-
-      {/* PACKAGE LIST */}
-
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm text-slate-500">
-          {showInactive
-            ? tx("Showing active and inactive packages.")
-            : tx("Showing active packages only.")}
-        </div>
-
-        {inactiveCount > 0 && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setShowInactive((current) => !current)}
-            disabled={saving}
-          >
-            {showInactive
-              ? tx("Hide inactive packages")
-              : (f.en ? `Show inactive packages (${inactiveCount})` : `عرض الباقات غير النشطة (${inactiveCount})`)}
-          </button>
-        )}
-      </div>
-
-      <div className="card overflow-hidden">
-
-        <div className="p-5 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">
-            {tx("Package definitions")}
-          </h2>
-
-          <p className="text-sm text-slate-500 mt-1">
+          {loading ? (
+            <div className="v2-empty">{tx("Loading packages…")}</div>
+          ) : visiblePackages.length === 0 ? (
+            <div className="v2-empty">
+              <div style={{ fontSize: 40 }}>📦</div>
+              <b>{tx("No packages yet")}</b>
+              <div>{tx("Create your first subscription package above.")}</div>
+            </div>
+          ) : (
+            <div className="v2-pkgs">
+              {visiblePackages.map((pkg) => (
+                <div key={pkg.id} className={`v2-pkg${pkg.active ? "" : " off"}${editingId === pkg.id ? " sel" : ""}`}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                    <h3>{pkg.name}</h3>
+                    <span className={`v2-tag ${pkg.active ? "green" : "slate"}`}>{pkg.active ? tx("Active") : tx("Inactive")}</span>
+                  </div>
+                  <div className="v2-pkg-price">{formatNumber(pkg.price)}<small>{f.cur}</small></div>
+                  <ul>
+                    <li><span>{tx("Hours")}</span><b>{formatNumber(pkg.totalHours)} {f.en ? "h" : "س"}</b></li>
+                    <li><span>{tx("Validity")}</span><b>{pkg.validityDays === null ? tx("No expiry") : `${pkg.validityDays} ${tx("days")}`}</b></li>
+                    {pkg.totalHours > 0 && <li><span>{f.en ? "Per hour" : "سعر الساعة"}</span><b>{formatNumber(pkg.price / pkg.totalHours)}</b></li>}
+                  </ul>
+                  {pkg.description && <p>{pkg.description}</p>}
+                  <div className="v2-pkg-actions">
+                    <button type="button" onClick={() => editPackage(pkg)} className="btn btn-ghost" disabled={saving}>{tx("Edit")}</button>
+                    <button type="button" onClick={() => void toggleActive(pkg)} className="btn btn-ghost" disabled={saving}>{pkg.active ? tx("Deactivate") : tx("Activate")}</button>
+                    <button type="button" onClick={() => void deletePackage(pkg)} className="btn btn-ghost text-red-600" disabled={saving}>{tx("Delete")}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-slate-400" style={{ marginTop: 14 }}>
             {tx("Changing these values affects future purchases only. Historical customer subscriptions keep their original price and hours.")}
           </p>
         </div>
-
-        {loading ? (
-          <div className="p-10 text-center text-slate-500">
-            {tx("Loading packages…")}
-          </div>
-        ) : visiblePackages.length ===
-          0 ? (
-          <div className="p-10 text-center">
-
-            <div className="text-5xl mb-3">
-              📦
-            </div>
-
-            <h3 className="font-bold text-slate-900">
-              {tx("No packages yet")}
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-1">
-              {tx("Create your first subscription package above.")}
-            </p>
-
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-200">
-
-            {visiblePackages.map((pkg) => (
-              <div
-                key={pkg.id}
-                className="p-5"
-              >
-
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-
-                  <div className="min-w-0">
-
-                    <div className="flex items-center gap-2 flex-wrap">
-
-                      <h3 className="text-lg font-bold text-slate-900">
-                        {pkg.name}
-                      </h3>
-
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          pkg.active
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {pkg.active
-                          ? tx("Active")
-                          : tx("Inactive")}
-                      </span>
-
-                    </div>
-
-                    {pkg.description && (
-                      <p className="text-sm text-slate-500 mt-1">
-                        {
-                          pkg.description
-                        }
-                      </p>
-                    )}
-
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap">
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        editPackage(
-                          pkg,
-                        )
-                      }
-                      className="btn btn-ghost"
-                      disabled={saving}
-                    >
-                      {tx("Edit")}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void toggleActive(
-                          pkg,
-                        )
-                      }
-                      className="btn btn-ghost"
-                      disabled={saving}
-                    >
-                      {pkg.active
-                        ? tx("Deactivate")
-                        : tx("Activate")}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void deletePackage(
-                          pkg,
-                        )
-                      }
-                      className="btn btn-ghost text-red-600"
-                      disabled={saving}
-                    >
-                      {tx("Delete")}
-                    </button>
-
-                  </div>
-
-                </div>
-
-                {/* DETAILS */}
-
-                <div className="grid sm:grid-cols-3 gap-3 mt-4">
-
-                  <InfoCard
-                    label={tx("Hours")}
-                    value={`${formatNumber(
-                      pkg.totalHours,
-                    )} h`}
-                  />
-
-                  <InfoCard
-                    label={tx("Price")}
-                    value={formatNumber(
-                      pkg.price,
-                    )}
-                  />
-
-                  <InfoCard
-                    label={tx("Validity")}
-                    value={
-                      pkg.validityDays ===
-                      null
-                        ? tx("No expiry")
-                        : `${pkg.validityDays} ${tx("days")}`
-                    }
-                  />
-
-                </div>
-
-              </div>
-            ))}
-
-          </div>
-        )}
-
       </div>
-
     </div>
   );
 }

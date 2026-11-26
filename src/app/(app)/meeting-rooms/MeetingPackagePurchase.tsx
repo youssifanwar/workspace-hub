@@ -212,7 +212,7 @@ export default function MeetingPackagePurchase({
               </button>
             </>
           )}
-          {error && <p role="alert" className="text-sm font-medium text-rose-600">{error}</p>}
+          {error && <p role="alert" className="text-sm font-medium text-rose-600">{tx(error)}</p>}
         </div>
       )}
     </div>

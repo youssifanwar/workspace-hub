@@ -100,3 +100,76 @@ export function StatTile({
     </div>
   );
 }
+
+/* ---------- v2 layout kit (server-safe) ---------- */
+
+export function PageBar({
+  crumb,
+  title,
+  description,
+  actions,
+}: {
+  crumb?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="v2-bar">
+      <div className="v2-bar-text">
+        {crumb && <div className="v2-crumb">{crumb}</div>}
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
+      </div>
+      {actions && <div className="v2-bar-actions">{actions}</div>}
+    </header>
+  );
+}
+
+export type StripItem = {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  tone?: "brand" | "green" | "amber" | "red" | "slate";
+};
+
+/** One card holding 2-4 headline numbers separated by hairlines. */
+export function StatStrip({ items }: { items: StripItem[] }) {
+  return (
+    <section className="v2-strip" style={{ ["--cols" as string]: items.length }}>
+      {items.map((it, i) => (
+        <div key={i} className={`v2-stat st-${it.tone ?? "slate"}`}>
+          <span className="v2-stat-label">{it.label}</span>
+          <span className="v2-stat-value">{it.value}</span>
+          {it.hint && <span className="v2-stat-hint">{it.hint}</span>}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export function Panel({
+  title,
+  meta,
+  children,
+  flush = false,
+  className = "",
+}: {
+  title?: ReactNode;
+  meta?: ReactNode;
+  children: ReactNode;
+  flush?: boolean;
+  className?: string;
+}) {
+  return (
+    <section className={`v2-panel ${className}`}>
+      {(title || meta) && (
+        <div className="v2-panel-head">
+          <h2>{title}</h2>
+          {meta && <span className="v2-panel-meta">{meta}</span>}
+        </div>
+      )}
+      <div className={flush ? "v2-panel-body flush" : "v2-panel-body"}>{children}</div>
+    </section>
+  );
+}

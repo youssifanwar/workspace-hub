@@ -340,13 +340,13 @@ export default function ReservationDialog({
   }, [saving, onClose]);
 
   const fmtTime = (d: Date) =>
-    d.toLocaleTimeString([], {
+    d.toLocaleTimeString(f.en ? "en-US" : "ar-EG", {
       hour: "2-digit",
       minute: "2-digit",
       timeZone,
     });
   const fmtDate = (d: Date) =>
-    d.toLocaleDateString([], {
+    d.toLocaleDateString(f.en ? "en-US" : "ar-EG", {
       weekday: "short",
       day: "numeric",
       month: "short",
@@ -399,7 +399,7 @@ export default function ReservationDialog({
             <div className="p-6 space-y-6">
               <section className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900">
-                  1 · Room &amp; time
+                  {tx("1 · Room & time")}
                 </h3>
                 <Field label={tx("Room")}>
                   <select
@@ -562,7 +562,7 @@ export default function ReservationDialog({
 
               <section className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900">
-                  3 · Repeat &amp; notes
+                  {tx("3 · Repeat & notes")}
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label={tx("Repeat")}>
@@ -709,7 +709,7 @@ export default function ReservationDialog({
                     role="alert"
                     className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3"
                   >
-                    {error}
+                    {tx(error)}
                   </div>
                 )}
                 <button

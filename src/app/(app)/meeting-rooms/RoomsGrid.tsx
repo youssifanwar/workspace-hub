@@ -2340,7 +2340,7 @@ function ReservationModal({
               className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 whitespace-pre-wrap"
               role="alert"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
 

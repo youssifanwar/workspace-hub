@@ -217,7 +217,7 @@ export default function QrGrid({
             : ""
         }
       >
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="v2-toolbar">
           <button
             type="button"
             className="btn btn-ghost"
@@ -244,7 +244,7 @@ export default function QrGrid({
                 printState.active
               }
             >
-              🖨 Print selected (
+              {f.en ? "🖨 Print selected" : "🖨 اطبع المحدد"} (
               {selected.size}
               )
             </button>
@@ -262,12 +262,13 @@ export default function QrGrid({
                 onClick={() =>
                   toggle(desk.id)
                 }
-                className={`card p-3 cursor-pointer transition ${
+                className={`card p-3 cursor-pointer transition hover:-translate-y-0.5 hover:shadow-lg relative ${
                   isSelected
                     ? "ring-2 ring-indigo-500 border-indigo-500"
                     : ""
                 }`}
               >
+                {isSelected && <span style={{ position: "absolute", top: 8, insetInlineEnd: 8, width: 24, height: 24, borderRadius: 999, background: "var(--v2-brand)", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800, zIndex: 1 }}>✓</span>}
                 {/* QR */}
                 <div className="aspect-square bg-white grid place-items-center overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

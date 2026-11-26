@@ -1,3 +1,4 @@
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import { db } from "@/db";
 import { bookingItems, bookings, customers } from "@/db/schema";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -227,8 +228,12 @@ export default async function BookingsPage() {
       staleHours * 3_600_000,
   );
 
+  const calcs = activeSessions.map((x) => calcSession(x as SessionData, pricing));
+  const fnbSum = calcs.reduce((n, x) => n + x.ordersTotal, 0);
+  const totalSum = calcs.reduce((n, x) => n + x.currentTotal, 0);
+
   return (
-    <div className="space-y-6">
+    <div>
       <BookingsLiveRefresh />
 
       {staleSessions.length > 0 && (
@@ -253,78 +258,62 @@ export default async function BookingsPage() {
           </ul>
         </div>
       )}
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {tx("Customer Sessions")}
-          </h1>
+      <PageBar
+        crumb={tx("Operations")}
+        title={tx("Customer Sessions")}
+        description={tx("Manage active customer sessions, timing, orders and billing.")}
+        actions={<OpenSessionButton currency={currency} />}
+      />
 
-          <p className="text-slate-500 mt-1">
-            {tx("Manage active customer sessions, timing, orders and billing.")}
-          </p>
-        </div>
+      <StatStrip
+        items={[
+          { label: tx("Active"), value: activeSessions.length, tone: "green" },
+          { label: tx("F&B"), value: `${fnbSum.toFixed(2)} ${currency}`, tone: "amber" },
+          { label: tx("Current Total"), value: `${totalSum.toFixed(2)} ${currency}`, tone: "brand" },
+        ]}
+      />
 
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 font-semibold text-sm">
-            {tx("Active")}{" "} {activeSessions.length}
+      {activeSessions.length === 0 ? (
+        <Panel>
+          <div className="v2-empty">
+            <div style={{ fontSize: 40, marginBottom: 8 }}>👤</div>
+            <b style={{ color: "#111827", fontSize: 16 }}>{tx("No active customer sessions")}</b>
+            <p style={{ margin: "6px 0 18px" }}>{tx("Start a session when a customer enters the workspace.")}</p>
+            <OpenSessionButton currency={currency} />
           </div>
-
-          <OpenSessionButton
-            currency={currency}
-          />
-        </div>
-      </div>
-
-      {/* EMPTY STATE */}
-      {activeSessions.length ===
-      0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-          <div className="text-5xl mb-4">
-            👤
-          </div>
-
-          <h2 className="text-xl font-bold text-slate-900">
-            {tx("No active customer sessions")}
-          </h2>
-
-          <p className="text-slate-500 mt-2">
-            {tx("Start a session when a customer enters the workspace.")}
-          </p>
-
-          <div className="mt-6">
-            <OpenSessionButton
-              currency={currency}
-            />
-          </div>
-        </div>
+        </Panel>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-          {activeSessions.map(
-            (session) => (
-              <div
-                key={session.id}
-                className="space-y-2"
-              >
-                <SessionCard
-                  session={
-                    session
-                  }
-                  currency={
-                    currency
-                  }
-                  pricing={
-                    pricing
-                  }
-                  tx={tx}
-                />
-                <QuickCancelButton
-                  bookingId={session.id}
-                />
-              </div>
-            ),
-          )}
-        </div>
+        <Panel title={tx("Live sessions")} meta={String(activeSessions.length)} flush>
+          <div className="x-table-wrap">
+            <table className="v2-tbl">
+              <thead>
+                <tr>
+                  <th>{tx("Customer")}</th>
+                  <th>{tx("Session")}</th>
+                  <th>{tx("Access Code")}</th>
+                  <th>{tx("Started")}</th>
+                  <th>{tx("Duration")}</th>
+                  <th>{tx("Billing")}</th>
+                  <th className="num">{tx("Seat")}</th>
+                  <th className="num">{tx("F&B")}</th>
+                  <th className="num">{tx("Current Total")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {activeSessions.map((session) => (
+                  <SessionRow
+                    key={session.id}
+                    session={session}
+                    currency={currency}
+                    pricing={pricing}
+                    tx={tx}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       )}
     </div>
   );
@@ -334,322 +323,94 @@ export default async function BookingsPage() {
 /* SESSION CARD                                                               */
 /* -------------------------------------------------------------------------- */
 
-function SessionCard({
+type SessionData = {
+  id: number;
+  customerName: string;
+  customerPhone: string | null;
+  accessCode: string | null;
+  checkedInAt: Date;
+  hourlyRate: string;
+  ordersTotal: string;
+  discount: string;
+  status: "active" | "closed" | string;
+  billingMode: BillingMode;
+  subscriptionId: number | null;
+};
+
+function calcSession(session: SessionData, pricing: CustomerSessionPricing) {
+  const durationMs = Math.max(0, Date.now() - session.checkedInAt.getTime());
+  // Every started hour counts as one billable hour (same rule as before).
+  const billableHours = Math.max(1, Math.ceil(durationMs / 3_600_000));
+  const ordersTotal = parseFloat(session.ordersTotal || "0");
+  const discount = parseFloat(session.discount || "0");
+  const seatCharge =
+    session.billingMode === "package"
+      ? 0
+      : calculateCustomerSessionSeatCharge(billableHours, pricing);
+  const currentTotal = Math.max(0, seatCharge + ordersTotal - discount);
+  return { durationMs, billableHours, ordersTotal, discount, seatCharge, currentTotal };
+}
+
+function SessionRow({
   session,
   currency,
   pricing,
   tx,
 }: {
   tx: (s: string) => string;
-  session: {
-    id: number;
-
-    customerName: string;
-
-    customerPhone:
-      | string
-      | null;
-
-    accessCode:
-      | string
-      | null;
-
-    checkedInAt: Date;
-
-    hourlyRate: string;
-
-    ordersTotal: string;
-
-    discount: string;
-
-    status: "active" | "closed" | string;
-
-    billingMode: BillingMode;
-
-    subscriptionId:
-      | number
-      | null;
-  };
-
+  session: SessionData;
   currency: string;
-
   pricing: CustomerSessionPricing;
 }) {
-  const startedAt =
-    session.checkedInAt.getTime();
-
-  const now =
-    Date.now();
-
-  const durationMs =
-    Math.max(
-      0,
-      now - startedAt,
-    );
-
-  const durationHours =
-    durationMs /
-    3_600_000;
-
-  /*
-   * Every started hour counts as one billable hour.
-   *
-   * 00:01 -> 1 hour
-   * 01:01 -> 2 hours
-   * 02:01 -> 3 hours
-   * 03:01 -> 4 hours
-   * 04:01+ -> Day Pass
-   */
-  const billableHours =
-    Math.max(
-      1,
-      Math.ceil(
-        durationHours,
-      ),
-    );
-
-  const ordersTotal =
-    parseFloat(
-      session.ordersTotal ||
-        "0",
-    );
-
-  const discount =
-    parseFloat(
-      session.discount ||
-        "0",
-    );
-
-  /*
-   * Package sessions do not charge seat time.
-   * Regular sessions use the configurable Customer Session pricing.
-   */
-  const seatCharge =
-    session.billingMode ===
-    "package"
-      ? 0
-      : calculateCustomerSessionSeatCharge(
-          billableHours,
-          pricing,
-        );
-
-  const currentTotal =
-    Math.max(
-      0,
-      seatCharge +
-        ordersTotal -
-        discount,
-    );
-
+  const c = calcSession(session, pricing);
+  const isPackage = session.billingMode === "package";
+  const initials = (session.customerName || "?").trim().slice(0, 1);
   return (
-    <Link
-      href={`/bookings/${session.id}`}
-      className="group block"
-    >
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-indigo-300 transition overflow-hidden">
-        <div className="p-5">
-          {/* CUSTOMER */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-100 grid place-items-center text-xl">
-                  👤
-                </div>
-
-                <div className="min-w-0">
-                  <h2 className="font-bold text-slate-900 truncate">
-                    {
-                      session.customerName
-                    }
-                  </h2>
-
-                  {session.customerPhone && (
-                    <p className="text-xs text-slate-500 truncate">
-                      {
-                        session.customerPhone
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end gap-1">
-              <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">
-                {tx("Active")}
-              </span>
-
-              {session.billingMode ===
-                "package" && (
-                <span className="shrink-0 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-                  {tx("PACKAGE")}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* SESSION INFO */}
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <InfoBox
-              label={tx("Session")}
-              value={`#${session.id}`}
-            />
-
-            <InfoBox
-              label={tx("Access Code")}
-              value={
-                session.accessCode ||
-                "----"
-              }
-              mono
-            />
-
-            <InfoBox
-              label={tx("Started")}
-              value={formatTime(
-                session.checkedInAt,
-              )}
-            />
-
-            <InfoBox
-              label={tx("Duration")}
-              value={formatDuration(
-                durationMs,
-              )}
-              mono
-            />
-          </div>
-
-          {/* BILLING */}
-          <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-200 p-4">
-            {/* BILLING TYPE */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">
-                Billing
-              </span>
-
-              <span
-                className={`font-semibold ${
-                  session.billingMode ===
-                  "package"
-                    ? "text-indigo-600"
-                    : "text-slate-800"
-                }`}
-              >
-                {session.billingMode ===
-                "package"
-                  ? tx("Package")
-                  : tx("Regular")}
-              </span>
-            </div>
-
-            {/* SEAT */}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-sm text-slate-500">
-                {tx("Seat")}
-              </span>
-
-              <span className="font-semibold text-slate-800">
-                {seatCharge.toFixed(
-                  2,
-                )}{" "}
-                {currency}
-              </span>
-            </div>
-
-            {/* HOURS / PACKAGE */}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-sm text-slate-500">
-                {session.billingMode ===
-                "package"
-                  ? tx("Package time")
-                  : billableHours > 4
-                  ? tx("Day Pass")
-                  : tx("Billable hours")}
-              </span>
-
-              <span className="font-semibold text-slate-800">
-                {session.billingMode ===
-                "package" ? (
-                  <>
-                    {billableHours}{" "}
-                    {billableHours ===
-                    1
-                      ? tx("hour")
-                      : tx("hours")}
-                  </>
-                ) : billableHours >
-                  4 ? (
-                  `${pricing.dayPass.toFixed(
-                    2,
-                  )} ${currency}`
-                ) : (
-                  <>
-                    {billableHours}{" "}
-                    {billableHours ===
-                    1
-                      ? tx("hour")
-                      : tx("hours")}
-                  </>
-                )}
-              </span>
-            </div>
-
-            {/* F&B */}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-sm text-slate-500">
-                {tx("F&amp;B")}
-              </span>
-
-              <span className="font-semibold text-slate-800">
-                {ordersTotal.toFixed(
-                  2,
-                )}{" "}
-                {currency}
-              </span>
-            </div>
-
-            {/* DISCOUNT */}
-            {discount > 0 && (
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-sm text-slate-500">
-                  {tx("Discount")}
-                </span>
-
-                <span className="font-semibold text-red-600">
-                  -
-                  {discount.toFixed(
-                    2,
-                  )}{" "}
-                  {currency}
-                </span>
-              </div>
+    <tr>
+      <td>
+        <Link href={`/bookings/${session.id}`} className="v2-prod" style={{ textDecoration: "none" }}>
+          <span className="v2-prod-ico" style={{ background: "var(--v2-brand-soft)", color: "var(--v2-brand)", fontWeight: 800, fontSize: 15 }}>
+            {initials}
+          </span>
+          <span>
+            <b style={{ color: "#111827", display: "block" }}>{session.customerName}</b>
+            {session.customerPhone && (
+              <span className="muted" dir="ltr" style={{ fontSize: 12, color: "#6b7280" }}>{session.customerPhone}</span>
             )}
-
-            {/* TOTAL */}
-            <div className="border-t border-slate-200 mt-3 pt-3 flex items-center justify-between">
-              <span className="font-bold text-slate-900">
-                {tx("Current Total")}
-              </span>
-
-              <span className="text-lg font-bold text-indigo-600">
-                {currentTotal.toFixed(
-                  2,
-                )}{" "}
-                {currency}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
-          <div className="text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
+          </span>
+        </Link>
+      </td>
+      <td className="muted">#{session.id}</td>
+      <td style={{ fontFamily: "ui-monospace, monospace", letterSpacing: ".08em", fontWeight: 700 }}>
+        {session.accessCode || "----"}
+      </td>
+      <td className="muted">{formatTime(session.checkedInAt)}</td>
+      <td style={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>{formatDuration(c.durationMs)}</td>
+      <td>
+        <span className={`v2-tag ${isPackage ? "blue" : "green"}`}>
+          {isPackage ? tx("Package") : tx("Regular")}
+        </span>
+        {!isPackage && c.billableHours > 4 && (
+          <span className="v2-tag slate" style={{ marginInlineStart: 6 }}>{tx("Day Pass")}</span>
+        )}
+      </td>
+      <td className="num">{c.seatCharge.toFixed(2)} {currency}</td>
+      <td className="num">{c.ordersTotal.toFixed(2)} {currency}</td>
+      <td className="num" style={{ color: "var(--v2-brand)", fontSize: 15 }}>
+        {c.currentTotal.toFixed(2)} {currency}
+        {c.discount > 0 && (
+          <div style={{ color: "#b91c1c", fontSize: 11 }}>-{c.discount.toFixed(2)}</div>
+        )}
+      </td>
+      <td>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+          <Link href={`/bookings/${session.id}`} className="btn btn-primary" style={{ minHeight: 34, padding: "0 14px" }}>
             {tx("Open session →")}
-          </div>
+          </Link>
+          <QuickCancelButton bookingId={session.id} />
         </div>
-      </div>
-    </Link>
+      </td>
+    </tr>
   );
 }
 

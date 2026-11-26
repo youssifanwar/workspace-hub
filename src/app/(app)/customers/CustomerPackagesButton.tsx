@@ -71,6 +71,7 @@ export default function CustomerPackagesButton({
   const [payMethod, setPayMethod] = useState<
     "cash" | "visa" | "instapay" | "balance"
   >("cash");
+  const [onAccount, setOnAccount] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +208,7 @@ export default function CustomerPackagesButton({
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
               paymentMethod: payMethod,
+              onAccount: payMethod === "balance" && onAccount,
               note: note || null,
             }
           : {
@@ -214,6 +216,7 @@ export default function CustomerPackagesButton({
               packageId: Number(packageId),
               purchasedAt: new Date(paidAt).toISOString(),
               paymentMethod: payMethod,
+              onAccount: payMethod === "balance" && onAccount,
               note: note || null,
             };
       const res = await fetch(url, {
@@ -306,10 +309,10 @@ export default function CustomerPackagesButton({
                         <div className="text-right">
                           <div className="font-bold tabular-nums">
                             {o.remainingHours.toFixed(2)} /{" "}
-                            {o.totalHours.toFixed(2)} h
+                            {o.totalHours.toFixed(2)} {f.en ? "h" : "س"}
                           </div>
                           <div className="text-slate-500">
-                            {o.price.toFixed(2)} {currency} · {o.status}
+                            {f.money(o.price)} · {tx(({ active: "شغالة", expired: "منتهية", exhausted: "خلصت", cancelled: "ملغية", voided: "ملغية" } as Record<string,string>)[o.status] ?? o.status)}
                           </div>
                           {canVoid && o.status === "active" && (
                             <button
@@ -391,15 +394,23 @@ export default function CustomerPackagesButton({
                               : "border-slate-200 hover:border-slate-300"
                           }`}
                         >
-                          {m === "instapay"
-                            ? tx("InstaPay")
-                            : m === "balance"
-                              ? `${tx("Balance")} · ${balance.toFixed(2)}`
-                              : m}
+                          {m === "balance"
+                            ? `${tx("Balance")} · ${f.money(balance)}`
+                            : f.pay(m)}
                         </button>
                       ),
                     )}
                   </div>
+                  {payMethod === "balance" && (
+                    <label className="flex items-center gap-2 mt-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={onAccount}
+                        onChange={(e) => setOnAccount(e.target.checked)}
+                      />
+                      {tx("Pay later (put on customer's account)")}
+                    </label>
+                  )}
                 </div>
 
                 <div>
@@ -427,7 +438,7 @@ export default function CustomerPackagesButton({
 
                 {error && (
                   <div className="text-sm text-red-600 bg-red-50 rounded-lg p-2">
-                    {error}
+                    {tx(error)}
                   </div>
                 )}
                 {success && (

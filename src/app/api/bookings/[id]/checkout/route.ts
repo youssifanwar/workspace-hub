@@ -15,7 +15,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canManage } from "@/lib/auth";
 import { getActiveShiftForUser } from "@/lib/shift";
 import {
   applyBalanceChange,
@@ -26,6 +26,7 @@ import {
 import {
   calculateCustomerSessionSeatCharge,
   getCustomerSessionPricing,
+  getSetting,
   type CustomerSessionPricing,
 } from "@/lib/settings";
 
@@ -181,6 +182,9 @@ export async function POST(
       paidAmount?: number;
 
       discount?: number;
+
+      /** Pay later: put the total on the customer's account (balance may go negative). */
+      onAccount?: boolean;
     };
 
     try {
@@ -195,6 +199,8 @@ export async function POST(
           paidAmount?: number;
 
           discount?: number;
+
+          onAccount?: boolean;
         };
     } catch {
       return NextResponse.json(
@@ -467,13 +473,22 @@ export async function POST(
            * 03:01 -> 4
            * 04:01 -> 5 -> Day Pass
            */
-          const billableHours =
+          const rawBillableHours =
             Math.max(
               1,
               Math.ceil(
                 elapsedHours,
               ),
             );
+          // Optional Settings cap on package hours used per session.
+          // Packages only (cash seat pricing keeps its own day-pass cap).
+          const pkgCapRaw = Math.floor(
+            Number(await getSetting("package_max_hours_per_session")) || 0,
+          );
+          const billableHours =
+            booking.billingMode === "package" && pkgCapRaw > 0
+              ? Math.min(rawBillableHours, pkgCapRaw)
+              : rawBillableHours;
 
           /*
            * BILLING
@@ -513,8 +528,11 @@ export async function POST(
            * the cashier entered.
            */
           const subtotal =
-            seatCharge +
-            ordersTotal;
+            Math.round(
+              (seatCharge +
+                ordersTotal) *
+                100,
+            ) / 100;
 
           if (
             discount >
@@ -526,12 +544,28 @@ export async function POST(
             );
           }
 
+          // Staff (non-managers) may only discount up to the limit set in Settings.
+          if (!canManage(user.role)) {
+            const rawCap = Number(await getSetting("staff_max_discount_percent"));
+            const staffCap = Number.isFinite(rawCap)
+              ? Math.min(100, Math.max(0, rawCap))
+              : 100;
+            if (discount > (subtotal * staffCap) / 100 + 0.005) {
+              throw new CheckoutError(
+                `Discount is above the ${staffCap}% limit for staff. Ask a manager.`,
+                403,
+              );
+            }
+          }
+
           const total =
-            Math.max(
-              0,
-              subtotal -
-                discount,
-            );
+            Math.round(
+              Math.max(
+                0,
+                subtotal -
+                  discount,
+              ) * 100,
+            ) / 100;
 
           /*
            * For non-cash payments we still keep the supplied paid amount
@@ -543,7 +577,8 @@ export async function POST(
 
           if (
             !payFromBalance &&
-            paid < total
+            Math.round(paid * 100) <
+              Math.round(total * 100)
           ) {
             throw new CheckoutError(
               "Insufficient payment",
@@ -564,8 +599,10 @@ export async function POST(
            * "Not enough balance" and rolls the whole checkout back if the
            * customer can't cover it).
            */
+          // Card / InstaPay / balance always settle exactly the total; only
+          // cash can be over-tendered and give change.
           const paidEffective =
-            payFromBalance
+            paymentMethod !== "cash"
               ? total
               : paid;
 
@@ -586,7 +623,8 @@ export async function POST(
                   user.id,
                 bookingId:
                   booking.id,
-                note: `Session #${booking.id}`,
+                note: body.onAccount === true ? `Session #${booking.id} (pay later)` : `Session #${booking.id}`,
+                allowDebt: body.onAccount === true,
               },
             );
           }

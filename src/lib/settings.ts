@@ -24,7 +24,19 @@ export type SettingKey =
   | "calendar_week_starts_on"
   | "calendar_start_hour"
   | "calendar_end_hour"
-  | "meeting_room_max_booking_hours";
+  | "meeting_room_max_booking_hours"
+  | "qr_max_pending_orders"
+  | "package_max_hours_per_session"
+  | "staff_max_discount_percent"
+  | "brand_color"
+  | "feature_memberships"
+  | "feature_companies"
+  | "meeting_room_overtime_billing"
+  | "meeting_room_overtime_grace_minutes"
+  | "meeting_room_formula_pricing"
+  | "meeting_room_base_hourly"
+  | "meeting_room_included_people"
+  | "meeting_room_extra_person_hourly";
 
 /* ============================================================================
  * DEFAULTS
@@ -100,6 +112,37 @@ export const DEFAULTS: Record<
     "23",
   meeting_room_max_booking_hours:
     "8",
+  /* Open QR orders one customer session may have waiting at once. */
+  qr_max_pending_orders:
+    "5",
+  /* Most package hours one session can use up (0 = no limit, bill every started hour). */
+  package_max_hours_per_session:
+    "0",
+  /* Largest session discount (percent of subtotal) a non-manager may give. */
+  staff_max_discount_percent:
+    "100",
+  /* Accent color of the app (hex). */
+  brand_color:
+    "#4f2f1a",
+  /* Optional features, off until enabled (1 = on). Need optional-migrations/. */
+  feature_memberships:
+    "0",
+  feature_companies:
+    "0",
+  /* Bill meeting-room time past the booked end (1 = on). */
+  meeting_room_overtime_billing:
+    "0",
+  meeting_room_overtime_grace_minutes:
+    "10",
+  /* Flat room price formula (1 = on, replaces per-room tiers). */
+  meeting_room_formula_pricing:
+    "0",
+  meeting_room_base_hourly:
+    "100",
+  meeting_room_included_people:
+    "8",
+  meeting_room_extra_person_hourly:
+    "10",
 };
 
 /* ============================================================================
@@ -351,9 +394,13 @@ export function calculateCustomerSessionSeatCharge(
     (a, b) => a.hours - b.hours,
   );
 
+  // A session never costs more than the day pass (when one is set).
+  const cap =
+    pricing.dayPass > 0 ? pricing.dayPass : Number.POSITIVE_INFINITY;
+
   for (const tier of sorted) {
     if (billableHours <= tier.hours) {
-      return tier.price;
+      return Math.min(tier.price, cap);
     }
   }
 

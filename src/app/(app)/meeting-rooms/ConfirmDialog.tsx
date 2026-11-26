@@ -72,7 +72,7 @@ export default function ConfirmDialog({
             role="alert"
             className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
           >
-            {error}
+            {tx(error)}
           </div>
         )}
 

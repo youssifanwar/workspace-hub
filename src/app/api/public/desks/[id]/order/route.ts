@@ -23,6 +23,7 @@ import {
 } from "drizzle-orm";
 
 import { publish } from "@/lib/events";
+import { getSetting } from "@/lib/settings";
 
 export const dynamic =
   "force-dynamic";
@@ -1132,6 +1133,25 @@ export async function POST(
                   )
                 `,
               );
+
+          // Limit how many open QR orders one customer session can pile up.
+          const [pendingRow] = await tx
+            .select({
+              n: sql<number>`count(*)::int`,
+            })
+            .from(orderTickets)
+            .where(
+              sql`${orderTickets.bookingId} = ${lockedBooking.id} AND ${orderTickets.source} = 'qr' AND ${orderTickets.status} = 'pending'`,
+            );
+
+          const pendingCap = Math.max(1, Math.floor(Number(await getSetting("qr_max_pending_orders")) || 5));
+
+          if (Number(pendingRow?.n ?? 0) >= pendingCap) {
+            throw new OrderError(
+              "Too many pending orders. Please wait for staff to serve the current ones.",
+              429,
+            );
+          }
 
           const ticketNumber =
             Number(

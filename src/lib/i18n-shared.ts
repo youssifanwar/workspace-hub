@@ -43,7 +43,13 @@ const EN: Record<string, string> = {
 
 export function tr(lang: Lang, s: string): string {
   if (lang === "en") return EN[s] ?? EN_EXTRA[s] ?? s;
-  return AR_EXTRA[s] ?? s;
+  const hit = AR_EXTRA[s];
+  if (hit !== undefined) return hit;
+  if (/^[A-Za-z]/.test(s) && s.length < 220) {
+    if (/^Invalid /.test(s)) return "البيانات مش صحيحة. راجعها وجرّب تاني.";
+    if (/^(Could not|Failed to|Unable to) /.test(s)) return "حصل خطأ. جرّب تاني، ولو فضل يحصل بلّغ المدير.";
+  }
+  return s;
 }
 
 // ---- formatting + text helper bound to a language ----

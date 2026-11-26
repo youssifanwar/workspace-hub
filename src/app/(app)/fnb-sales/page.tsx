@@ -247,7 +247,7 @@ export default function FnbSalesPage() {
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-          {error}
+          {tx(error)}
         </div>
       )}
 
@@ -413,7 +413,7 @@ export default function FnbSalesPage() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="fnb-sale-note">
-                Note (optional)
+                {tx("Note (optional)")}
               </label>
               <textarea
                 id="fnb-sale-note"

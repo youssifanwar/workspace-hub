@@ -1,3 +1,4 @@
+import { PageBar } from "../_components/ui";
 import { asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -89,21 +90,14 @@ export default async function MenuPage() {
     }));
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Menu (Food &amp; Beverage)
-          </h1>
-
-          <p className="text-slate-500">
-            {manageMenu
-              ? tx("Manage categories and products. Click any card to edit.")
-              : tx("Browse the menu. Ask a manager to add or edit items.")}
-          </p>
-        </div>
-      </div>
+    <div>
+      <PageBar
+        crumb={tx("F&B")}
+        title={f.en ? "Menu (Food & Beverage)" : "المنيو (أكل وشرب)"}
+        description={manageMenu
+          ? tx("Manage categories and products. Click any card to edit.")
+          : tx("Browse the menu. Ask a manager to add or edit items.")}
+      />
 
       {/* MENU */}
       <MenuManager

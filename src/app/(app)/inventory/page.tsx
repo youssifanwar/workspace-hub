@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import { useFmt } from "@/lib/lang-context";
 
 type Product = {
@@ -137,69 +138,93 @@ export default function InventoryPage() {
     return <div className="min-h-screen grid place-items-center text-slate-500">{tx("Loading inventory…")}</div>;
   }
 
+  const lowCount = products.filter((p) => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
+  const outCount = products.filter((p) => p.stockQuantity <= 0).length;
+
   return (
-    <main className="p-4 lg:p-6 space-y-6">
-      <div>
-        <div className="text-xs uppercase tracking-wide text-indigo-600 font-bold">{tx("Inventory")}</div>
-        <h1 className="text-3xl font-black text-slate-900 mt-1">F&amp;B Stock</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Set the real quantity available for each food and drink. QR orders and direct F&amp;B sales use this stock.
-        </p>
-      </div>
+    <div>
+      <PageBar
+        crumb={tx("Inventory")}
+        title={f.en ? "F&B Stock" : "مخزون الأكل والشرب"}
+        description={f.en ? "Set the real quantity available for each food and drink. QR orders and direct F&B sales use this stock." : "حدد الكمية الفعلية المتاحة من كل أكل ومشروب. طلبات QR والبيع المباشر بيستخدموا المخزون ده."}
+      />
 
-      {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>
-      )}
+      <StatStrip
+        items={[
+          { label: tx("Products"), value: products.length, tone: "brand" },
+          { label: tx("Low stock"), value: lowCount, hint: f.en ? "5 or fewer left" : "باقي 5 أو أقل", tone: "amber" },
+          { label: tx("Out of stock"), value: outCount, tone: "red" },
+        ]}
+      />
 
-      {message && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">{message}</div>
-      )}
+      {error && <div className="v2-alert red">{tx(error)}</div>}
+      {message && <div className="v2-alert green">{message}</div>}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row gap-3">
-          <input
-            className="input flex-1"
+      <Panel flush>
+        <div className="v2-toolbar">
+          <input data-v2search=""
+            className="input"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={tx("Search product…")}
           />
-          <select
-            className="input lg:w-64"
-            value={category === null ? "all" : String(category)}
-            onChange={(event) => setCategory(event.target.value === "all" ? null : Number(event.target.value))}
-          >
-            <option value="all">{tx("All categories")}</option>
+          <div className="v2-chips">
+            <button
+              type="button"
+              className={`v2-chip ${category === null ? "on" : ""}`}
+              onClick={() => setCategory(null)}
+            >
+              {tx("All categories")}
+            </button>
             {categories.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
+              <button
+                key={item.id}
+                type="button"
+                className={`v2-chip ${category === item.id ? "on" : ""}`}
+                onClick={() => setCategory(item.id)}
+              >
+                {item.name}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="x-table-wrap">
+          <table className="v2-tbl">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-3 pr-4">{tx("Product")}</th>
-                <th className="py-3 pr-4">{tx("Category")}</th>
-                <th className="py-3 pr-4">{tx("Price")}</th>
-                <th className="py-3 pr-4">{tx("Stock")}</th>
-                <th className="py-3">{tx("Action")}</th>
+              <tr>
+                <th>{tx("Product")}</th>
+                <th>{tx("Category")}</th>
+                <th>{tx("Price")}</th>
+                <th>{tx("Status")}</th>
+                <th>{tx("Stock")}</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="border-b border-slate-100">
-                  <td className="py-3 pr-4 font-bold text-slate-800">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{product.icon}</span>
-                      <span>{product.name}</span>
+                <tr key={product.id}>
+                  <td>
+                    <div className="v2-prod">
+                      <span className="v2-prod-ico">{product.icon}</span>
+                      <b>{product.name}</b>
                     </div>
                   </td>
-                  <td className="py-3 pr-4 text-slate-500">{product.categoryName}</td>
-                  <td className="py-3 pr-4">{money(product.price)} EGP</td>
-                  <td className="py-3 pr-4">
+                  <td className="muted">{product.categoryName}</td>
+                  <td className="num" style={{ textAlign: "start" }}>{f.money(product.price)}</td>
+                  <td>
+                    {product.stockQuantity <= 0 ? (
+                      <span className="v2-tag red">{tx("Out of stock")}</span>
+                    ) : product.stockQuantity <= 5 ? (
+                      <span className="v2-tag amber">{tx("Low stock")}</span>
+                    ) : (
+                      <span className="v2-tag green">{tx("In stock")}</span>
+                    )}
+                  </td>
+                  <td>
                     <input
-                      className="input w-28"
+                      className="input"
+                      style={{ width: 96 }}
                       type="number"
                       min="0"
                       step="1"
@@ -209,7 +234,7 @@ export default function InventoryPage() {
                       }
                     />
                   </td>
-                  <td className="py-3">
+                  <td style={{ textAlign: "end" }}>
                     <button
                       type="button"
                       className="btn btn-primary"
@@ -225,10 +250,10 @@ export default function InventoryPage() {
           </table>
 
           {filteredProducts.length === 0 && (
-            <div className="py-10 text-center text-slate-500">{tx("No products found.")}</div>
+            <div className="v2-empty">{tx("No products found.")}</div>
           )}
         </div>
-      </div>
-    </main>
+      </Panel>
+    </div>
   );
 }

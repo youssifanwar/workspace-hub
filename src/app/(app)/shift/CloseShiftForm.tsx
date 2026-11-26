@@ -240,7 +240,7 @@ export default function CloseShiftForm({
             htmlFor="actual-cash"
             className="label"
           >
-            {tx("Actual cash counted in drawer")} ({currency})
+            {tx("Actual cash counted in drawer")} ({f.cur})
           </label>
 
           <input
@@ -317,7 +317,7 @@ export default function CloseShiftForm({
           role="alert"
           aria-live="assertive"
         >
-          {error}
+          {tx(error)}
         </div>
       )}
 

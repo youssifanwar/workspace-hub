@@ -1,3 +1,4 @@
+import { PageBar, StatStrip } from "../../../_components/ui";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -460,33 +461,13 @@ export default async function ShiftSummary({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3 no-print">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {f.en ? `Shift #${shiftRow.id} Summary` : `ملخص شيفت #${shiftRow.id}`}
-          </h1>
-
-          <p className="text-slate-500 text-sm">
-            {shiftRow.userName || tx("Unknown user")} ·{" "}
-            {f.dateTime(shiftRow.openedAt)}
-            {shiftRow.closedAt
-              ? ` → ${f.dateTime(
-                  shiftRow.closedAt,
-                )}`
-              : ""}
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <PrintButton />
-
-          <Link
-            href="/dashboard"
-            className="btn btn-primary"
-          >
-            {tx("Dashboard →")}
-          </Link>
-        </div>
+      <div className="no-print">
+      <PageBar
+        crumb={tx("Shift")}
+        title={f.en ? `Shift #${shiftRow.id} Summary` : `ملخص شيفت #${shiftRow.id}`}
+        description={`${shiftRow.userName || tx("Unknown user")} · ${f.dateTime(shiftRow.openedAt)}${shiftRow.closedAt ? ` → ${f.dateTime(shiftRow.closedAt)}` : ""}`}
+        actions={<><PrintButton /><Link href="/dashboard" className="btn btn-primary">{tx("Dashboard →")}</Link></>}
+      />
       </div>
 
       {shiftRow.note?.trim() && (
@@ -501,41 +482,14 @@ export default async function ShiftSummary({
         </div>
       )}
 
-      <div className="grid md:grid-cols-4 gap-4">
-        <Kpi
-          label={tx("Total revenue")}
-          value={formatMoney(
-            revenue,
-            currency,
-          )}
-          grad="from-indigo-500 to-purple-500"
-        />
-
-        <Kpi
-          label={tx("Seat charges")}
-          value={formatMoney(
-            seatTotal,
-            currency,
-          )}
-          grad="from-cyan-500 to-blue-500"
-        />
-
-        <Kpi
-          label={tx("F&B sales · session + direct POS")}
-          value={formatMoney(ordersTotal, currency)}
-          sub={`${tx("Direct POS included")}: ${formatMoney(directFnbTotal, currency)}`}
-          grad="from-orange-500 to-pink-500"
-        />
-
-        <Kpi
-          label={tx("Expenses")}
-          value={formatMoney(
-            expensesTotal,
-            currency,
-          )}
-          grad="from-rose-500 to-red-500"
-        />
-      </div>
+      <StatStrip
+        items={[
+          { label: tx("Total revenue"), value: f.money(revenue), tone: "green" },
+          { label: tx("Seat charges"), value: f.money(seatTotal), tone: "brand" },
+          { label: tx("F&B sales · session + direct POS"), value: f.money(ordersTotal), hint: `${tx("Direct POS included")}: ${f.money(directFnbTotal)}`, tone: "amber" },
+          { label: tx("Expenses"), value: f.money(expensesTotal), tone: "red" },
+        ]}
+      />
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="card p-6">
@@ -545,49 +499,34 @@ export default async function ShiftSummary({
 
           <Row
             label={tx("💵 Cash")}
-            value={formatMoney(
-              cashTotal,
-              currency,
-            )}
+            value={f.money(cashTotal)}
           />
 
           <Row
             label={tx("💳 Visa")}
-            value={formatMoney(
-              visaTotal,
-              currency,
-            )}
+            value={f.money(visaTotal)}
           />
 
           <Row
             label={tx("📱 InstaPay")}
-            value={formatMoney(
-              instapayTotal,
-              currency,
-            )}
+            value={f.money(instapayTotal)}
           />
 
           <Row
             label={tx("👛 Customer balance")}
-            value={formatMoney(balanceTotal, currency)}
+            value={f.money(balanceTotal)}
           />
 
           <div className="h-px bg-slate-100 my-3" />
 
           <Row
             label={tx("🏦 Bank deposits")}
-            value={formatMoney(
-              bankDeposits,
-              currency,
-            )}
+            value={f.money(bankDeposits)}
           />
 
           <Row
             label={tx("🏦 Bank withdrawals")}
-            value={formatMoney(
-              bankWithdrawals,
-              currency,
-            )}
+            value={f.money(bankWithdrawals)}
           />
         </div>
 
@@ -598,67 +537,46 @@ export default async function ShiftSummary({
 
           <Row
             label={tx("Opening cash")}
-            value={formatMoney(
-              openingCash,
-              currency,
-            )}
+            value={f.money(openingCash)}
           />
 
           <Row
             label={tx("+ Cash sales")}
-            value={formatMoney(
-              cashTotal,
-              currency,
-            )}
+            value={f.money(cashTotal)}
           />
 
           <Row
             label={tx("+ Cash balance top-ups")}
-            value={formatMoney(extraCash.balanceDeposits, currency)}
+            value={f.money(extraCash.balanceDeposits)}
           />
 
           <Row
             label={tx("− Cash expenses")}
-            value={formatMoney(
-              cashExpensesTotal,
-              currency,
-            )}
+            value={f.money(cashExpensesTotal)}
           />
 
           <Row
             label={tx("− Deposited")}
-            value={formatMoney(
-              bankDeposits,
-              currency,
-            )}
+            value={f.money(bankDeposits)}
           />
 
           <Row
             label={tx("+ Withdrawn")}
-            value={formatMoney(
-              bankWithdrawals,
-              currency,
-            )}
+            value={f.money(bankWithdrawals)}
           />
 
           <div className="h-px bg-slate-100 my-3" />
 
           <Row
             label={tx("Expected cash")}
-            value={formatMoney(
-              expectedCash,
-              currency,
-            )}
+            value={f.money(expectedCash)}
           />
 
           {closingCash !== null && (
             <>
               <Row
                 label={tx("Counted cash")}
-                value={formatMoney(
-                  closingCash,
-                  currency,
-                )}
+                value={f.money(closingCash)}
               />
 
               <div
@@ -674,7 +592,7 @@ export default async function ShiftSummary({
                 {tx("Difference")}:{" "}
                 {diff >= 0 ? "+" : ""}
                 {diff.toFixed(2)}{" "}
-                {currency}
+                {f.cur}
                 {" · "}
                 {Math.abs(diff) < 0.01
                   ? tx("Balanced")
@@ -723,11 +641,8 @@ export default async function ShiftSummary({
                     </div>
 
                     <div className="text-xs text-slate-500">
-                      {quantity} sold ·{" "}
-                      {formatMoney(
-                        itemRevenue,
-                        currency,
-                      )}
+                      {quantity} {f.en ? "sold" : "اتباع"} ·{" "}
+                      {f.money(itemRevenue)}
                     </div>
                   </div>
                 </div>
@@ -804,10 +719,7 @@ export default async function ShiftSummary({
                       </td>
 
                       <td className="text-right font-bold">
-                        {formatMoney(
-                          bookingTotal,
-                          currency,
-                        )}
+                        {f.money(bookingTotal)}
                       </td>
                     </tr>
                   );
@@ -853,10 +765,8 @@ export default async function ShiftSummary({
 
                   <div className="font-bold text-red-600 shrink-0">
                     -
-                    {formatMoney(
-                      safeMoney(expense.amount),
-                      currency,
-                    )}
+                    {f.money(
+                      safeMoney(expense.amount))}
                   </div>
                 </div>
               ))}
@@ -908,12 +818,9 @@ export default async function ShiftSummary({
                       }`}
                     >
                       {isDeposit ? "+" : "-"}
-                      {formatMoney(
-                        safeMoney(
+                      {f.money(safeMoney(
                           transaction.amount,
-                        ),
-                        currency,
-                      )}
+                        ))}
                     </div>
                   </div>
                 );

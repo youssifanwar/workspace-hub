@@ -711,13 +711,13 @@ export default function MeetingRoomPackagesAdmin({
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         <div className="font-semibold text-slate-800">{tx("Flexible package setup")}</div>
-        <p className="mt-1">Hours and prices are fully customizable. Discount defaults to 0% and is never forced; use it only when you choose to offer one. You can create multiple packages with the same number of hours.</p>
+        <p className="mt-1">{f.en ? "Hours and prices are fully customizable. Discount defaults to 0% and is never forced; use it only when you choose to offer one. You can create multiple packages with the same number of hours." : "الساعات والأسعار تتظبط بالكامل. الخصم الافتراضي 0% ومش بيتفرض أبدًا، استخدمه لما تحب تقدّم خصم. تقدر تعمل أكتر من باقة بنفس عدد الساعات."}</p>
       </div>
 
       {/* MESSAGES */}
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 whitespace-pre-wrap">
-          {error}
+          {tx(error)}
         </div>
       )}
 

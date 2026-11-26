@@ -77,7 +77,7 @@ export default function EditArrivalTime({
       <p className="text-xs text-slate-500">
         {tx("The bill is calculated from this time. Changes are logged.")}
       </p>
-      {error && <div className="text-sm text-red-600">{error}</div>}
+      {error && <div className="text-sm text-red-600">{tx(error)}</div>}
       <div className="flex gap-2">
         <button
           type="button"

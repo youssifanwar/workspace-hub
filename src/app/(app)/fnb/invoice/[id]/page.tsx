@@ -126,7 +126,8 @@ export default async function FnbInvoicePage({
 
         <div className="card p-6 space-y-4 font-mono text-sm" id="invoice">
           <div className="text-center border-b border-dashed border-slate-300 pb-3">
-            <div className="text-3xl mb-1" aria-hidden="true">🏢</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/scope-logo-brown.png" alt="" width={981} height={558} style={{ height: 56, width: "auto", margin: "0 auto 6px" }} />
             <div className="text-lg font-bold">{workspaceName}</div>
             {workspaceAddress && <div className="text-xs text-slate-500">{workspaceAddress}</div>}
             {workspacePhone && <div className="text-xs text-slate-500">📞 {workspacePhone}</div>}
@@ -141,7 +142,7 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="border-t border-b border-dashed border-slate-300 py-3">
-            <div className="text-xs font-bold mb-2">F&amp;B ITEMS</div>
+            <div className="text-xs font-bold mb-2">{tx("Food & drinks")}</div>
             {items.length === 0 ? (
               <div className="text-xs text-slate-500">{tx("No items recorded.")}</div>
             ) : (
@@ -168,20 +169,20 @@ export default async function FnbInvoicePage({
           </div>
 
           <div className="space-y-1 text-xs">
-            <Line label={tx("Subtotal")} value={formatMoney(subtotal, currency)} />
+            <Line label={tx("Subtotal")} value={f.money(subtotal)} />
             {discount > 0 && (
-              <Line label={tx("Discount")} value={`- ${formatMoney(discount, currency)}`} />
+              <Line label={tx("Discount")} value={`- ${f.money(discount)}`} />
             )}
             <div className="flex items-center justify-between text-lg font-bold pt-2 border-t border-slate-300">
               <span>{tx("TOTAL")}</span>
-              <span className="tabular-nums">{formatMoney(total, currency)}</span>
+              <span className="tabular-nums">{f.money(total)}</span>
             </div>
           </div>
 
           <div className="border-t border-dashed border-slate-300 pt-3 space-y-1 text-xs">
             <Line label={tx("Payment")} value={f.pay(paymentMethod)} />
-            <Line label={tx("Paid")} value={formatMoney(paidAmount, currency)} />
-            <Line label={tx("Change")} value={formatMoney(changeAmount, currency)} />
+            <Line label={tx("Paid")} value={f.money(paidAmount)} />
+            <Line label={tx("Change")} value={f.money(changeAmount)} />
           </div>
 
           {note && (

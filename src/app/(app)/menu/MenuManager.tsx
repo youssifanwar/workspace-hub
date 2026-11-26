@@ -149,16 +149,16 @@ export default function MenuManager({
   const [error, setError] =
     useState<string | null>(null);
 
-  const filtered = useMemo(
-    () =>
-      activeCat === "all"
-        ? products
-        : products.filter(
-            (product) =>
-              product.categoryId === activeCat,
-          ),
-    [products, activeCat],
-  );
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products.filter(
+      (product) =>
+        (activeCat === "all" || product.categoryId === activeCat) &&
+        (!q || product.name.toLowerCase().includes(q)),
+    );
+  }, [products, activeCat, search]);
 
   function clearError() {
     setError(null);
@@ -373,7 +373,7 @@ export default function MenuManager({
           aria-live="polite"
           className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
-          {error}
+          {tx(error)}
 
           <button
             type="button"
@@ -385,6 +385,15 @@ export default function MenuManager({
         </div>
       )}
 
+      <input
+        data-v2search=""
+        type="search"
+        className="input w-full"
+        placeholder={tx("Search product…")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       {/* CATEGORIES */}
       <div className="flex items-center gap-2 overflow-x-auto scroll-fade pb-1">
         <button
@@ -395,14 +404,14 @@ export default function MenuManager({
           }}
           className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
             activeCat === "all"
-              ? "bg-slate-900 text-white"
+              ? "bg-indigo-600 text-white"
               : "bg-white border border-slate-200 hover:border-slate-300"
           }`}
           aria-pressed={
             activeCat === "all"
           }
         >
-          All ({products.length})
+          {f.en ? "All" : "الكل"} ({products.length})
         </button>
 
         {categories.map((category) => {
@@ -1121,7 +1130,7 @@ function ProductModal({
                 htmlFor="product-price"
                 className="label"
               >
-                Price ({currency})
+                {tx("Price")} ({f.cur})
               </label>
 
               <input
@@ -1201,7 +1210,7 @@ function ProductModal({
               aria-live="polite"
               className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
 
@@ -1465,7 +1474,7 @@ function CategoryModal({
               aria-live="polite"
               className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
 

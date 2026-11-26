@@ -461,7 +461,7 @@ export default function GoogleCalendarSettings() {
 
       {error && (
         <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700 whitespace-pre-wrap break-words">
-          {error}
+          {tx(error)}
         </div>
       )}
 

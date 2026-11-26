@@ -1,3 +1,4 @@
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -733,423 +734,179 @@ export default async function ReportsPage({
   const netProfit =
     revenue - totalExpenses;
 
+  const payLabel = (method: string | null) =>
+    method === "cash" ? tx("💵 Cash")
+    : method === "visa" ? tx("💳 Visa")
+    : method === "instapay" ? tx("📱 InstaPay")
+    : method === "balance" ? tx("👛 Customer balance")
+    : method === "bank" ? tx("🏦 Bank")
+    : method === "card" ? tx("💳 Card")
+    : method ? method : tx("Unknown");
+  const topRevenue = mergedTopProducts.reduce((n, p) => n + safeNumber(p.revenue), 0) || 1;
+
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {tx("Reports")}
-          </h1>
-
-          <p className="text-slate-500">
-            {formatDate(from)} →{" "}
-            {formatDate(to)} · {f.en ? `Last ${days} days` : `آخر ${days} يوم`}
-          </p>
-        </div>
-
-        <div className="flex gap-1">
-          {[1, 7, 30, 90].map(
-            (range) => (
+    <div>
+      <PageBar
+        crumb={tx("Insights")}
+        title={tx("Reports")}
+        description={
+          <>
+            {formatDate(from)} → {formatDate(to)} ·{" "}
+            {f.en ? `Last ${days} days` : `آخر ${days} يوم`}
+          </>
+        }
+        actions={
+          <div className="x-tabs">
+            {[1, 7, 30, 90].map((range) => (
               <Link
                 key={range}
                 href={`/reports?range=${range}`}
-                aria-current={
-                  days === range
-                    ? "page"
-                    : undefined
-                }
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                  days === range
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white border border-slate-200 hover:border-slate-300"
-                }`}
+                aria-current={days === range ? "page" : undefined}
+                className={`x-tab ${days === range ? "active" : ""}`}
               >
-                {range === 1
-                  ? tx("Today")
-                  : `${range}d`}
+                {range === 1 ? tx("Today") : f.en ? `${range}d` : `${range} يوم`}
               </Link>
-            ),
-          )}
+            ))}
+          </div>
+        }
+      />
+
+      <div className="v2-hero">
+        <div className="v2-hero-main">
+          <span className="v2-hero-label">{tx("Net profit")}</span>
+          <span className={`v2-hero-value ${netProfit >= 0 ? "pos" : "neg"}`}>
+            {f.money(netProfit)}
+          </span>
+          <span className="v2-hero-sub">
+            {tx("Revenue")} {f.money(revenue)} · {tx("Expenses")} {f.money(totalExpenses)}
+          </span>
         </div>
+        <StatStrip
+          items={[
+            { label: tx("Revenue"), value: f.money(revenue), hint: `${f.en ? "Packages" : "الباقات"} ${f.money(packageSales)} · ${f.en ? "Other income" : "إيرادات أخرى"} ${f.money(manualIncomeTotal)}`, tone: "green" },
+            { label: tx("Seat charges"), value: f.money(seatTotal), tone: "brand" },
+            { label: f.en ? "F&B · sessions + Direct POS" : "أكل وشرب · الجلسات + البيع المباشر", value: f.money(ordersTotal), hint: `${f.en ? "Direct POS" : "البيع المباشر"} ${f.money(directFnbRevenue)} ${f.en ? "included" : "مشمول"}`, tone: "amber" },
+            { label: tx("Expenses"), value: f.money(totalExpenses), tone: "red" },
+          ]}
+        />
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="kpi bg-gradient-to-br from-emerald-500 to-teal-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Revenue")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(
-              revenue,
-              currency,
-            )}
-          </div>
-
-          <div className="text-[11px] text-white/80 mt-1">
-            Packages {formatMoney(packageSales, currency)} · Other income{" "}
-            {formatMoney(manualIncomeTotal, currency)}
-          </div>
-        </div>
-
-        <div className="kpi bg-gradient-to-br from-indigo-500 to-purple-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Seat charges")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(
-              seatTotal,
-              currency,
-            )}
-          </div>
-        </div>
-
-        <div className="kpi bg-gradient-to-br from-orange-500 to-pink-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            F&amp;B · sessions + Direct POS
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(ordersTotal, currency)}
-          </div>
-          <div className="text-[11px] text-white/80 mt-1">
-            Direct POS {formatMoney(directFnbRevenue, currency)} included
-          </div>
-        </div>
-
-        <div className="kpi bg-gradient-to-br from-rose-500 to-red-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Expenses")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(
-              totalExpenses,
-              currency,
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* DAILY REVENUE + PAYMENTS */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* DAILY REVENUE */}
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="font-bold mb-4">
-            {tx("Daily revenue")}
-          </h3>
-
+      <div className="v2-split">
+        <Panel
+          title={tx("Daily revenue")}
+          meta={`${bookingCount} ${f.en ? "bookings" : "حجز"} · ${f.en ? "Avg" : "المتوسط"} ${f.money(averageBooking)} ${f.en ? "per booking" : "للحجز"}`}
+        >
           {dailyRowsMerged.length === 0 ? (
-            <div className="text-center py-10 text-slate-400">
-              {tx("No data")}
-            </div>
+            <div className="v2-empty">{tx("No data")}</div>
           ) : (
-            <div
-              className="flex items-end gap-2 h-48"
-              aria-label={tx("Daily revenue chart")}
-            >
-              {dailyRowsMerged.map(
-                (row) => {
-                  const value =
-                    safeNumber(
-                      row.revenue,
-                    );
-
-                  const height =
-                    Math.min(
-                      100,
-                      Math.max(
-                        0,
-                        (value / maxDaily) *
-                          100,
-                      ),
-                    );
-
-                  return (
-                    <div
-                      key={row.day}
-                      className="flex-1 flex flex-col items-center gap-1 min-w-0"
-                    >
-                      <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
-                        {value.toFixed(0)}
-                      </div>
-
+            <div className="v2-chart" aria-label={tx("Daily revenue chart")}>
+              {dailyRowsMerged.map((row) => {
+                const value = safeNumber(row.revenue);
+                const height = Math.min(100, Math.max(0, (value / maxDaily) * 100));
+                return (
+                  <div key={row.day} className="v2-chart-col">
+                    <span className="v2-chart-val">{value.toFixed(0)}</span>
+                    <div className="v2-chart-track">
                       <div
-                        className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400 min-h-[4px]"
-                        style={{
-                          height: `${height}%`,
-                        }}
-                        title={`${row.day}: ${value.toFixed(
-                          2,
-                        )} ${currency}`}
+                        className="v2-chart-bar"
+                        style={{ height: `${Math.max(height, 2)}%` }}
+                        title={`${row.day}: ${value.toFixed(2)} ${currency}`}
                         role="img"
-                        aria-label={`${row.day}: ${value.toFixed(
-                          2,
-                        )} ${currency}`}
+                        aria-label={`${row.day}: ${value.toFixed(2)} ${currency}`}
                       />
-
-                      <div className="text-[10px] text-slate-500 truncate w-full text-center">
-                        {row.day.slice(5)}
-                      </div>
                     </div>
-                  );
-                },
-              )}
+                    <span className="v2-chart-day">{row.day.slice(5)}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
+        </Panel>
 
-          <div className="mt-4 text-sm text-slate-500">
-            {bookingCount} bookings · Avg{" "}
-            {formatMoney(
-              averageBooking,
-              currency,
-            )}{" "}
-            per booking
-          </div>
-        </div>
-
-        {/* PAYMENTS */}
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("Payment methods")}
-          </h3>
-
+        <Panel title={tx("Payment methods")}>
           {combinedPaymentRows.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-6">
-              {tx("No sales")}
-            </div>
+            <div className="v2-empty">{tx("No sales")}</div>
           ) : (
-            <div className="space-y-2">
-              {combinedPaymentRows.map(
-                (payment) => {
-                  const value =
-                    safeNumber(
-                      payment.total,
-                    );
-
-                  const percentage =
-                    revenue > 0
-                      ? Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            (value /
-                              revenue) *
-                              100,
-                          ),
-                        )
-                      : 0;
-
-                  const label =
-                    payment.method ===
-                    "cash"
-                      ? tx("💵 Cash")
-                      : payment.method ===
-                          "visa"
-                        ? tx("💳 Visa")
-                        : payment.method ===
-                            "instapay"
-                          ? tx("📱 InstaPay")
-                          : payment.method === "balance"
-                            ? tx("👛 Customer balance")
-                            : payment.method ===
-                              "bank"
-                            ? tx("🏦 Bank")
-                            : payment.method ===
-                                "card"
-                              ? tx("💳 Card")
-                              : payment.method
-                                ? payment.method
-                                : tx("Unknown");
-
-                  return (
-                    <div
-                      key={
-                        payment.method ??
-                        "unknown"
-                      }
-                    >
-                      <div className="flex items-center justify-between text-sm">
-                        <span>
-                          {label}
-                        </span>
-
-                        <span className="font-bold tabular-nums">
-                          {formatMoney(
-                            value,
-                            currency,
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
-                        <div
-                          className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500"
-                          style={{
-                            width: `${percentage}%`,
-                          }}
-                          aria-hidden="true"
-                        />
-                      </div>
+            <div className="v2-bars">
+              {combinedPaymentRows.map((payment) => {
+                const value = safeNumber(payment.total);
+                const pct = revenue > 0 ? Math.min(100, Math.max(0, (value / revenue) * 100)) : 0;
+                return (
+                  <div key={payment.method ?? "unknown"} className="v2-bar-row">
+                    <div className="v2-bar-top">
+                      <span>{payLabel(payment.method)}</span>
+                      <b>{f.money(value)}</b>
                     </div>
-                  );
-                },
-              )}
+                    <div className="v2-meter"><i style={{ width: `${pct}%` }} /></div>
+                    <small>{pct.toFixed(0)}%</small>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-          <div className="mt-4 pt-4 border-t border-slate-100 text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-slate-600">
-                {tx("Bank deposits")}
-              </span>
-
-              <span className="font-semibold tabular-nums">
-                {formatMoney(
-                  bankDeposits,
-                  currency,
-                )}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-slate-600">
-                {tx("Bank withdrawals")}
-              </span>
-
-              <span className="font-semibold tabular-nums">
-                {formatMoney(
-                  bankWithdrawals,
-                  currency,
-                )}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-base font-bold pt-2 border-t border-slate-100">
-              <span>
-                {tx("Net profit")}
-              </span>
-
-              <span
-                className={
-                  netProfit >= 0
-                    ? "text-emerald-600"
-                    : "text-rose-600"
-                }
-              >
-                {formatMoney(
-                  netProfit,
-                  currency,
-                )}
-              </span>
-            </div>
+          <div className="v2-kv">
+            <div><span>{tx("Bank deposits")}</span><b>{f.money(bankDeposits)}</b></div>
+            <div><span>{tx("Bank withdrawals")}</span><b>{f.money(bankWithdrawals)}</b></div>
           </div>
-        </div>
+        </Panel>
       </div>
 
-      {/* PRODUCTS + SHIFTS */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* TOP PRODUCTS */}
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("Top selling products")}
-          </h3>
-
+      <div className="v2-split" style={{ marginTop: 20 }}>
+        <Panel title={tx("Top selling products")} flush>
           {mergedTopProducts.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">
-              {tx("No sales yet")}
-            </p>
+            <div className="v2-empty">{tx("No sales yet")}</div>
           ) : (
-            <div className="space-y-2">
-              {mergedTopProducts.map(
-                (product, index) => {
-                  const revenueValue =
-                    safeNumber(
-                      product.revenue,
+            <div className="x-table-wrap">
+              <table className="v2-tbl">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{tx("Product")}</th>
+                    <th>{tx("Units")}</th>
+                    <th>{tx("Share")}</th>
+                    <th className="num">{tx("Revenue")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mergedTopProducts.map((product, index) => {
+                    const revenueValue = safeNumber(product.revenue);
+                    const quantity = Number(product.qty) || 0;
+                    const share = (revenueValue / topRevenue) * 100;
+                    return (
+                      <tr key={`${product.name}-${index}`}>
+                        <td className="muted">{index + 1}</td>
+                        <td><b>{product.name}</b></td>
+                        <td className="muted">{quantity}</td>
+                        <td style={{ minWidth: 120 }}>
+                          <div className="v2-meter"><i style={{ width: `${share}%` }} /></div>
+                        </td>
+                        <td className="num">{f.money(revenueValue)}</td>
+                      </tr>
                     );
-
-                  const quantity =
-                    Number(
-                      product.qty,
-                    ) || 0;
-
-                  return (
-                    <div
-                      key={`${product.name}-${index}`}
-                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 grid place-items-center font-bold text-sm">
-                        {index + 1}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate">
-                          {product.name}
-                        </div>
-
-                        <div className="text-xs text-slate-500">
-                          {quantity} units
-                        </div>
-                      </div>
-
-                      <div className="font-bold tabular-nums">
-                        {formatMoney(
-                          revenueValue,
-                          currency,
-                        )}
-                      </div>
-                    </div>
-                  );
-                },
-              )}
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
+        </Panel>
 
-        {/* RECENT SHIFTS */}
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("Recent shifts")}
-          </h3>
-
+        <Panel title={tx("Recent shifts")} flush>
           {shiftRows.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">
-              {tx("No shifts")}
-            </p>
+            <div className="v2-empty">{tx("No shifts")}</div>
           ) : (
-            <div className="divide-soft">
-              {shiftRows.map(
-                (shift) => (
-                  <Link
-                    key={shift.id}
-                    href={`/shift/summary/${shift.id}`}
-                    className="py-2 flex items-center justify-between hover:bg-slate-50 rounded-lg px-2"
-                  >
-                    <div>
-                      <div className="font-semibold text-sm">
-                        Shift #{shift.id} ·{" "}
-                        {shift.userName}
-                      </div>
-
-                      <div className="text-xs text-slate-500">
-                        {formatDateTime(
-                          shift.openedAt,
-                        )}
-                      </div>
-                    </div>
-
-                    <span className="text-sm text-indigo-600 font-semibold">
-                      {tx("View →")}
-                    </span>
-                  </Link>
-                ),
-              )}
+            <div className="v2-list">
+              {shiftRows.map((shift) => (
+                <Link key={shift.id} href={`/shift/summary/${shift.id}`} className="v2-list-row">
+                  <div>
+                    <b>{f.en ? "Shift" : "شيفت"} #{shift.id} · {shift.userName}</b>
+                    <small>{formatDateTime(shift.openedAt)}</small>
+                  </div>
+                  <span className="v2-link">{tx("View →")}</span>
+                </Link>
+              ))}
             </div>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );

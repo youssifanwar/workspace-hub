@@ -235,8 +235,6 @@ export default async function InvoicePage({
     booking.changeAmount,
   );
 
-  const currency =
-    settings.currency?.trim() || "EGP";
 
   const paymentMethod =
     booking.paymentMethod?.trim() || "-";
@@ -295,12 +293,8 @@ export default async function InvoicePage({
         >
           {/* HEADER */}
           <div className="text-center border-b border-dashed border-slate-300 pb-3">
-            <div
-              className="text-3xl mb-1"
-              aria-hidden="true"
-            >
-              🏢
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/scope-logo-brown.png" alt="" width={981} height={558} style={{ height: 56, width: "auto", margin: "0 auto 6px" }} />
 
             <div className="text-lg font-bold">
               {workspaceName}
@@ -405,9 +399,7 @@ export default async function InvoicePage({
               label={tx("Rate")}
               value={
                 hourlyRate > 0
-                  ? `${hourlyRate.toFixed(
-                      2,
-                    )} ${currency}/${tx("h")}`
+                  ? `${f.money(hourlyRate)} / ${tx("h")}`
                   : tx("Package / Included")
               }
             />
@@ -464,27 +456,18 @@ export default async function InvoicePage({
           <div className="space-y-1 text-xs">
             <Line
               label={tx("Seat charge")}
-              value={formatMoney(
-                seatCharge,
-                currency,
-              )}
+              value={f.money(seatCharge)}
             />
 
             <Line
               label={tx("F&B")}
-              value={formatMoney(
-                ordersTotal,
-                currency,
-              )}
+              value={f.money(ordersTotal)}
             />
 
             {discount > 0 && (
               <Line
                 label={tx("Discount")}
-                value={`- ${formatMoney(
-                  discount,
-                  currency,
-                )}`}
+                value={`- ${f.money(discount)}`}
               />
             )}
 
@@ -492,10 +475,7 @@ export default async function InvoicePage({
               <span>{tx("TOTAL")}</span>
 
               <span className="tabular-nums">
-                {formatMoney(
-                  total,
-                  currency,
-                )}
+                {f.money(total)}
               </span>
             </div>
           </div>
@@ -509,19 +489,13 @@ export default async function InvoicePage({
 
             <Line
               label={tx("Paid")}
-              value={formatMoney(
-                paidAmount,
-                currency,
-              )}
+              value={f.money(paidAmount)}
             />
 
             {changeAmount > 0 && (
               <Line
                 label={tx("Change")}
-                value={formatMoney(
-                  changeAmount,
-                  currency,
-                )}
+                value={f.money(changeAmount)}
               />
             )}
           </div>

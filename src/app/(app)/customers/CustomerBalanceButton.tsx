@@ -111,7 +111,7 @@ export default function CustomerBalanceButton({
       }
       setSuccess(
         mode === "deposit"
-          ? (f.en ? `Added ${value.toFixed(2)} ${currency}.` : `تمت إضافة ${value.toFixed(2)} ${currency}.`)
+          ? (f.en ? `Added ${f.money(value)}.` : `تمت إضافة ${f.money(value)}.`)
           : tx("Balance adjusted."),
       );
       setAmount("");
@@ -159,13 +159,13 @@ export default function CustomerBalanceButton({
 
               <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-5">
                 <div className="text-xs uppercase tracking-wide text-white/80">
-                  {tx("Available balance")}
+                  {current < 0 ? tx("Amount owed by customer") : tx("Available balance")}
                 </div>
                 <div className="text-3xl font-bold tabular-nums mt-1">
-                  {current.toFixed(2)} {currency}
+                  {f.money(Math.abs(current))}
                 </div>
                 <div className="text-xs text-white/80 mt-1">
-                  {tx("Can be used to pay for sessions and packages.")}
+                  {current < 0 ? tx("Adding balance first cancels this debt.") : tx("Can be used to pay for sessions and packages.")}
                 </div>
               </div>
 
@@ -192,8 +192,8 @@ export default function CustomerBalanceButton({
                 <div>
                   <label className="label">
                     {mode === "deposit"
-                      ? (f.en ? `Amount received (${currency})` : `المبلغ المستلم (${currency})`)
-                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${currency}، بالسالب للخصم)`)}
+                      ? (f.en ? `Amount received (${f.cur})` : `المبلغ المستلم (${f.cur})`)
+                      : (f.en ? `Adjustment (${currency}, negative to deduct)` : `التعديل (${f.cur}، بالسالب للخصم)`)}
                   </label>
                   <input
                     className="input"
@@ -222,7 +222,7 @@ export default function CustomerBalanceButton({
                           }`}
                         >
                           {m === "cash" ? "💵" : m === "visa" ? "💳" : "📱"}{" "}
-                          {m === "instapay" ? tx("InstaPay") : m}
+                          {f.pay(m)}
                         </button>
                       ))}
                     </div>
@@ -247,7 +247,7 @@ export default function CustomerBalanceButton({
                     role="alert"
                     className="text-sm text-red-600 bg-red-50 rounded-lg p-2"
                   >
-                    {error}
+                    {tx(error)}
                   </div>
                 )}
                 {success && (
@@ -308,6 +308,9 @@ export default function CustomerBalanceButton({
                           <div className="text-xs text-slate-400 tabular-nums">
                             = {t.balanceAfter.toFixed(2)}
                           </div>
+                          <a href={`/receipt/${t.id}`} target="_blank" rel="noreferrer" className="text-xs underline text-slate-500">
+                            {tx("Receipt")}
+                          </a>
                         </div>
                       </div>
                     ))}

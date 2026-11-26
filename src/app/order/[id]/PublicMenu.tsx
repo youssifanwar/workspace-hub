@@ -44,6 +44,16 @@ type CartItem = {
   note: string;
 };
 
+// Bilingual names without a schema change: "قهوة | Coffee" shows the Arabic part
+// in Arabic and the English part in English. Names without " | " are unchanged.
+function loc(name: string, en: boolean): string {
+  const i = name.indexOf("|");
+  if (i < 0) return name;
+  const ar = name.slice(0, i).trim();
+  const e = name.slice(i + 1).trim();
+  return (en ? e : ar) || name;
+}
+
 function createRequestId(): string {
   if (
     typeof crypto !== "undefined" &&
@@ -117,6 +127,24 @@ export default function PublicMenu({
 
   const [reloadKey, setReloadKey] =
     useState(0);
+
+  const [myOrders, setMyOrders] = useState<{ ticketNumber: number; status: string }[]>([]);
+  const [badImg, setBadImg] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (!booking) return;
+    let stop = false;
+    async function poll() {
+      try {
+        const r = await fetch(`/api/public/desks/${deskId}/orders`, { cache: "no-store", credentials: "include" });
+        const d = await r.json();
+        if (!stop && Array.isArray(d.orders)) setMyOrders(d.orders);
+      } catch {}
+    }
+    void poll();
+    const t = window.setInterval(poll, 8000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, [booking, deskId, placed]);
 
   // ---------------------------------------------------------------------------
   // IMPORTANT:
@@ -360,7 +388,7 @@ export default function PublicMenu({
     }
 
     if (!product.orderable) {
-      setError(f.en ? `${product.name} is not available to order right now.` : `${product.name} مش متاح للطلب دلوقتي.`);
+      setError(f.en ? `${loc(product.name, true)} is not available to order right now.` : `${loc(product.name, false)} مش متاح للطلب دلوقتي.`);
       return;
     }
 
@@ -580,6 +608,32 @@ export default function PublicMenu({
     }
   }
 
+
+  const statusCard = booking && myOrders.length > 0 ? (
+<div className="q-card" style={{ marginTop: 12 }}>
+            <div className="x-row-title">{tx("حالة طلباتك")}</div>
+            {myOrders.filter((o) => o.status !== "cancelled" || true).map((o) => {
+              const idx = o.status === "pending" ? 0 : o.status === "printed" ? 1 : o.status === "served" ? 2 : -1;
+              const labels = [tx("اتستلم"), tx("بيتجهّز"), tx("جاهز")];
+              return (
+                <div key={o.ticketNumber} style={{ marginTop: 12 }}>
+                  <div className="x-row-sub">#{String(o.ticketNumber).padStart(3, "0")}{o.status === "cancelled" ? ` · ${tx("اتلغى")}` : ""}</div>
+                  {idx >= 0 && (
+                    <div className="q-steps">
+                      {labels.map((l, i) => (
+                        <div key={l} style={{ display: "contents" }}>
+                          <div className={`q-step ${i < idx || (idx === 2 && i === 2) ? "done" : i === idx ? "now" : ""}`}><i>{i < idx || (idx === 2 && i === 2) ? "✓" : i + 1}</i>{l}</div>
+                          {i < 2 && <div className={`q-bar ${i < idx ? "done" : ""}`} />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+  ) : null;
+
   // ---------------------------------------------------------------------------
   // LOADING
   // ---------------------------------------------------------------------------
@@ -601,7 +655,7 @@ export default function PublicMenu({
       <div className="q-wrap grid place-items-center p-6">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-3">😕</div>
-          <div className="font-bold text-lg">{error}</div>
+          <div className="font-bold text-lg">{tx(error)}</div>
         </div>
       </div>
     );
@@ -620,13 +674,14 @@ export default function PublicMenu({
           <p style={{ color: "#64748b", margin: "0 0 16px" }}>{tx("الباريستا استلم الطلب وهيجهّزه.")}</p>
           <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="x-pill" style={{ background: "#0f172a", color: "#fff", padding: "8px 14px", fontSize: 15 }}>#{String(placed.ticketNumber).padStart(3, "0")}</span>
-            {desk && <span className="x-pill" style={{ padding: "8px 14px", fontSize: 14 }}>{desk.name}{booking ? ` · ${booking.customerName}` : ""}</span>}
+            {desk && <span className="x-pill" style={{ padding: "8px 14px", fontSize: 14 }}>{loc(desk.name, f.en)}{booking ? ` · ${booking.customerName}` : ""}</span>}
           </div>
           <div className="q-card" style={{ textAlign: "start", marginTop: 20 }}>
             <div className="x-row-sub">{tx("إجمالي الطلب")}</div>
             <div style={{ fontSize: 30, fontWeight: 800 }} className="x-num">{placed.total.toFixed(2)} <small style={{ fontSize: 14, color: "#64748b" }}>{f.cur}</small></div>
             <div className="x-note" style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af" }}>{tx("هيتحسب على فاتورة جلستك وتدفعه وقت الخروج.")}</div>
           </div>
+          <div style={{ textAlign: "start" }}>{statusCard}</div>
           <button onClick={() => setPlaced(null)} className="x-btn dark block" style={{ marginTop: 16, padding: "14px" }}>{tx("اطلب حاجة تانية")}</button>
         </div>
       </div>
@@ -644,7 +699,7 @@ export default function PublicMenu({
       <div className="q-hero">
         <div className="q-hero-row">
           <div className="q-logo"><i>WS</i><span>{tx("ورك سبيس هب")}</span></div>
-          <span className="q-place">📍 {desk?.name}</span>
+          <span className="q-place">📍 {desk ? loc(desk.name, f.en) : ""}</span>
           <button
             type="button"
             className="q-place"
@@ -675,6 +730,8 @@ export default function PublicMenu({
           </div>
         )}
 
+        {statusCard}
+
         {needsConnection && (
           <div className="q-card">
             <div className="x-row-title">{tx("🔐 اربط تليفونك")}</div>
@@ -696,19 +753,19 @@ export default function PublicMenu({
                 {connecting ? tx("بيتصل…") : tx("اتصل")}
               </button>
             </div>
-            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{error}</div>}
+            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{tx(error)}</div>}
           </div>
         )}
 
         {!needsConnection && error && (
-          <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginTop: 12 }}>{error}</div>
+          <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginTop: 12 }}>{tx(error)}</div>
         )}
 
         <div className="q-cats">
           <button type="button" className={`q-cat ${activeCat === null ? "active" : ""}`} onClick={() => setActiveCat(null)}>{tx("الكل")}</button>
           {categories.map((category) => (
             <button key={category.id} type="button" onClick={() => setActiveCat(category.id)} className={`q-cat ${activeCat === category.id ? "active" : ""}`}>
-              {category.icon} {category.name}
+              {category.icon} {loc(category.name, f.en)}
             </button>
           ))}
         </div>
@@ -718,16 +775,15 @@ export default function PublicMenu({
             const inCart = cart[product.id]?.quantity || 0;
             return (
               <div key={product.id} className={`q-item ${product.orderable ? "" : "off"}`}>
-                <div className="q-thumb">
-                  {product.imageUrl ? (
+                <div className="q-thumb" style={{ position: "relative", overflow: "hidden" }}>
+                  {product.imageUrl && !badImg[product.id] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
+                    <img src={product.imageUrl} alt="" aria-hidden="true" onError={() => setBadImg((m) => ({ ...m, [product.id]: true }))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     product.icon
                   )}
                 </div>
-                {!product.orderable && <span className="q-off-tag">{tx("اتوقف مؤقتاً")}</span>}
-                <div className="q-name">{product.name}</div>
+                <div className="q-name">{loc(product.name, f.en)}{!product.orderable && <span className="q-off-tag" style={{ position: "static", display: "inline-block", marginInlineStart: 6 }}>{tx("اتوقف مؤقتاً")}</span>}</div>
                 <div className="q-price-row">
                   <span className="q-price x-num">{parseFloat(product.price).toFixed(0)} {f.cur}</span>
                   {inCart > 0 && product.orderable ? (
@@ -737,7 +793,7 @@ export default function PublicMenu({
                       <button type="button" aria-label={tx("زوّد")} disabled={placing || !booking} onClick={() => changeQty(product.id, 1)}>+</button>
                     </span>
                   ) : (
-                    <button type="button" className="q-add" aria-label={(f.en ? `Add ${product.name}` : `أضف ${product.name}`)} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
+                    <button type="button" className="q-add" aria-label={(f.en ? `Add ${loc(product.name, true)}` : `أضف ${loc(product.name, false)}`)} disabled={placing || !booking || !product.orderable} onClick={() => addToCart(product)} style={!booking || !product.orderable ? { background: "#cbd5e1" } : undefined}>+</button>
                   )}
                 </div>
               </div>
@@ -770,7 +826,7 @@ export default function PublicMenu({
                 <div key={item.product.id} className="x-row" style={{ alignItems: "flex-start" }}>
                   <span className="x-kpi-ico tone-amber" style={{ width: 48, height: 48, fontSize: 24, flexShrink: 0 }}>{item.product.icon}</span>
                   <div className="x-row-main">
-                    <div className="x-row-title">{item.product.name}</div>
+                    <div className="x-row-title">{loc(item.product.name, f.en)}</div>
                     <div className="x-row-sub x-num">{parseFloat(item.product.price).toFixed(0)} × {item.quantity} = <b>{(item.quantity * parseFloat(item.product.price)).toFixed(0)} {f.cur}</b></div>
                     <input type="text" placeholder={tx("ملاحظة (مثلاً: من غير سكر)")} value={item.note} disabled={placing} onChange={(e) => setNote(item.product.id, e.target.value)} style={{ marginTop: 6, width: "100%", fontSize: 13, padding: "6px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }} />
                   </div>
@@ -790,7 +846,7 @@ export default function PublicMenu({
               <span style={{ fontSize: 26, fontWeight: 800, color: "#1d4ed8" }} className="x-num">{cartTotal.toFixed(0)} {f.cur}</span>
             </div>
 
-            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 10 }}>{error}</div>}
+            {error && <div className="x-note" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", marginBottom: 10 }}>{tx(error)}</div>}
 
             <button onClick={placeOrder} disabled={placing || !booking || cartArr.length === 0} className="x-btn success block" style={{ padding: 16, fontSize: 17 }}>
               {placing ? tx("بنبعت الطلب…") : !booking ? tx("اربط التليفون الأول") : `${tx("إرسال الطلب")} · ${cartTotal.toFixed(0)} ${f.cur}`}

@@ -884,7 +884,7 @@ export default function WalkInRoomModal({
                   </div>
 
                   <div className="font-bold text-indigo-950 mt-1">
-                    {selectedTier.hourlyRate}{" "}
+                    {pricePreview?.hourlyRate ?? selectedTier.hourlyRate}{" "}
                     {currency} / hour
                   </div>
                 </div>
@@ -1208,7 +1208,7 @@ export default function WalkInRoomModal({
               className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 whitespace-pre-wrap"
               role="alert"
             >
-              {error}
+              {tx(error)}
             </div>
           )}
         </div>

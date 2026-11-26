@@ -1,3 +1,4 @@
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import { db } from "@/db";
 import {
   customers,
@@ -31,6 +32,8 @@ export default async function CustomersPage({
   await loadTimezone();
   if (!user) redirect("/login");
   const currency = await getSetting("currency");
+  const companiesOn = (await getSetting("feature_companies")) === "1";
+  const membershipsOn = (await getSetting("feature_memberships")) === "1";
   const { q } = await searchParams;
   const term = (q ?? "").trim().slice(0, 100);
   const digits = term.replace(/\D/g, "");
@@ -143,7 +146,9 @@ export default async function CustomersPage({
       acc.visits += Number(customer.totalVisits) || 0;
       acc.hours += Number(customer.totalHours) || 0;
       acc.spent += Number(customer.totalSpent) || 0;
-      acc.wallet += Number(customer.balance) || 0;
+      const bal = Number(customer.balance) || 0;
+      if (bal >= 0) acc.wallet += bal;
+      else { acc.owed += -bal; acc.owing += 1; }
       acc.activeMeetingPackages += customer.activeMeetingPackageCount;
       acc.meetingPackageSpend += customer.meetingPackageSpend;
       return acc;
@@ -153,6 +158,8 @@ export default async function CustomersPage({
       hours: 0,
       spent: 0,
       wallet: 0,
+      owed: 0,
+      owing: 0,
       activeMeetingPackages: 0,
       meetingPackageSpend: 0,
     },
@@ -160,92 +167,131 @@ export default async function CustomersPage({
 
   const tz = activeTimeZone();
 
+  // Packages that end within 7 days (read-only list, no schema involved).
+  const expiringRes = await db
+    .execute(sql`
+      SELECT c.id AS customer_id, c.name AS customer_name, p.pkg, p.expires_at
+      FROM (
+        SELECT customer_id, package_name_snapshot AS pkg, expires_at
+        FROM customer_subscriptions
+        WHERE status = 'active' AND expires_at IS NOT NULL
+          AND expires_at > now() AND expires_at <= now() + interval '7 days'
+        UNION ALL
+        SELECT customer_id, package_name_snapshot AS pkg, expires_at
+        FROM customer_meeting_room_packages
+        WHERE status = 'active' AND expires_at IS NOT NULL
+          AND expires_at > now() AND expires_at <= now() + interval '7 days'
+      ) p
+      INNER JOIN customers c ON c.id = p.customer_id
+      ORDER BY p.expires_at ASC
+      LIMIT 8
+    `)
+    .catch(() => null);
+  const expiring = ((expiringRes as { rows?: Array<Record<string, unknown>> } | null)?.rows ?? []) as Array<{
+    customer_id: number;
+    customer_name: string;
+    pkg: string;
+    expires_at: string | Date;
+  }>;
+
   return (
-    <div className="x-page space-y-5">
-      <div className="x-head">
-        <div>
-          <h1>{tx("العملاء")}</h1>
-          <p>{customerRows.length} {term ? tx("نتيجة") : tx("عميل مسجّل")}.</p>
-        </div>
-        <div className="x-actions">
-          <form method="get" className="flex gap-2">
-            <input name="q" defaultValue={term} placeholder={tx("دوّر بالاسم أو التليفون أو الإيميل")} className="input" style={{ minWidth: 240 }} />
-            <button type="submit" className="x-btn">{tx("بحث")}</button>
-          </form>
-          <AddCustomerButton />
-        </div>
-      </div>
+    <div>
+      <PageBar
+        crumb={tx("Directory")}
+        title={tx("العملاء")}
+        description={`${customerRows.length} ${term ? tx("نتيجة") : tx("عميل مسجّل")}.`}
+        actions={<>{companiesOn && <Link href="/companies" className="btn btn-ghost">{f.en ? "Companies" : "الشركات والزوار"}</Link>}{membershipsOn && <Link href="/memberships" className="btn btn-ghost">{f.en ? "Memberships" : "الاشتراكات الشهرية"}</Link>}<AddCustomerButton /></>}
+      />
 
-      <div className="x-grid x-kpis">
-        <div className="x-card x-kpi">
-          <span className="x-kpi-label">{tx("العملاء")}</span>
-          <div className="x-kpi-value x-num">{customerRows.length}</div>
-          <div className="x-row-sub">{term ? tx("مطابقين للبحث") : tx("آخر 500 سجل")}</div>
-        </div>
-        <div className="x-card x-kpi">
-          <span className="x-kpi-label">{tx("إجمالي الزيارات")}</span>
-          <div className="x-kpi-value x-num">{summary.visits.toLocaleString("en-US")}</div>
-          <div className="x-row-sub">{summary.hours.toFixed(1)} {tx("ساعة استخدام")}</div>
-        </div>
-        <div className="x-card x-kpi">
-          <span className="x-kpi-label">{tx("إجمالي الإنفاق")}</span>
-          <div className="x-kpi-value x-num">{f.number(summary.spent)}<small>{f.cur}</small></div>
-          <div className="x-row-sub">{tx("أرصدة العملاء:")} {f.money(summary.wallet)}</div>
-        </div>
-        <div className="x-card x-kpi">
-          <span className="x-kpi-label">{tx("باقات غرف الاجتماعات")}</span>
-          <div className="x-kpi-value x-num">{summary.activeMeetingPackages}</div>
-          <div className="x-row-sub">{tx("شغالة")} · {tx("قيمة المبيعات")} {f.money(summary.meetingPackageSpend)}</div>
-        </div>
-      </div>
+      <StatStrip
+        items={[
+          { label: tx("العملاء"), value: customerRows.length, hint: term ? tx("مطابقين للبحث") : tx("آخر 500 سجل"), tone: "brand" },
+          { label: tx("إجمالي الزيارات"), value: summary.visits.toLocaleString("en-US"), hint: `${summary.hours.toFixed(1)} ${tx("ساعة استخدام")}`, tone: "slate" },
+          { label: tx("إجمالي الإنفاق"), value: f.money(summary.spent), hint: `${tx("أرصدة العملاء:")} ${f.money(summary.wallet)}${summary.owed > 0 ? ` · ${f.en ? "Owed to us" : "مديونيات"}: ${f.money(summary.owed)} (${summary.owing})` : ""}`, tone: "green" },
+          { label: tx("باقات غرف الاجتماعات"), value: summary.activeMeetingPackages, hint: `${tx("شغالة")} · ${tx("قيمة المبيعات")} ${f.money(summary.meetingPackageSpend)}`, tone: "amber" },
+        ]}
+      />
 
-      <div className="x-card" style={{ padding: 0 }}>
+      {expiring.length > 0 && (
+        <div className="v2-alert amber" style={{ marginBottom: 16 }}>
+          <b>{f.en ? "Packages ending within 7 days" : "باقات هتخلص خلال 7 أيام"}</b>
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {expiring.map((e, i) => (
+              <Link key={i} href={`/customers/${e.customer_id}`} className="v2-tag amber">
+                {e.customer_name} · {e.pkg} · {f.dateTime(new Date(e.expires_at))}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Panel flush>
+        <form method="get" className="v2-toolbar">
+          <input data-v2search=""
+            name="q"
+            defaultValue={term}
+            placeholder={tx("دوّر بالاسم أو التليفون أو الإيميل")}
+            className="input"
+            style={{ flex: 1, maxWidth: 420 }}
+          />
+          <button type="submit" className="btn btn-primary">{tx("بحث")}</button>
+          {term ? (
+            <Link href="/customers" className="btn btn-ghost">{tx("Clear")}</Link>
+          ) : null}
+        </form>
+
         <div className="x-table-wrap">
-          <table className="x-table">
+          <table className="v2-tbl">
             <thead>
               <tr>
                 <th>{tx("العميل")}</th>
                 <th>{tx("التواصل")}</th>
-                <th>{tx("عميل من")}</th>
                 <th>{tx("الزيارات")}</th>
-                <th>{tx("آخر زيارة")}</th>
                 <th>{tx("باقات الغرف")}</th>
-                <th>{tx("الإنفاق")}</th>
-                <th>{tx("الرصيد")}</th>
-                <th>{tx("إجراءات")}</th>
+                <th className="num">{tx("الإنفاق")}</th>
+                <th className="num">{tx("الرصيد")}</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {customerRows.length === 0 ? (
-                <tr><td colSpan={9} className="x-empty">{term ? (f.en ? `No customers match "${term}".` : `مفيش عملاء مطابقين لـ "${term}".`) : tx("لسه مفيش عملاء. ضيف أول عميل.")}</td></tr>
+                <tr><td colSpan={7} className="v2-empty">{term ? (f.en ? `No customers match "${term}".` : `مفيش عملاء مطابقين لـ "${term}".`) : tx("لسه مفيش عملاء. ضيف أول عميل.")}</td></tr>
               ) : (
                 customerRows.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <Link href={`/customers/${c.id}`} className="flex items-center gap-3" style={{ textDecoration: "none", color: "inherit" }}>
-                        <span className="x-kpi-ico tone-blue" style={{ width: 36, height: 36, fontWeight: 800 }}>{c.name.charAt(0)}</span>
+                      <Link href={`/customers/${c.id}`} className="v2-prod" style={{ textDecoration: "none" }}>
+                        <span className="v2-prod-ico" style={{ background: "var(--v2-brand-soft)", color: "var(--v2-brand)", fontWeight: 800, fontSize: 15 }}>{c.name.charAt(0)}</span>
                         <span>
-                          <div className="x-row-title">{c.name}</div>
-                          <div className="x-row-sub" style={{ marginTop: 0 }}>{tx("عميل")} #{c.id}</div>
+                          <b style={{ color: "#111827", display: "block" }}>{c.name}</b>
+                          <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            #{c.id} · {c.createdAt ? f.date(c.createdAt, tz) : "—"}
+                          </span>
                         </span>
                       </Link>
                     </td>
                     <td style={{ minWidth: 170 }}>
-                      <div className="font-semibold x-num" dir="ltr" style={{ textAlign: "start" }}>{c.phone || "—"}</div>
-                      {c.email ? <div className="x-row-sub break-all">{c.email}</div> : null}
-                      {c.notes ? <div className="x-row-sub truncate" style={{ maxWidth: 220 }} title={c.notes}>📝 {c.notes}</div> : null}
+                      <div dir="ltr" style={{ textAlign: "start", fontWeight: 650 }}>{c.phone || "—"}</div>
+                      {c.email ? <div className="muted">{c.email}</div> : null}
                     </td>
-                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.createdAt ? f.date(c.createdAt, tz) : "—"}</td>
-                    <td className="x-num">{c.totalVisits} <span className="x-row-sub">({parseFloat(c.totalHours).toFixed(1)} {tx("س")})</span></td>
-                    <td className="x-num" style={{ whiteSpace: "nowrap" }}>{c.lastVisit ? f.date(c.lastVisit, tz) : "—"}</td>
                     <td>
-                      <span className={`x-pill ${c.activeMeetingPackageCount > 0 ? "green" : ""}`}>{c.activeMeetingPackageCount} {tx("شغالة")}</span>
-                      <div className="x-row-sub">{c.meetingPackageCount} {tx("اتباعت")}</div>
+                      <b>{c.totalVisits}</b> <span className="muted">({parseFloat(c.totalHours).toFixed(1)} {tx("س")})</span>
+                      <div className="muted">{c.lastVisit ? f.date(c.lastVisit, tz) : "—"}</div>
                     </td>
-                    <td className="font-bold x-num">{f.money(parseFloat(c.totalSpent))}</td>
-                    <td className="font-bold x-num" style={{ color: Number(c.balance) > 0 ? "#1d4ed8" : "#94a3b8" }}>{f.money(Number(c.balance))}</td>
                     <td>
-                      <div className="flex flex-wrap gap-1">
+                      <span className={`v2-tag ${c.activeMeetingPackageCount > 0 ? "green" : "slate"}`}>{c.activeMeetingPackageCount} {tx("شغالة")}</span>
+                      <div className="muted">{c.meetingPackageCount} {tx("اتباعت")}</div>
+                    </td>
+                    <td className="num">{f.money(parseFloat(c.totalSpent))}</td>
+                    <td className="num">
+                      {Number(c.balance) < 0 ? (
+                        <span className="v2-debt">{f.en ? "Owes" : "عليه"} {f.money(Math.abs(Number(c.balance)))}</span>
+                      ) : (
+                        <span className={`v2-tag ${Number(c.balance) > 0 ? "blue" : "slate"}`}>{f.money(Number(c.balance))}</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                         <CustomerBalanceButton customerId={c.id} customerName={c.name} balance={Number(c.balance)} currency={currency} canAdjust={canManage(user.role)} />
                         <CustomerPackagesButton customerId={c.id} customerName={c.name} customerPhone={c.phone} currency={currency} balance={Number(c.balance)} canVoid={canManage(user.role)} />
                         <CustomerEditButton currency={currency} customer={{ id: c.id, name: c.name, phone: c.phone, email: c.email, notes: c.notes }} />
@@ -257,7 +303,7 @@ export default async function CustomersPage({
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

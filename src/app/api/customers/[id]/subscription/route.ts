@@ -30,6 +30,7 @@ export const dynamic =
 
 type PurchaseBody = {
   paymentMethod?: unknown;
+  onAccount?: unknown;
   purchasedAt?: unknown;
   packageId?: number | string;
   note?: string | null;
@@ -835,7 +836,8 @@ export async function POST(
                   shift.id,
                 userId:
                   user.id,
-                note: `Package "${pkg.name}"`,
+                note: `Package "${pkg.name}"${body.onAccount === true ? " (pay later)" : ""}`,
+                allowDebt: body.onAccount === true,
               },
             );
           }

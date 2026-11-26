@@ -1,3 +1,4 @@
+import { getSetting } from "@/lib/settings";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -13,6 +14,7 @@ import "@fontsource-variable/noto-sans-arabic";
 
 import "./globals.css";
 import "./redesign.css";
+import "./redesign-v2.css";
 import { getLang } from "@/lib/i18n";
 import { LangProvider } from "@/lib/lang-context";
 
@@ -24,6 +26,7 @@ export const metadata: Metadata = {
   description:
     "Modern coworking space management system.",
   applicationName: "WorkSpace Hub",
+  icons: { icon: "/icon.png", apple: "/apple-icon.png" },
   metadataBase: new URL(
     "http://localhost:3000",
   ),
@@ -35,6 +38,13 @@ export default async function RootLayout({
   children: ReactNode;
 }) {
   const lang = await getLang();
+  let brand = "#4f2f1a";
+  try {
+    const raw = (await getSetting("brand_color")).trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(raw)) brand = raw;
+  } catch {
+    /* database unavailable: keep the default accent */
+  }
   return (
     <html
       lang={lang}
@@ -42,6 +52,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="antialiased">
+        {brand !== "#4f2f1a" && (
+          <style>{`:root{--v2-brand:${brand};--v2-brand-soft:color-mix(in srgb, ${brand} 12%, white);}`}</style>
+        )}
         <LangProvider lang={lang}>{children}</LangProvider>
       </body>
     </html>

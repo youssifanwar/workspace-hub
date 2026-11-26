@@ -225,10 +225,9 @@ export default function CustomerSessionPricingAdmin({
       <div>
         <h3 className="font-bold text-lg">{tx("Customer Session Pricing")}</h3>
         <p className="text-sm text-slate-500 mt-1">
-          These prices are for open-seating customer sessions only — not
-          desks or meeting rooms. Add or remove tiers freely; a session is
-          billed at the cheapest tier whose hours cover it, or at the Day
-          Pass rate once it runs past every tier.
+          {f.en
+            ? "These prices are for open-seating customer sessions only, not desks or meeting rooms. Add or remove tiers freely; a session is billed at the cheapest tier whose hours cover it, or at the Day Pass rate once it runs past every tier."
+            : "الأسعار دي لجلسات العملاء في المساحة المفتوحة بس، مش للمكاتب ولا قاعات الاجتماعات. زوّد أو امسح شرائح براحتك؛ الجلسة بتتحسب على أرخص شريحة ساعاتها تغطيها، أو على سعر اليوم الكامل لو عدّت كل الشرائح."}
         </p>
       </div>
 
@@ -239,7 +238,7 @@ export default function CustomerSessionPricingAdmin({
           aria-live="polite"
           className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
-          {error}
+          {tx(error)}
         </div>
       )}
       {success && (
@@ -279,7 +278,7 @@ export default function CustomerSessionPricingAdmin({
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-500">
-                  Price ({currency})
+                  {tx("Price")} ({f.cur})
                 </label>
                 <input
                   type="number"

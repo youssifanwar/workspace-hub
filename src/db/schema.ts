@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   pgEnum,
+  date,
 } from "drizzle-orm/pg-core";
 
 // =============================================================================
@@ -1953,3 +1954,84 @@ export const sessionsTable =
         .defaultNow(),
     },
   );
+// =============================================================================
+// OPTIONAL FEATURE: MONTHLY MEMBERSHIPS (off by default, setting
+// `feature_memberships`). Additive table only. See optional-migrations/.
+// A membership is a recurring monthly plan for a customer. Each month staff
+// press "Charge", which takes the price from the customer's balance (debt
+// allowed, so it shows as money owed) and moves the next billing date.
+// =============================================================================
+
+export const memberships = pgTable("memberships", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "restrict" }),
+  planName: varchar("plan_name", { length: 120 }).notNull(),
+  monthlyPrice: numeric("monthly_price", { precision: 12, scale: 2 }).notNull(),
+  // active | paused | cancelled
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  startedOn: date("started_on").notNull().defaultNow(),
+  nextBillingDate: date("next_billing_date").notNull(),
+  lastChargedAt: timestamp("last_charged_at", { withTimezone: true }),
+  // Meeting-room hours added to the plan's credit each time it is charged.
+  includedRoomHours: numeric("included_room_hours", { precision: 8, scale: 2 }).notNull().default("0"),
+  note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Ledger of meeting-room hours a membership includes. +grant on charge,
+// -use when staff record hours used. Balance = SUM(hours_delta).
+// Tracked by hand: NOT wired into room reservations or their pricing.
+export const membershipRoomCredits = pgTable("membership_room_credits", {
+  id: serial("id").primaryKey(),
+  membershipId: integer("membership_id")
+    .notNull()
+    .references(() => memberships.id, { onDelete: "cascade" }),
+  hoursDelta: numeric("hours_delta", { precision: 8, scale: 2 }).notNull(),
+  reason: varchar("reason", { length: 20 }).notNull(),
+  note: text("note"),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// =============================================================================
+// OPTIONAL FEATURE: COMPANY ACCOUNTS + GUEST PASSES (off by default, setting
+// `feature_companies`). Additive tables only. See optional-migrations/003.
+// Read/record only: no charges are made by these tables.
+// =============================================================================
+
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 160 }).notNull(),
+  contactPhone: varchar("contact_phone", { length: 40 }),
+  note: text("note"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const companyMembers = pgTable(
+  "company_members",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    customerId: integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("company_members_unique").on(t.companyId, t.customerId)],
+);
+
+export const guestPasses = pgTable("guest_passes", {
+  id: serial("id").primaryKey(),
+  hostCustomerId: integer("host_customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  guestName: varchar("guest_name", { length: 160 }).notNull(),
+  guestPhone: varchar("guest_phone", { length: 40 }),
+  visitDate: date("visit_date").notNull().defaultNow(),
+  note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

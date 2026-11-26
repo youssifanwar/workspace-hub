@@ -102,7 +102,7 @@ export default function HandoverForm({
 
       <div>
         <label className="label">
-          {tx("Counted cash in drawer")} ({currency})
+          {tx("Counted cash in drawer")} ({f.cur})
         </label>
         <input
           className="input"
@@ -132,7 +132,7 @@ export default function HandoverForm({
 
       {error && (
         <div role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg p-2">
-          {error}
+          {tx(error)}
         </div>
       )}
       {success && (

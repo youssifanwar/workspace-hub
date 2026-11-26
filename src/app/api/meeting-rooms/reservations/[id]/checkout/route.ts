@@ -13,6 +13,8 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 
 import { deleteGoogleCalendarEvent } from "@/lib/google-calendar";
+import { computeOvertimeAmount } from "@/lib/overtime";
+import { getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
 import { applyBalanceChange } from "@/lib/customer-balance";
 
@@ -297,7 +299,19 @@ export async function POST(
         ),
       );
 
-      const roomAmount = roundMoney(Number(reservation.totalAmount));
+      // Optional overtime (Settings, off by default): time past the booked end,
+      // after a grace period, billed per started 15 minutes at the booking's
+      // hourly rate. Zero when the setting is off.
+      let overtimeAmount = 0;
+      if ((await getSetting("meeting_room_overtime_billing")) === "1") {
+        overtimeAmount = computeOvertimeAmount({
+          endAt: reservation.endAt,
+          now: new Date(),
+          graceMinutes: Number(await getSetting("meeting_room_overtime_grace_minutes")) || 0,
+          hourlyRate: Number(reservation.hourlyRateSnapshot),
+        });
+      }
+      const roomAmount = roundMoney(Number(reservation.totalAmount) + overtimeAmount);
       const packageDiscountAmount = roundMoney(
         Number(reservation.discountAmount ?? 0),
       );
@@ -355,7 +369,7 @@ export async function POST(
         .set({
           checkedOutAt,
           hourlyRateSnapshot: reservation.hourlyRateSnapshot,
-          seatCharge: reservation.subtotalAmount,
+          seatCharge: roundMoney(Number(reservation.subtotalAmount) + overtimeAmount).toFixed(2),
           ordersTotal: fnbAmount.toFixed(2),
           discount: totalDiscountAmount.toFixed(2),
           total: grandTotal.toFixed(2),
@@ -385,6 +399,7 @@ export async function POST(
           roomId: reservation.deskId,
           customerId: booking.customerId,
           roomAmount: roomAmount.toFixed(2),
+          overtimeAmount: overtimeAmount.toFixed(2),
           fnbAmount: fnbAmount.toFixed(2),
           packageDiscountAmount: packageDiscountAmount.toFixed(2),
           manualDiscountAmount: manualDiscountAmount.toFixed(2),

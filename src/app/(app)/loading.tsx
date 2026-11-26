@@ -5,6 +5,8 @@ export default function Loading() {
   return (
     <div className="space-y-6" role="status" aria-live="polite">
       <span className="sr-only">Loading…</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/scope-logo-brown.png" alt="" className="v2-loading-logo" />
       <div className="space-y-2">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="h-4 w-80 max-w-full" />

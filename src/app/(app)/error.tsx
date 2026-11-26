@@ -31,13 +31,14 @@ export default function AppError({
         {tx("Something went wrong")}
       </h2>
       <p className="text-slate-500 mb-6">
-        This page couldn&apos;t be loaded. Your data is safe. Try again, and if
-        it keeps happening let your manager know.
+        {f.en
+          ? "This page couldn't be loaded. Your data is safe. Try again, and if it keeps happening let your manager know."
+          : "الصفحة دي معرفتش تفتح. بياناتك في أمان. جرّب تاني، ولو المشكلة فضلت قول للمدير."}
         {error.digest && (
           <>
             <br />
             <span className="text-xs text-slate-400">
-              Reference: {error.digest}
+              {f.en ? "Reference" : "المرجع"}: {error.digest}
             </span>
           </>
         )}

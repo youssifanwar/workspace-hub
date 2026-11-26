@@ -1,3 +1,4 @@
+import { PageBar } from "../_components/ui";
 import { redirect } from "next/navigation";
 import { asc } from "drizzle-orm";
 
@@ -22,6 +23,7 @@ import {
 import { detectLocalIp } from "@/lib/network";
 
 import AccountSettings from "./AccountSettings";
+import BusinessRulesSettings from "./BusinessRulesSettings";
 import WorkspaceSettings from "./WorkspaceSettings";
 import UsersAdmin from "./UsersAdmin";
 import DesksAdmin from "./DesksAdmin";
@@ -140,151 +142,118 @@ export default async function SettingsPage() {
     ? detectLocalIp()
     : null;
 
-  return (
-    <div className="space-y-6 max-w-6xl">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">
-          {tx("Settings")}
-        </h1>
-
-        <p className="text-slate-500">
-          {tx("Configure your account, workspace, staff, rooms, pricing and integrations.")}
-        </p>
-      </div>
-
-      {/* ACCOUNT + WORKSPACE */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("👤 My account")}
-          </h3>
-
-          <AccountSettings
-            username={user.username}
-            fullName={user.fullName}
-          />
-        </div>
-
-        {isMgr && (
-          <div className="card p-6">
-            <h3 className="font-bold mb-4">
-              {tx("🏢 Workspace")}
-            </h3>
-
-            <WorkspaceSettings
-              workspaceName={settings.workspace_name}
-              workspaceAddress={settings.workspace_address}
-              workspacePhone={settings.workspace_phone}
-              currency={settings.currency}
-              invoiceFooter={settings.invoice_footer}
-              earlyCheckinMinutes={settings.meeting_room_early_checkin_minutes}
-              staleSessionHours={settings.stale_session_hours}
-              calendarStartHour={settings.calendar_start_hour}
-              calendarEndHour={settings.calendar_end_hour}
-              maxBookingHours={settings.meeting_room_max_booking_hours}
-              timezone={settings.timezone}
-              weekStartsOn={settings.calendar_week_starts_on}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* CUSTOMER SESSION PRICING */}
-      {isMgr && customerSessionPricing && (
-        <div className="card p-6">
+  type Section = { id: string; title: string; desc?: string; bare?: boolean; body: React.ReactNode };
+  const sections: Section[] = [
+    {
+      id: "account",
+      title: tx("👤 My account"),
+      body: <AccountSettings username={user.username} fullName={user.fullName} />,
+    },
+  ];
+  if (isMgr) {
+    sections.push({
+      id: "rules",
+      title: tx("⚙️ Business rules and look"),
+      body: (
+        <BusinessRulesSettings
+          qrMaxPending={settings.qr_max_pending_orders}
+          packageMaxHours={settings.package_max_hours_per_session}
+          staffMaxDiscount={settings.staff_max_discount_percent}
+          brandColor={settings.brand_color}
+          memberships={settings.feature_memberships}
+          companies={settings.feature_companies}
+          overtime={settings.meeting_room_overtime_billing}
+          overtimeGrace={settings.meeting_room_overtime_grace_minutes}
+          formula={{ on: settings.meeting_room_formula_pricing, base: settings.meeting_room_base_hourly, included: settings.meeting_room_included_people, extra: settings.meeting_room_extra_person_hourly }}
+        />
+      ),
+    });
+    sections.push({
+      id: "workspace",
+      title: tx("🏢 Workspace"),
+      body: (
+        <WorkspaceSettings
+          workspaceName={settings.workspace_name}
+          workspaceAddress={settings.workspace_address}
+          workspacePhone={settings.workspace_phone}
+          currency={settings.currency}
+          invoiceFooter={settings.invoice_footer}
+          earlyCheckinMinutes={settings.meeting_room_early_checkin_minutes}
+          staleSessionHours={settings.stale_session_hours}
+          calendarStartHour={settings.calendar_start_hour}
+          calendarEndHour={settings.calendar_end_hour}
+          maxBookingHours={settings.meeting_room_max_booking_hours}
+          timezone={settings.timezone}
+          weekStartsOn={settings.calendar_week_starts_on}
+        />
+      ),
+    });
+    if (customerSessionPricing) {
+      sections.push({
+        id: "pricing",
+        bare: true,
+        title: tx("💳 Customer session pricing"),
+        body: (
           <CustomerSessionPricingAdmin
             currency={settings.currency}
             initialPricing={customerSessionPricing}
           />
-        </div>
-      )}
-
-      {/* GOOGLE CALENDAR */}
-      {isMgr && (
-        <div className="card p-6">
-          <div className="mb-4">
-            <h3 className="font-bold">
-              {tx("📅 Google Calendar")}
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-1">
-              {tx("Connect the workspace Google account to manage meeting-room availability and reservations.")}
-            </p>
-          </div>
-
-          <GoogleCalendarSettings />
-        </div>
-      )}
-
-      {/* PRINTING + QR */}
-      {isMgr && (
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("🖨️ Printing & QR ordering")}
-          </h3>
-
+        ),
+      });
+    }
+    sections.push(
+      {
+        id: "calendar",
+        title: tx("📅 Google Calendar"),
+        desc: tx("Connect the workspace Google account to manage meeting-room availability and reservations."),
+        body: <GoogleCalendarSettings />,
+      },
+      {
+        id: "printing",
+        title: tx("🖨️ Printing & QR ordering"),
+        body: (
           <PrintingSettings
             autoPrint={settings.auto_print_orders === "1"}
             kitchenPrinter={settings.kitchen_printer_name}
             invoicePrinter={settings.invoice_printer_name}
           />
-        </div>
-      )}
-
-      {/* PUBLIC URL */}
-      {isMgr && (
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("📡 Public URL for QR menu")}
-          </h3>
-
+        ),
+      },
+      {
+        id: "qr-url",
+        title: tx("📡 Public URL for QR menu"),
+        body: (
           <QrUrlSettings
             configured={settings.public_base_url}
             detected={detectedIp || "unavailable"}
           />
-        </div>
-      )}
-
-      {/* LOCATIONS + MEETING ROOMS */}
-      {isMgr && (
-        <div className="card p-6">
-          <div className="mb-5">
-            <h3 className="font-bold">
-              {tx("🪑 Locations & Meeting Rooms")}
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-1">
-              {tx("Manage physical locations, meeting-room capacity and meeting-room pricing tiers. Inactive locations remain visible so they can be reactivated.")}
-            </p>
-          </div>
-
-          <DesksAdmin
-            desks={desksForAdmin}
-            currency={settings.currency}
-          />
-        </div>
-      )}
-
-      {/* MEETING ROOM PACKAGES */}
-      {isMgr && (
-        <div className="card p-6">
-          <MeetingRoomPackagesAdmin
-            currency={settings.currency}
-          />
-        </div>
-      )}
-
-      {/* USERS */}
-      {admin && (
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">{tx("👥 Users & permissions")}</h3>
-            <a href="/settings/shifts" className="btn btn-ghost text-sm">
+        ),
+      },
+      {
+        id: "locations",
+        title: tx("🪑 Locations & Meeting Rooms"),
+        desc: tx("Manage physical locations, meeting-room capacity and meeting-room pricing tiers. Inactive locations remain visible so they can be reactivated."),
+        body: <DesksAdmin desks={desksForAdmin} currency={settings.currency} />,
+      },
+      {
+        id: "packages",
+        bare: true,
+        title: tx("🎟️ Meeting Room Packages"),
+        body: <MeetingRoomPackagesAdmin currency={settings.currency} />,
+      },
+    );
+  }
+  if (admin) {
+    sections.push({
+      id: "users",
+      title: tx("👥 Users & permissions"),
+      body: (
+        <>
+          <div style={{ marginBottom: 14 }}>
+            <a href="/settings/shifts" className="btn btn-ghost">
               {tx("🕒 Who's on shift →")}
             </a>
           </div>
-
           <UsersAdmin
             users={allUsers.map((userRow) => ({
               id: userRow.id,
@@ -294,8 +263,44 @@ export default async function SettingsPage() {
               active: userRow.active,
             }))}
           />
+        </>
+      ),
+    });
+  }
+
+  return (
+    <div>
+      <PageBar
+        crumb={tx("Admin")}
+        title={tx("Settings")}
+        description={tx("Configure your account, workspace, staff, rooms, pricing and integrations.")}
+      />
+
+      <div className="v2-settings">
+        <nav className="v2-settings-nav" aria-label={tx("Settings")}>
+          {sections.map((sec) => (
+            <a key={sec.id} href={`#${sec.id}`}>
+              {sec.title}
+            </a>
+          ))}
+        </nav>
+
+        <div className="v2-settings-body">
+          {sections.map((sec) => (
+            <section key={sec.id} id={sec.id} className="v2-panel v2-section">
+              {!sec.bare && (
+                <div className="v2-panel-head v2-section-head">
+                  <div>
+                    <h2>{sec.title}</h2>
+                    {sec.desc && <p>{sec.desc}</p>}
+                  </div>
+                </div>
+              )}
+              <div className="v2-panel-body">{sec.body}</div>
+            </section>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

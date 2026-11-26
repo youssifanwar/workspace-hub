@@ -20,6 +20,7 @@ import { formatMoney, getSetting } from "@/lib/settings";
 import { getLang } from "@/lib/i18n";
 import { makeFmt } from "@/lib/i18n-shared";
 
+import { PageBar, Panel, StatStrip } from "../_components/ui";
 import OpenShiftForm from "./OpenShiftForm";
 import CloseShiftForm from "./CloseShiftForm";
 import HandoverForm from "./HandoverForm";
@@ -193,19 +194,13 @@ export default async function ShiftPage() {
                     <div className="text-right text-xs shrink-0">
                       <div>
                         {tx("Open:")}{" "}
-                        {formatMoney(
-                          openingCash,
-                          currency,
-                        )}
+                        {f.money(openingCash)}
                       </div>
 
                       <div>
                         {tx("Close:")}{" "}
                         {closingCash !== null
-                          ? formatMoney(
-                              closingCash,
-                              currency,
-                            )
+                          ? f.money(closingCash)
                           : "-"}
                       </div>
                     </div>
@@ -373,100 +368,45 @@ export default async function ShiftPage() {
   const openedAt = formatDate(active.openedAt);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {tx("My Shift")} · #{active.id}
-          </h1>
+    <div>
+      <PageBar
+        crumb={tx("My Shift")}
+        title={`${tx("My Shift")} · #${active.id}`}
+        description={`${tx("Opened")} ${f.dateTime(active.openedAt)} · ${tx("Opening cash")} ${f.money(openingCash)}`}
+        actions={<Link href="/bookings" className="btn btn-primary">{tx("Bookings →")}</Link>}
+      />
 
-          <p className="text-slate-500">
-            {tx("Opened")} {openedAt} · {tx("Opening cash")}{" "}
-            {formatMoney(openingCash, currency)}
-          </p>
-        </div>
+      <StatStrip
+        items={[
+          { label: tx("Bookings this shift"), value: String(bookingsCount), tone: "slate" },
+          { label: tx("Seat charges"), value: f.money(seatTotal), tone: "brand" },
+          { label: tx("F&B sales"), value: f.money(ordersTotal), hint: `${tx("Direct POS included:")} ${f.money(directFnbTotal)}`, tone: "amber" },
+          { label: tx("Total revenue"), value: f.money(revenue), tone: "green" },
+        ]}
+      />
 
-        <div className="flex gap-2">
-          <Link
-            href="/bookings"
-            className="btn btn-primary"
-          >
-            {tx("Bookings →")}
-          </Link>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-4 gap-4">
-        <StatBox
-          label={tx("Bookings this shift")}
-          value={String(bookingsCount)}
-          icon="🪑"
-        />
-
-        <StatBox
-          label={tx("Seat charges")}
-          value={formatMoney(
-            seatTotal,
-            currency,
-          )}
-          icon="⏱️"
-        />
-
-        <StatBox
-          label={tx("F&B sales")}
-          value={formatMoney(ordersTotal, currency)}
-          sub={`${tx("Direct POS included:")} ${formatMoney(directFnbTotal, currency)}`}
-          icon="🍔"
-        />
-
-        <StatBox
-          label={tx("Total revenue")}
-          value={formatMoney(
-            revenue,
-            currency,
-          )}
-          icon="💰"
-          highlight
-        />
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("Payment breakdown")}
-          </h3>
+      <div className="v2-two" style={{ marginTop: 20 }}>
+        <Panel title={tx("Payment breakdown")}>
 
           <div className="space-y-3">
             <Line
               label={tx("💵 Cash")}
-              value={formatMoney(
-                cashTotal,
-                currency,
-              )}
+              value={f.money(cashTotal)}
             />
 
             <Line
               label={tx("💳 Visa")}
-              value={formatMoney(
-                visaTotal,
-                currency,
-              )}
+              value={f.money(visaTotal)}
             />
 
             <Line
               label={tx("📱 InstaPay")}
-              value={formatMoney(
-                instapayTotal,
-                currency,
-              )}
+              value={f.money(instapayTotal)}
             />
 
             <Line
               label={tx("👛 Paid from customer balance")}
-              value={formatMoney(
-                balanceTotal,
-                currency,
-              )}
+              value={f.money(balanceTotal)}
             />
 
             <div className="border-t border-slate-100 pt-3 mt-3 space-y-2">
@@ -475,104 +415,68 @@ export default async function ShiftPage() {
               </div>
               <Line
                 label={tx("📦 Packages cash (included above)")}
-                value={formatMoney(
-                  extraCash.packages,
-                  currency,
-                )}
+                value={f.money(extraCash.packages)}
               />
               <Line
                 label={tx("➕ Other income cash (included above)")}
-                value={formatMoney(
-                  extraCash.manualIncome,
-                  currency,
-                )}
+                value={f.money(extraCash.manualIncome)}
               />
               <Line
                 label={tx("👛 Balance top-ups (added separately)")}
-                value={formatMoney(
-                  extraCash.balanceDeposits,
-                  currency,
-                )}
+                value={f.money(extraCash.balanceDeposits)}
               />
             </div>
 
             <div className="border-t border-slate-100 pt-3 mt-3">
               <Line
                 label={tx("🏦 Bank deposits")}
-                value={formatMoney(
-                  bankDeposits,
-                  currency,
-                )}
+                value={f.money(bankDeposits)}
               />
 
               <Line
                 label={tx("🏦 Bank withdrawals")}
-                value={formatMoney(
-                  bankWithdrawals,
-                  currency,
-                )}
+                value={f.money(bankWithdrawals)}
               />
 
               <Line
-                label="💸 Expenses"
-                value={formatMoney(
-                  totalExpenses,
-                  currency,
-                )}
+                label={tx("💸 Expenses")}
+                value={f.money(totalExpenses)}
               />
             </div>
           </div>
-        </div>
+        </Panel>
 
-        <div className="card p-6">
-          <h3 className="font-bold mb-4">
-            {tx("Cash drawer")}
-          </h3>
+        <Panel title={tx("Cash drawer")}>
 
           <div className="space-y-3 text-sm">
             <Line
               label={tx("Opening cash")}
-              value={formatMoney(
-                openingCash,
-                currency,
-              )}
+              value={f.money(openingCash)}
             />
 
             <Line
               label={tx("+ Cash revenue (sessions, F&B, packages & other income)")}
-              value={formatMoney(
-                cashTotal,
-                currency,
-              )}
+              value={f.money(cashTotal)}
             />
 
             <Line
               label={tx("+ Cash customer-balance top-ups")}
-              value={formatMoney(extraCash.balanceDeposits, currency)}
+              value={f.money(extraCash.balanceDeposits)}
             />
 
             <Line
               label={tx("− Cash expenses")}
-              value={formatMoney(
-                cashExpensesTotal,
-                currency,
-              )}
+              value={f.money(cashExpensesTotal)}
             />
 
             <Line
               label={tx("− Deposited to bank")}
-              value={formatMoney(
-                bankDeposits,
-                currency,
-              )}
+              value={f.money(bankDeposits)}
             />
 
             <Line
               label={tx("+ Withdrawn from bank")}
-              value={formatMoney(
-                bankWithdrawals,
-                currency,
-              )}
+              value={f.money(bankWithdrawals)}
             />
           </div>
 
@@ -582,34 +486,29 @@ export default async function ShiftPage() {
             </div>
 
             <div className="text-2xl font-bold text-indigo-900 tabular-nums mt-1">
-              {formatMoney(
-                expectedCashInDrawer,
-                currency,
-              )}
+              {f.money(expectedCashInDrawer)}
             </div>
           </div>
-        </div>
+        </Panel>
       </div>
 
-      <div className="card p-6">
-        <h3 className="font-bold mb-4">
-          {tx("Close shift")}
-        </h3>
+      <div className="v2-two" style={{ marginTop: 20 }}>
+      <Panel title={tx("Close shift")}>
 
         <CloseShiftForm
           expectedCash={expectedCashInDrawer}
-          currency={currency}
+          currency={f.cur}
         />
-      </div>
+      </Panel>
 
-      <div className="card p-6">
-        <h3 className="font-bold mb-4">{tx("Hand over to the next employee")}</h3>
+      <Panel title={tx("Hand over to the next employee")}>
 
         <HandoverForm
           candidates={handoverCandidates}
           expectedCash={expectedCashInDrawer}
-          currency={currency}
+          currency={f.cur}
         />
+      </Panel>
       </div>
     </div>
   );

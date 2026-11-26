@@ -167,7 +167,7 @@ export default function OpenShiftForm({
           htmlFor="opening-cash"
           className="label"
         >
-          {tx("Opening cash in drawer")} ({currency})
+          {tx("Opening cash in drawer")} ({f.cur})
         </label>
 
         <input
@@ -222,7 +222,7 @@ export default function OpenShiftForm({
           role="alert"
           aria-live="polite"
         >
-          {error}
+          {tx(error)}
         </div>
       )}
 

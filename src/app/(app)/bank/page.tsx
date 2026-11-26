@@ -1,3 +1,4 @@
+import { PageBar, StatStrip, Panel } from "../_components/ui";
 import { desc, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,7 @@ import { bankTransactions, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatMoney, getSetting } from "@/lib/settings";
 import { getActiveShiftForUser } from "@/lib/shift";
+import { getExpectedDrawerCash } from "@/lib/drawer-cash";
 
 import { getLang } from "@/lib/i18n";
 import { makeFmt } from "@/lib/i18n-shared";
@@ -24,14 +26,6 @@ function safeNumber(
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatDateTime(value: Date) {
-  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-    return "-";
-  }
-
-  return value.toLocaleString("en-EG");
-}
-
 export default async function BankPage() {
   const f = makeFmt(await getLang());
   const tx = f.t;
@@ -48,6 +42,7 @@ export default async function BankPage() {
   }
 
   const currency = await getSetting("currency");
+  const expectedCash = await getExpectedDrawerCash(db, shift.id, Number(shift.openingCash) || 0).catch(() => null);
 
   const [totalsRow] = await db
     .select({
@@ -100,133 +95,69 @@ export default async function BankPage() {
   const balance = deposits - withdrawals;
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">
-          {tx("Bank")}
-        </h1>
+    <div>
+      <PageBar
+        crumb={tx("Finance")}
+        title={tx("Bank")}
+        description={tx("Track cash deposited to the bank and withdrawals from bank to cash.")}
+      />
 
-        <p className="text-slate-500">
-          {tx("Track cash deposited to the bank and withdrawals from bank to cash.")}
-        </p>
-      </div>
+      <StatStrip
+        items={[
+          { label: tx("Net bank balance"), value: f.money(balance), tone: "brand" },
+          { label: tx("Total deposits"), value: f.money(deposits), tone: "green" },
+          { label: tx("Total withdrawals"), value: f.money(withdrawals), tone: "amber" },
+        ]}
+      />
 
-      {/* SUMMARY */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="kpi bg-gradient-to-br from-emerald-500 to-teal-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Total deposits")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(deposits, currency)}
-          </div>
+      <div className="v2-split rev">
+        <div className="v2-sticky">
+          <Panel title={tx("New transaction")}>
+            <BankForm currency={currency} expectedCash={expectedCash} />
+          </Panel>
         </div>
 
-        <div className="kpi bg-gradient-to-br from-amber-500 to-orange-500">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Total withdrawals")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(withdrawals, currency)}
-          </div>
-        </div>
-
-        <div className="kpi bg-gradient-to-br from-indigo-600 to-purple-600">
-          <div className="text-xs uppercase text-white/80 font-semibold">
-            {tx("Net bank balance")}
-          </div>
-
-          <div className="text-2xl font-bold mt-2 tabular-nums">
-            {formatMoney(balance, currency)}
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN CONTENT */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* NEW TRANSACTION */}
-        <section className="card p-5 lg:col-span-1">
-          <h2 className="font-bold mb-3">
-            {tx("New transaction")}
-          </h2>
-
-          <BankForm currency={currency} />
-        </section>
-
-        {/* RECENT TRANSACTIONS */}
-        <section className="card p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold">
-              {tx("Recent transactions")}
-            </h2>
-
-            <span className="text-xs text-slate-400">
-              {tx("Latest 50")}
-            </span>
-          </div>
-
+        <Panel title={tx("Recent transactions")} meta={tx("Latest 50")} flush>
           {rows.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-8">
-              {tx("No transactions yet")}
-            </div>
+            <div className="v2-empty">{tx("No transactions yet")}</div>
           ) : (
-            <div className="divide-soft">
-              {rows.map((row) => {
-                const amount = safeNumber(row.amount);
-                const isDeposit = row.type === "deposit";
-
-                return (
-                  <div
-                    key={row.id}
-                    className="py-3 flex items-center gap-3"
-                  >
-                    {/* TYPE ICON */}
-                    <div
-                      className={`w-10 h-10 rounded-xl grid place-items-center text-lg shrink-0 ${
-                        isDeposit
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {isDeposit ? "⬆️" : "⬇️"}
-                    </div>
-
-                    {/* DETAILS */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-slate-800">
-                        {isDeposit ? tx("Deposit") : tx("Withdraw")}
-                        {" · "}
-                        {row.userName || tx("Unknown user")}
-                      </div>
-
-                      <div className="text-xs text-slate-500 truncate">
-                        {row.note?.trim() || tx("No note")}
-                        {" · "}
-                        {formatDateTime(row.createdAt)}
-                      </div>
-                    </div>
-
-                    {/* AMOUNT */}
-                    <div
-                      className={`font-bold tabular-nums shrink-0 ${
-                        isDeposit
-                          ? "text-emerald-600"
-                          : "text-amber-600"
-                      }`}
-                    >
-                      {isDeposit ? "+" : "-"}
-                      {formatMoney(amount, currency)}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="x-table-wrap">
+              <table className="v2-tbl">
+                <thead>
+                  <tr>
+                    <th>{tx("Type")}</th>
+                    <th>{tx("Note")}</th>
+                    <th>{tx("Staff")}</th>
+                    <th>{tx("Date")}</th>
+                    <th className="num">{tx("Amount")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const amount = safeNumber(row.amount);
+                    const isDeposit = row.type === "deposit";
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <span className={`v2-tag ${isDeposit ? "green" : "amber"}`}>
+                            {isDeposit ? tx("Deposit") : tx("Withdraw")}
+                          </span>
+                        </td>
+                        <td>{row.note?.trim() || <span className="muted">{tx("No note")}</span>}</td>
+                        <td className="muted">{row.userName || tx("Unknown user")}</td>
+                        <td className="muted">{f.dateTime(row.createdAt)}</td>
+                        <td className="num" style={{ color: isDeposit ? "#047857" : "#b45309" }}>
+                          {isDeposit ? "+" : "-"}
+                          {f.money(amount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </section>
+        </Panel>
       </div>
     </div>
   );
